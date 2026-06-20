@@ -5,41 +5,56 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-level info
-    plan: free
+
+    # gunicorn.conf.py sets: workers=1, threads=4, timeout=600, bind=0.0.0.0:$PORT
+    # Single worker is intentional — SQLite allows only one writer at a time.
+    startCommand: gunicorn -c gunicorn.conf.py app:app
+
+    healthCheckPath: /health
+
     envVars:
       - key: FLASK_ENV
         value: production
+
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
       - key: SECRET_KEY
         generateValue: true
-      - key: ALLOWED_ORIGINS
-        # Replace with your actual frontend URL after deploying the static site
-        value: https://securax-frontend.onrender.com
-      - key: GEMINI_API_KEY
-        sync: false   # Set this manually in the Render dashboard
-      - key: SECURAX_ADMIN_PASSWORD
-        sync: false   # Set this manually in the Render dashboard
-      - key: SECURAX_ANALYST_PASSWORD
-        sync: false   # Set this manually in the Render dashboard
-      # ── Persistent disk (optional) ─────────────────────────────────────────
-      # To persist accounts across redeploys:
-      #   1. Render dashboard → Disks → Add disk, mount at /var/data
-      #   2. Add env var:  DB_PATH = /var/data/securax.db
-      # Without a disk, securax.db lives in the ephemeral build dir and
-      # resets on every deploy. Bootstrapped admin/analyst accounts always
-      # come back, but self-registered users are lost.
 
-  # ── React Frontend (Static Site) ─────────────────────────────────────────────
-  - type: web
+      - key: ALLOWED_ORIGINS
+        # After first deploy, replace with the exact frontend URL from Render dashboard
+        value: https://securax-frontend.onrender.com
+
+      - key: DB_PATH
+        # Add a Persistent Disk (Render dashboard → Disks, mount at /var/data).
+        # Without the disk this is ignored and securax.db resets on each deploy.
+        value: /var/data/securax.db
+
+      - key: GEMINI_API_KEY
+        sync: false
+
+      - key: SECURAX_ADMIN_PASSWORD
+        sync: false
+
+      - key: SECURAX_ANALYST_PASSWORD
+        sync: false
+
+  # ── React Frontend (Static Site — always free on Render) ─────────────────────
+  - type: static
     name: securax-frontend
-    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    plan: free
+
     envVars:
+      - key: NODE_VERSION
+        value: "20"
+
       - key: VITE_API_BASE_URL
-        value: https://securax-backend-i75y.onrender.com
+        # Must match the backend service name: securax-backend → securax-backend.onrender.com
+        value: https://securax-backend.onrender.com
+
     routes:
       # SPA routing — all paths serve index.html
       - type: rewrite
