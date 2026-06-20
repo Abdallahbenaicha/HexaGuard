@@ -41,7 +41,8 @@ services:
         sync: false
 
   # ── React Frontend (Static Site — always free on Render) ─────────────────────
-  - type: static
+  - type: web
+    runtime: static
     name: securax-frontend
     rootDir: frontend
     buildCommand: npm install && npm run build
