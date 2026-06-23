@@ -364,7 +364,59 @@ def download_report_pdf():
             ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
         ]))
         story.append(rs_bar)
-        story.append(Spacer(1, 0.45 * cm))
+        story.append(Spacer(1, 0.35 * cm))
+
+        # ── Executive Summary ──────────────────────────────────────────────────
+        exec_sum = executive_summary(report_row, lang="ar" if arabic else "en")
+        if exec_sum:
+            story.append(Paragraph(
+                "ملخص تنفيذي" if arabic else "Executive Summary",
+                _ps("exh", fontSize=11, fontName="Helvetica-Bold",
+                    textColor=C_NAVY, spaceAfter=3),
+            ))
+            exec_tbl = Table(
+                [[_p(exec_sum, _ps("exb", fontSize=8.5, leading=13, textColor=C_NAVY))]],
+                colWidths=[CONTENT_W],
+            )
+            exec_tbl.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), rl_colors.HexColor("#eef4fb")),
+                ("BOX",           (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#b6cfe8")),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+                ("TOPPADDING",    (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(exec_tbl)
+            story.append(Spacer(1, 0.35 * cm))
+
+        # ── Risk Breakdown ────────────────────────────────────────────────────
+        if rb.get("base_score") is not None:
+            rb_data = [
+                [_lp("Base Score"),     _vp(f"{rb.get('base_score',0):.1f}"),
+                 _lp("Temporal Score"), _vp(f"{rb.get('temporal_score',0):.1f}")],
+                [_lp("Env Score"),      _vp(f"{rb.get('env_score',0):.1f}"),
+                 _lp("Confidence"),     _vp(str(rb.get('confidence','—')))],
+            ]
+            rb_tbl = Table(rb_data, colWidths=[CL, CV, CL, CV])
+            rb_tbl.setStyle(TableStyle([
+                ("BOX",           (0, 0), (-1, -1), 0.5, C_BORDER),
+                ("INNERGRID",     (0, 0), (-1, -1), 0.4, C_BORDER),
+                ("BACKGROUND",    (0, 0), (-1, -1), C_LIGHT),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING",    (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 7),
+            ]))
+            story.append(Paragraph(
+                "تحليل المخاطر التفصيلي" if arabic else "Risk Score Breakdown",
+                _ps("rbh", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=3),
+            ))
+            story.append(rb_tbl)
+            story.append(Spacer(1, 0.35 * cm))
+
+        story.append(HRFlowable(width="100%", thickness=0.4, color=C_BORDER))
+        story.append(Spacer(1, 0.3 * cm))
 
         story.append(Paragraph(
             "Severity Summary",
@@ -404,6 +456,118 @@ def download_report_pdf():
         sev_tbl.setStyle(TableStyle(sev_styles))
         story.append(sev_tbl)
         story.append(Spacer(1, 0.5 * cm))
+
+        # ── Network Recon Section ─────────────────────────────────────────────
+        if scan_type.startswith("network"):
+            recon = build_network_recon(result)
+            story.append(Paragraph(
+                "استطلاع الشبكة" if arabic else "Network Reconnaissance Summary",
+                _ps("rech", fontSize=12, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=4),
+            ))
+            recon_meta = [
+                [_lp("Target IP"),   _vp(recon.get("ip","—")),
+                 _lp("OS"),          _vp(recon.get("os","—"))],
+                [_lp("Hosts Up"),    _vp(f"{recon.get('hosts_up','?')} / {recon.get('total_hosts','?')}"),
+                 _lp("Open Ports"),  _vp(str(recon.get("open_ports",0)))],
+                [_lp("Subdomains"),  _vp(str(recon.get("subdomain_count",0))),
+                 _lp("Tools Used"),  _vp(", ".join(recon.get("tools_used",[]) or ["—"]))],
+            ]
+            if recon.get("scan_time"):
+                recon_meta.append([_lp("Scan Time"), _vp(str(recon["scan_time"])),
+                                   _lp("Shodan CVEs"), _vp(str(recon.get("shodan_cve_count",0)))])
+            rm_tbl = Table(recon_meta, colWidths=[CL, CV, CL, CV])
+            rm_tbl.setStyle(TableStyle([
+                ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
+                ("INNERGRID",     (0,0),(-1,-1), 0.4, C_BORDER),
+                ("BACKGROUND",    (0,0),(-1,-1), C_LIGHT),
+                ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+                ("TOPPADDING",    (0,0),(-1,-1), 5),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+                ("LEFTPADDING",   (0,0),(-1,-1), 7),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 7),
+            ]))
+            story.append(rm_tbl)
+
+            open_ports = recon.get("open_port_list", [])
+            if open_ports:
+                story.append(Spacer(1, 0.25 * cm))
+                story.append(Paragraph(
+                    "المنافذ المفتوحة" if arabic else "Open Ports",
+                    _ps("oph", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=3),
+                ))
+                pt_hdr = [
+                    Paragraph("ENDPOINT", _ps("ph", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                    Paragraph("SERVICE",  _ps("ph2", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                    Paragraph("VERSION",  _ps("ph3", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                    Paragraph("SEVERITY", _ps("ph4", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                ]
+                pt_rows = [pt_hdr]
+                for p in open_ports[:30]:
+                    sv = (p.get("severity") or "info").lower()
+                    pt_rows.append([
+                        Paragraph(f"{p.get('host','')}:{p.get('port','')}/{p.get('protocol','tcp')}", row_v),
+                        Paragraph(p.get("service","—"), row_v),
+                        Paragraph(p.get("version","—") or "—", row_v),
+                        Paragraph(sv.upper(), _ps(f"ptl{sv}", fontSize=8, fontName="Helvetica-Bold",
+                                                  textColor=C_SEV.get(sv, C_SEV["info"]))),
+                    ])
+                pt_tbl = Table(pt_rows, colWidths=[CONTENT_W*0.38, CONTENT_W*0.2, CONTENT_W*0.28, CONTENT_W*0.14])
+                pt_tbl.setStyle(TableStyle([
+                    ("BACKGROUND",    (0,0),(-1,0),  C_NAVY),
+                    ("TEXTCOLOR",     (0,0),(-1,0),  rl_colors.white),
+                    ("BACKGROUND",    (0,1),(-1,-1), rl_colors.white),
+                    ("ROWBACKGROUNDS",(0,1),(-1,-1), [rl_colors.white, C_LIGHT]),
+                    ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
+                    ("INNERGRID",     (0,0),(-1,-1), 0.3, C_BORDER),
+                    ("TOPPADDING",    (0,0),(-1,-1), 4),
+                    ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+                    ("LEFTPADDING",   (0,0),(-1,-1), 5),
+                    ("RIGHTPADDING",  (0,0),(-1,-1), 5),
+                ]))
+                story.append(pt_tbl)
+
+            if recon.get("subdomains"):
+                story.append(Spacer(1, 0.2 * cm))
+                story.append(Paragraph(
+                    "نطاقات فرعية مكتشفة" if arabic else "Discovered Subdomains (sample)",
+                    _ps("sdh", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=2),
+                ))
+                sd_text = "  ·  ".join(recon["subdomains"][:20])
+                story.append(Paragraph(_safe(sd_text), _ps("sdb", fontSize=7.5, textColor=C_MUTED, leading=11)))
+
+            story.append(Spacer(1, 0.4 * cm))
+            story.append(HRFlowable(width="100%", thickness=0.4, color=C_BORDER))
+            story.append(Spacer(1, 0.3 * cm))
+
+        # ── Attack Chains ────────────────────────────────────────────────────
+        chains = rb.get("attack_chains") or []
+        if chains:
+            story.append(Paragraph(
+                "سلاسل الهجوم المحتملة" if arabic else "Potential Attack Chains",
+                _ps("ach", fontSize=11, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=4),
+            ))
+            for ci, ch in enumerate(chains, 1):
+                ch_tbl = Table(
+                    [[Paragraph(f"{ci}", _ps(f"cn{ci}", fontSize=10, fontName="Helvetica-Bold",
+                                            textColor=rl_colors.white, alignment=TA_CENTER)),
+                      Paragraph(_safe(str(ch)), _ps(f"cv{ci}", fontSize=8.5, leading=12))]],
+                    colWidths=[0.65*cm, CONTENT_W - 0.65*cm],
+                )
+                ch_tbl.setStyle(TableStyle([
+                    ("BACKGROUND",    (0,0),(0,0),  rl_colors.HexColor("#c0392b")),
+                    ("BACKGROUND",    (1,0),(1,0),  rl_colors.HexColor("#fff5f5")),
+                    ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
+                    ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+                    ("TOPPADDING",    (0,0),(-1,-1), 6),
+                    ("BOTTOMPADDING", (0,0),(-1,-1), 6),
+                    ("LEFTPADDING",   (0,0),(-1,-1), 6),
+                    ("RIGHTPADDING",  (0,0),(-1,-1), 6),
+                ]))
+                story.append(ch_tbl)
+                story.append(Spacer(1, 0.1 * cm))
+            story.append(Spacer(1, 0.3 * cm))
+            story.append(HRFlowable(width="100%", thickness=0.4, color=C_BORDER))
+            story.append(Spacer(1, 0.3 * cm))
 
         story.append(Paragraph(
             "Vulnerability Findings",
@@ -461,6 +625,25 @@ def download_report_pdf():
                                                        textColor=color))])
             if rem:
                 rows.append([Paragraph("REMEDIATION", row_l), Paragraph(_safe(rem), row_v)])
+            owasp = v.get("owasp") or ""
+            cwe   = v.get("cwe")   or ""
+            cvss  = v.get("cvss_score") or v.get("cvss") or ""
+            if owasp:
+                rows.append([Paragraph("OWASP", row_l), Paragraph(_safe(str(owasp)), row_v)])
+            if cwe:
+                rows.append([Paragraph("CWE", row_l), Paragraph(_safe(str(cwe)), row_v)])
+            if cvss:
+                rows.append([Paragraph("CVSS", row_l),
+                              Paragraph(str(cvss),
+                                        _ps("cvs", fontSize=8, fontName="Helvetica-Bold",
+                                            textColor=color))])
+            if cves:
+                nvd_urls = "  |  ".join(
+                    f"nvd.nist.gov/vuln/detail/{c}" for c in cves[:4]
+                )
+                rows.append([Paragraph("NVD REFS", row_l),
+                              Paragraph(_safe(nvd_urls),
+                                        _ps("nvd", fontSize=7.5, textColor=rl_colors.HexColor("#1a6db5"), leading=11))])
 
             ftbl = Table(rows, colWidths=[BADGE_W, DATA_W])
             ftbl.setStyle(TableStyle([
@@ -480,6 +663,94 @@ def download_report_pdf():
             ]))
             story.append(ftbl)
             story.append(Spacer(1, 0.2 * cm))
+
+        # ── Recommendations ───────────────────────────────────────────────────
+        recs = rb.get("recommendations") or []
+        if recs:
+            story.append(Spacer(1, 0.4 * cm))
+            story.append(HRFlowable(width="100%", thickness=0.4, color=C_BORDER))
+            story.append(Spacer(1, 0.3 * cm))
+            story.append(Paragraph(
+                "التوصيات الأمنية" if arabic else "Security Recommendations",
+                _ps("rech2", fontSize=12, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=6),
+            ))
+            rec_rows = []
+            for ri, rec in enumerate(recs, 1):
+                rec_rows.append([
+                    Paragraph(str(ri),
+                              _ps(f"ri{ri}", fontSize=9, fontName="Helvetica-Bold",
+                                  textColor=C_NAVY, alignment=TA_CENTER)),
+                    Paragraph(_safe(str(rec)),
+                              _ps(f"rv{ri}", fontSize=8.5, leading=12)),
+                ])
+            rec_tbl = Table(rec_rows, colWidths=[0.7*cm, CONTENT_W - 0.7*cm])
+            rec_tbl.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0),(0,-1), rl_colors.HexColor("#e8f4fd")),
+                ("BACKGROUND",    (1,0),(1,-1), rl_colors.white),
+                ("ROWBACKGROUNDS",(1,0),(1,-1), [rl_colors.white, C_LIGHT]),
+                ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
+                ("INNERGRID",     (0,0),(-1,-1), 0.3, C_BORDER),
+                ("VALIGN",        (0,0),(-1,-1), "TOP"),
+                ("ALIGN",         (0,0),(0,-1),  "CENTER"),
+                ("TOPPADDING",    (0,0),(-1,-1), 5),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+                ("LEFTPADDING",   (0,0),(-1,-1), 6),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 6),
+            ]))
+            story.append(rec_tbl)
+
+        # ── CISA KEV Findings ─────────────────────────────────────────────────
+        kev = rb.get("cisa_kev_findings") or []
+        if kev:
+            story.append(Spacer(1, 0.35 * cm))
+            story.append(Paragraph(
+                "ثغرات CISA KEV المستغَلة فعلياً" if arabic else "CISA Known Exploited Vulnerabilities (KEV)",
+                _ps("kevh", fontSize=11, fontName="Helvetica-Bold",
+                    textColor=rl_colors.HexColor("#c0392b"), spaceAfter=4),
+            ))
+            kev_note = Table(
+                [[Paragraph(
+                    _safe("⚠  The following CVEs are listed in CISA's Known Exploited Vulnerabilities catalog "
+                           "and MUST be prioritized for immediate patching."),
+                    _ps("kevn", fontSize=8.5, leading=12, textColor=rl_colors.HexColor("#7b2200"))
+                )]],
+                colWidths=[CONTENT_W],
+            )
+            kev_note.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0),(-1,-1), rl_colors.HexColor("#fff0ed")),
+                ("BOX",           (0,0),(-1,-1), 0.8, rl_colors.HexColor("#c0392b")),
+                ("LEFTPADDING",   (0,0),(-1,-1), 10),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+                ("TOPPADDING",    (0,0),(-1,-1), 7),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 7),
+            ]))
+            story.append(kev_note)
+            story.append(Spacer(1, 0.2 * cm))
+            kev_rows = [[
+                Paragraph("CVE ID",  _ps("kh1", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                Paragraph("DETAILS", _ps("kh2", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+            ]]
+            for k in kev[:20]:
+                cve_id = k if isinstance(k, str) else k.get("cve_id","")
+                detail = "" if isinstance(k, str) else k.get("description","")
+                kev_rows.append([
+                    Paragraph(cve_id, _ps("kci", fontSize=8, fontName="Helvetica-Bold",
+                                          textColor=rl_colors.HexColor("#c0392b"))),
+                    Paragraph(_safe(detail or f"nvd.nist.gov/vuln/detail/{cve_id}"),
+                              _ps("kdt", fontSize=7.5, textColor=C_NAVY, leading=11)),
+                ])
+            kev_tbl = Table(kev_rows, colWidths=[CONTENT_W*0.28, CONTENT_W*0.72])
+            kev_tbl.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0),(-1,0),  C_NAVY),
+                ("BACKGROUND",    (0,1),(-1,-1), rl_colors.white),
+                ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
+                ("INNERGRID",     (0,0),(-1,-1), 0.3, C_BORDER),
+                ("TOPPADDING",    (0,0),(-1,-1), 4),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+                ("LEFTPADDING",   (0,0),(-1,-1), 5),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 5),
+            ]))
+            story.append(kev_tbl)
 
         story.append(Spacer(1, 0.4 * cm))
         story.append(HRFlowable(width="100%", thickness=0.5, color=C_BORDER))
