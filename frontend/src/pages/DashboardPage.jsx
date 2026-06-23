@@ -453,7 +453,7 @@ const DashboardPage = () => {
                                                 <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{v.title}</span>
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${SEVERITY_STYLES[v.severity] || SEVERITY_STYLES.info}`}>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${(SEVERITY_STYLES[(v.severity||'').toLowerCase()] || SEVERITY_STYLES.info).badge}`}>
                                                     {v.severity}
                                                 </span>
                                                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tabular-nums w-8 text-right">{v.count}×</span>

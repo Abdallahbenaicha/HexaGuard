@@ -9,11 +9,12 @@ const ResultsPanel = ({ findings, total, attackChains = [], kevFindings = [], re
     const kevSet = new Set((kevFindings || []).map(s => s.toUpperCase()));
 
     const counts = sorted.reduce((acc, f) => {
-        acc[f.severity] = (acc[f.severity] || 0) + 1;
+        const sev = (f.severity || '').toLowerCase();
+        acc[sev] = (acc[sev] || 0) + 1;
         return acc;
     }, {});
 
-    const risk = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].find(s => counts[s]) || 'INFO';
+    const risk = ['critical', 'high', 'medium', 'low'].find(s => counts[s]) || 'info';
 
     return (
         <div className="mt-10 space-y-4">
@@ -51,10 +52,10 @@ const ResultsPanel = ({ findings, total, attackChains = [], kevFindings = [], re
                 </div>
 
                 <div className="flex items-center gap-4 text-xs font-orbitron tracking-wider">
-                    {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s =>
+                    {['critical', 'high', 'medium', 'low'].map(s =>
                         counts[s] ? (
                             <span key={s} style={{ color: SEVERITY_STYLES[s].text }}>
-                                {s}: {counts[s]}
+                                {s.toUpperCase()}: {counts[s]}
                             </span>
                         ) : null
                     )}
@@ -70,7 +71,7 @@ const ResultsPanel = ({ findings, total, attackChains = [], kevFindings = [], re
 
             {/* Finding cards */}
             {sorted.map((f, i) => {
-                const style = SEVERITY_STYLES[f.severity] || SEVERITY_STYLES.LOW;
+                const style = SEVERITY_STYLES[(f.severity || '').toLowerCase()] || SEVERITY_STYLES.low;
                 const cveId = (f.cve_id || f.cve || '').toUpperCase();
                 const isKev = cveId && kevSet.has(cveId);
                 return (
