@@ -48,12 +48,20 @@ class ErrorBoundary extends React.Component {
                     <div className="text-6xl font-orbitron font-black text-red-500">ERR</div>
                     <h2 className="text-white text-xl font-orbitron">Something went wrong</h2>
                     <p className="text-gray-500 font-inter text-sm">{this.state.message}</p>
-                    <button
-                        onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl transition-colors"
-                    >
-                        Reload Page
-                    </button>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={() => { this.setState({ hasError: false }); window.history.back(); }}
+                            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl transition-colors"
+                        >
+                            ← Go Back
+                        </button>
+                        <button
+                            onClick={() => { this.setState({ hasError: false }); window.location.href = '/dashboard'; }}
+                            className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl transition-colors"
+                        >
+                            Dashboard
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -115,7 +123,8 @@ const RootRedirect = () => {
 // ── App Root ───────────────────────────────────────────────────────────────
 function AppInner() {
     React.useEffect(() => {
-        const ping = () => fetch('/health').catch(() => {});
+        const backend = import.meta.env.VITE_API_BASE_URL || '';
+        const ping = () => fetch(`${backend}/health`).catch(() => {});
         ping();
         const interval = setInterval(ping, 10 * 60 * 1000);
         return () => clearInterval(interval);
