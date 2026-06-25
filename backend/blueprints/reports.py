@@ -511,19 +511,21 @@ def download_report_pdf():
                         Paragraph(sv.upper(), _ps(f"ptl{sv}", fontSize=8, fontName="Helvetica-Bold",
                                                   textColor=C_SEV.get(sv, C_SEV["info"]))),
                     ])
-                pt_tbl = Table(pt_rows, colWidths=[CONTENT_W*0.38, CONTENT_W*0.2, CONTENT_W*0.28, CONTENT_W*0.14])
-                pt_tbl.setStyle(TableStyle([
+                pt_tbl_styles = [
                     ("BACKGROUND",    (0,0),(-1,0),  C_NAVY),
                     ("TEXTCOLOR",     (0,0),(-1,0),  rl_colors.white),
-                    ("BACKGROUND",    (0,1),(-1,-1), rl_colors.white),
-                    ("ROWBACKGROUNDS",(0,1),(-1,-1), [rl_colors.white, C_LIGHT]),
                     ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
                     ("INNERGRID",     (0,0),(-1,-1), 0.3, C_BORDER),
                     ("TOPPADDING",    (0,0),(-1,-1), 4),
                     ("BOTTOMPADDING", (0,0),(-1,-1), 4),
                     ("LEFTPADDING",   (0,0),(-1,-1), 5),
                     ("RIGHTPADDING",  (0,0),(-1,-1), 5),
-                ]))
+                ]
+                for _ri in range(1, len(pt_rows)):
+                    _bg = C_LIGHT if _ri % 2 == 0 else rl_colors.white
+                    pt_tbl_styles.append(("BACKGROUND", (0,_ri),(-1,_ri), _bg))
+                pt_tbl = Table(pt_rows, colWidths=[CONTENT_W*0.38, CONTENT_W*0.2, CONTENT_W*0.28, CONTENT_W*0.14])
+                pt_tbl.setStyle(TableStyle(pt_tbl_styles))
                 story.append(pt_tbl)
 
             if recon.get("subdomains"):
@@ -683,11 +685,8 @@ def download_report_pdf():
                     Paragraph(_safe(str(rec)),
                               _ps(f"rv{ri}", fontSize=8.5, leading=12)),
                 ])
-            rec_tbl = Table(rec_rows, colWidths=[0.7*cm, CONTENT_W - 0.7*cm])
-            rec_tbl.setStyle(TableStyle([
+            rec_tbl_styles = [
                 ("BACKGROUND",    (0,0),(0,-1), rl_colors.HexColor("#e8f4fd")),
-                ("BACKGROUND",    (1,0),(1,-1), rl_colors.white),
-                ("ROWBACKGROUNDS",(1,0),(1,-1), [rl_colors.white, C_LIGHT]),
                 ("BOX",           (0,0),(-1,-1), 0.5, C_BORDER),
                 ("INNERGRID",     (0,0),(-1,-1), 0.3, C_BORDER),
                 ("VALIGN",        (0,0),(-1,-1), "TOP"),
@@ -695,8 +694,12 @@ def download_report_pdf():
                 ("TOPPADDING",    (0,0),(-1,-1), 5),
                 ("BOTTOMPADDING", (0,0),(-1,-1), 5),
                 ("LEFTPADDING",   (0,0),(-1,-1), 6),
-                ("RIGHTPADDING",  (0,0),(-1,-1), 6),
-            ]))
+            ]
+            for _ri in range(len(rec_rows)):
+                _bg = C_LIGHT if _ri % 2 == 0 else rl_colors.white
+                rec_tbl_styles.append(("BACKGROUND", (1,_ri),(1,_ri), _bg))
+            rec_tbl = Table(rec_rows, colWidths=[0.7*cm, CONTENT_W - 0.7*cm])
+            rec_tbl.setStyle(TableStyle(rec_tbl_styles))
             story.append(rec_tbl)
 
         # ── CISA KEV Findings ─────────────────────────────────────────────────
