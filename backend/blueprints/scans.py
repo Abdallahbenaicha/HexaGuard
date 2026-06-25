@@ -29,6 +29,7 @@ from scanners.netscan_scanner import run_nmap_scan
 from scanners.sast_scanner import run_sast_scan
 from scanners.server_ext import run_server_scan
 from scanners.server_int import generate_fixed_config, run_server_config_scan
+from scanners.ssl_scanner import run_ssl_scan
 from scanners.web_scanner import run_web_scan
 from utils import _check_target_lock, require_permission, validate_upload
 from flask_cors import cross_origin
@@ -62,6 +63,19 @@ def _finalize_bridge_scan(
 # ════════════════════════════════════════════════════════════════════════════
 #  HEALTH + STATS
 # ════════════════════════════════════════════════════════════════════════════
+
+@scans_bp.route("/api/version")
+@csrf.exempt
+@cross_origin(origins="*", supports_credentials=False)
+def api_version():
+    """Service metadata — version, available scanners."""
+    return jsonify({
+        "service":  "securax",
+        "version":  "2.1.0",
+        "scanners": ["web", "network", "sast", "dast", "dependencies", "apache", "ssl"],
+        "features": ["risk_engine", "cisa_kev", "aria_ai", "2fa_totp", "pdf_reports"],
+    })
+
 
 @scans_bp.route("/health", methods=["GET", "OPTIONS"])
 @csrf.exempt
@@ -523,6 +537,43 @@ def scan_dast_bridge():
         })
     except Exception as exc:
         logger.exception("scan_dast_bridge post-scan error")
+        return jsonify({"error": str(exc)}), 500
+
+
+@scans_bp.route("/scan_ssl", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("5/minute")
+@csrf.exempt
+def scan_ssl_bridge():
+    data   = request.get_json(silent=True) or {}
+    target = (data.get("target") or data.get("url") or "").strip()
+    if not target:
+        return jsonify({"error": "Target hostname or URL required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+    try:
+        result    = run_ssl_scan(target)
+        breakdown = calculate_risk_v2(
+            result, criticality=1.0, internet_facing=True,
+            has_pii=bool(data.get("has_pii", False)),
+            has_payment=bool(data.get("has_payment", False)),
+            exploit_known=False,
+        )
+        result, report_token = _finalize_bridge_scan(result, breakdown, target)
+        findings = vulns_to_findings(result.get("vulnerabilities", []), target)
+        log_event("scan_completed", current_user.username, current_user.id,
+                  category="scan", resource=target, status="success",
+                  details=f"type=ssl risk={breakdown.final_score}")
+        return jsonify({
+            "findings":     findings,
+            "risk":         breakdown.risk_level,
+            "risk_score":   breakdown.final_score,
+            "report_token": report_token,
+            "meta":         result.get("meta", {}),
+        })
+    except Exception as exc:
+        logger.exception("scan_ssl_bridge error")
         return jsonify({"error": str(exc)}), 500
 
 

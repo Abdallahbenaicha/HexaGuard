@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Cpu, Binary, Zap, Network } from 'lucide-react';
+import { Cpu, Binary, Zap, Network, Lock } from 'lucide-react';
 
 const cards = [
     {
@@ -31,17 +31,25 @@ const cards = [
         description: 'Scan ports, detect services, and map attack surfaces.',
         icon: Network,
         color: 'from-red-500 to-orange-500'
-    }
+    },
+    {
+        id: 'ssl',
+        title: 'SSL/TLS Audit',
+        description: 'Inspect certificates, cipher suites, and protocol versions.',
+        icon: Lock,
+        color: 'from-emerald-500 to-teal-500'
+    },
 ];
 
 const TabCards = ({ onSelect }) => {
     const navigate = useNavigate();
-    
+
     const routesMap = {
         config:  '/scan/apache',
         upload:  '/scan/code',
         url:     '/scan/web',
         network: '/scan/network',
+        ssl:     '/scan/ssl',
     };
 
     const handleClick = (id) => {
@@ -53,7 +61,7 @@ const TabCards = ({ onSelect }) => {
     };
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-0 w-full max-w-7xl px-4 md:px-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-0 w-full max-w-7xl px-4 md:px-0">
             {cards.map((card, index) => (
                 <motion.div
                     key={card.id}

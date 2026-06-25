@@ -342,10 +342,13 @@ def api_change_password():
     if not ok:
         return jsonify({"ok": False, "error": msg}), 400
 
-    update_user(current_user.id, new_password=new_pw)
-    log_event("password_changed", current_user.username, current_user.id,
+    uid      = current_user.id
+    uname    = current_user.username
+    update_user(uid, new_password=new_pw)
+    logout_user()
+    log_event("password_changed", uname, uid,
               category="auth", ip_address=request.remote_addr)
-    return jsonify({"ok": True, "message": "Password changed successfully."})
+    return jsonify({"ok": True, "message": "Password changed. Please log in again.", "require_relogin": True})
 
 
 @auth_bp.route("/api/auth/register", methods=["POST"])

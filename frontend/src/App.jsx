@@ -18,6 +18,7 @@ import CodeScanPage     from './pages/CodeScanPage';
 import NetworkScanPage  from './pages/NetworkScanPage';
 import DastScanPage     from './pages/DastScanPage';
 import DependencyScanPage from './pages/DependencyScanPage';
+import SslScanPage      from './pages/SslScanPage';
 import ReportPage       from './pages/ReportPage';
 
 // Admin Pages
@@ -158,6 +159,9 @@ function AppInner() {
 
                 <Route path="/scan/dependencies" element={<ProtectedRoute element={<DependencyScanPage />} />} />
                 <Route path="/dependency-scan"   element={<Navigate to="/scan/dependencies" replace />} />
+
+                <Route path="/scan/ssl"          element={<ProtectedRoute element={<SslScanPage />} />} />
+                <Route path="/ssl-scan"          element={<Navigate to="/scan/ssl"          replace />} />
 
                 {/* New route aliases for reorganized nav */}
                 <Route path="/scan/network-ext"  element={<ProtectedRoute element={<NetworkScanPage />} />} />

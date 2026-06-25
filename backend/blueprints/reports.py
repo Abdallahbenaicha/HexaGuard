@@ -877,11 +877,27 @@ def api_dashboard():
 @reports_bp.route("/api/reports")
 @login_required
 def api_reports():
+    try:
+        page     = max(1, int(request.args.get("page", 1)))
+        per_page = min(50, max(1, int(request.args.get("per_page", 20))))
+    except (ValueError, TypeError):
+        page, per_page = 1, 20
+
     if current_user.role == "admin":
-        reps = get_all_reports(limit=100)
+        all_reps = get_all_reports(limit=1000)
     else:
-        reps = get_user_reports(current_user.id, limit=100)
-    return jsonify({"reports": [dict(r) for r in reps]})
+        all_reps = get_user_reports(current_user.id, limit=1000)
+
+    total     = len(all_reps)
+    start     = (page - 1) * per_page
+    page_reps = all_reps[start : start + per_page]
+    return jsonify({
+        "reports":  [dict(r) for r in page_reps],
+        "total":    total,
+        "page":     page,
+        "per_page": per_page,
+        "pages":    max(1, (total + per_page - 1) // per_page),
+    })
 
 
 @reports_bp.route("/api/reports/<token>")

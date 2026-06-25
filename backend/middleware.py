@@ -2,6 +2,7 @@
 
 import os
 import secrets
+import uuid
 
 from flask import g, request
 
@@ -42,6 +43,16 @@ def register_middleware(app) -> None:
             response.headers["X-CSP-Nonce"] = nonce
         if "text/html" in response.headers.get("Content-Type", ""):
             response.headers["Content-Type"] = "text/html; charset=utf-8"
+
+        # Request tracing — echo back the client's ID or generate one
+        rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+        response.headers["X-Request-ID"] = rid
+
+        # No caching for API and download routes
+        if request.path.startswith("/api/") or request.path.startswith("/download"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+
         if _IS_PRODUCTION:
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains; preload"
