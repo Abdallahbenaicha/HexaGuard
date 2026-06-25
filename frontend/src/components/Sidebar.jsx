@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Users, ScanLine, ScrollText, LayoutDashboard,
-    LogOut
+    LogOut, Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,6 +33,13 @@ const ADMIN_NAV = [
         desc: 'Personal scan workspace',
         to: '/dashboard',
         icon: LayoutDashboard,
+        adminOnly: false,
+    },
+    {
+        label: 'Profile & Settings',
+        desc: 'Password, 2FA, API tokens',
+        to: '/profile',
+        icon: Settings,
         adminOnly: false,
     },
 ];

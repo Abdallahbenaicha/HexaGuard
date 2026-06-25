@@ -169,12 +169,16 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # column already exists
 
-    # TOTP is disabled in this deployment — clear it for any existing accounts
-    try:
-        db.execute("UPDATE users SET totp_enabled=0, totp_secret=NULL WHERE totp_enabled=1")
-        db.commit()
-    except Exception:
-        pass
+    # TOTP migration: add api_token columns if they don't exist yet
+    for migration in [
+        "ALTER TABLE users ADD COLUMN api_token TEXT",
+        "ALTER TABLE users ADD COLUMN api_token_created TEXT",
+    ]:
+        try:
+            db.execute(migration)
+            db.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
     _bootstrap_admin()
     logger.info("database ready | path=%s", DB_PATH)
@@ -378,6 +382,32 @@ def update_user_totp(user_id: int, secret: str, enabled: bool) -> tuple[bool, st
     _exec("UPDATE users SET totp_secret=?, totp_enabled=? WHERE id=?",
           (secret, int(enabled), user_id))
     return True, ""
+
+
+def set_api_token(user_id: int, token: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        _exec("UPDATE users SET api_token=?, api_token_created=? WHERE id=?",
+              (token, now, user_id))
+    except Exception:
+        pass  # api_token column may not exist on very old DBs
+
+
+def revoke_api_token(user_id: int) -> None:
+    try:
+        _exec("UPDATE users SET api_token=NULL, api_token_created=NULL WHERE id=?", (user_id,))
+    except Exception:
+        pass
+
+
+def get_user_by_api_token(token: str) -> dict | None:
+    try:
+        row = _get_db().execute(
+            "SELECT * FROM users WHERE api_token=? AND is_active=1", (token,)
+        ).fetchone()
+        return _norm(row)
+    except Exception:
+        return None
 
 
 def delete_user(uid: int) -> tuple[bool, str]:

@@ -8,10 +8,37 @@ import {
     Globe, Server, Code, Settings, ChevronRight,
     Package, Zap, Network, Layers,
     Users, BarChart2, AlertOctagon, ShieldAlert,
-    RefreshCw, Calendar, Database, TrendingUp,
+    RefreshCw, Calendar, TrendingUp,
     Bug, Clock, UserCheck, Lock, Radar,
-    FileSearch,
+    FileSearch, Plus, Command,
 } from 'lucide-react';
+
+// ── Security Posture Gauge ─────────────────────────────────────────────────────
+const PostureGauge = ({ avgRisk, criticalVulns, totalScans }) => {
+    const score = totalScans === 0 ? 100
+        : Math.max(0, Math.round(100 - (avgRisk * 10) - (criticalVulns * 3)));
+    const clamped = Math.min(100, Math.max(0, score));
+    const color = clamped >= 80 ? '#22c55e' : clamped >= 60 ? '#eab308' : clamped >= 40 ? '#f97316' : '#ef4444';
+    const label = clamped >= 80 ? 'Strong' : clamped >= 60 ? 'Moderate' : clamped >= 40 ? 'At Risk' : 'Critical';
+    // SVG arc (semi-circle): r=54, cx=60, cy=60
+    const r = 54, cx = 60, cy = 60;
+    const circ = Math.PI * r; // half circle circumference
+    const dash = (clamped / 100) * circ;
+    return (
+        <div className="flex flex-col items-center gap-1">
+            <svg width="120" height="70" viewBox="0 0 120 70">
+                <path d={`M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}`} fill="none" stroke="currentColor" strokeWidth="10"
+                    className="text-slate-200 dark:text-slate-800" strokeLinecap="round"/>
+                <path d={`M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}`} fill="none" stroke={color} strokeWidth="10"
+                    strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                    style={{ transition: 'stroke-dasharray 1s ease' }}/>
+                <text x="60" y="58" textAnchor="middle" fontSize="20" fontWeight="bold" fill={color} fontFamily="monospace">{clamped}</text>
+            </svg>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color }}>{label}</span>
+            <span className="text-[10px] text-slate-400">Security Posture</span>
+        </div>
+    );
+};
 
 // ── Shared severity / scan-type maps ─────────────────────────────────────────
 
@@ -233,15 +260,62 @@ const DashboardPage = () => {
     const userIdByName = {};
     (adminStats?.users_list || []).forEach(u => { userIdByName[u.username] = u.id; });
 
-    return (
-        <div className="space-y-10 animate-in fade-in duration-500">
+    const QUICK_SCANS = [
+        { label: 'Web',    to: '/scan/web',         icon: Globe,    color: 'hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400' },
+        { label: 'SSL',    to: '/scan/ssl',          icon: Lock,     color: 'hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400' },
+        { label: 'Network',to: '/scan/network',      icon: Network,  color: 'hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400' },
+        { label: 'Code',   to: '/scan/code',         icon: Code,     color: 'hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400' },
+        { label: 'Config', to: '/scan/apache',       icon: Settings, color: 'hover:border-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300' },
+        { label: 'Deps',   to: '/scan/dependencies', icon: Package,  color: 'hover:border-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 hover:text-yellow-600 dark:hover:text-yellow-400' },
+    ];
 
-            {/* ── Personal header ──────────────────────────────────────── */}
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+
+            {/* ── Personal header + Posture Gauge ──────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Overview</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        Your security posture and recent operations.
+                    </p>
+                    {/* Command palette hint */}
+                    <button
+                        onClick={() => window.dispatchEvent(new CustomEvent('securax-cmd-palette'))}
+                        className="mt-2 inline-flex items-center gap-2 text-xs text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                    >
+                        <Command className="w-3 h-3" />
+                        Quick navigate — press <kbd className="bg-slate-100 dark:bg-slate-800 px-1 rounded text-[10px] font-mono">Ctrl+K</kbd>
+                    </button>
+                </div>
+                <div className="flex-shrink-0">
+                    <PostureGauge
+                        avgRisk={parseFloat(stats.avg_risk || 0)}
+                        criticalVulns={stats.critical_vulns || 0}
+                        totalScans={stats.total_scans || 0}
+                    />
+                </div>
+            </div>
+
+            {/* ── Quick Scan Launcher ───────────────────────────────────── */}
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Overview</h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                    View your security posture and recent operations.
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Quick Scan
+                    </h2>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {QUICK_SCANS.map(({ label, to, icon: Icon, color }) => (
+                        <Link
+                            key={to}
+                            to={to}
+                            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs font-semibold transition-all duration-150 ${color}`}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {label}
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             {/* ── Personal stat cards ───────────────────────────────────── */}

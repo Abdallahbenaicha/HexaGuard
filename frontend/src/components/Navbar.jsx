@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     Moon, Sun, User, LogOut, Menu, X,
     ChevronDown, Network, Globe, Server, Package,
-    Shield, FileSearch, Layers, Zap
+    Shield, FileSearch, Layers, Zap, Lock, Settings,
+    Command
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import securaxLogo from '../assets/securax_logo.png';
@@ -14,8 +15,9 @@ const NAV_GROUPS = [
         icon: Globe,
         items: [
             { label: 'Web Application Scan', desc: 'Automated vulnerability assessment', to: '/scan/web', icon: Globe },
-            { label: 'Dynamic Analysis', desc: 'Runtime behavior and injection testing', to: '/scan/dast', icon: Zap },
-            { label: 'Code Analysis', desc: 'Static source code security review', to: '/scan/code', icon: Layers },
+            { label: 'Dynamic Analysis (DAST)', desc: 'Runtime behavior and injection testing', to: '/scan/dast', icon: Zap },
+            { label: 'Code Analysis (SAST)', desc: 'Static source code security review', to: '/scan/code', icon: Layers },
+            { label: 'SSL/TLS Audit', desc: 'Certificate, cipher & protocol inspection', to: '/scan/ssl', icon: Lock },
         ],
     },
     {
@@ -195,13 +197,37 @@ const Navbar = () => {
                     </div>
 
                     {/* Right: actions */}
-                    <div className="flex-1 flex items-center justify-end gap-2">
+                    <div className="flex-1 flex items-center justify-end gap-1.5">
+                        {/* Command Palette trigger */}
+                        <button
+                            onClick={() => window.dispatchEvent(new CustomEvent('securax-cmd-palette'))}
+                            title="Command Palette (Ctrl+K)"
+                            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
+                        >
+                            <Command className="w-3 h-3" />
+                            <span className="hidden xl:inline">Search…</span>
+                            <kbd className="hidden xl:inline text-[10px] bg-slate-100 dark:bg-slate-800 px-1 rounded">K</kbd>
+                        </button>
+
                         <button
                             onClick={toggleTheme}
                             className="hidden md:flex p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                         >
                             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                         </button>
+
+                        {/* Profile link */}
+                        <Link
+                            to="/profile"
+                            title="Profile & Settings"
+                            className={`hidden md:flex p-2 rounded-full transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                                pathname === '/profile'
+                                    ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                            }`}
+                        >
+                            <User className="w-4 h-4" />
+                        </Link>
 
                         {/* Mobile menu button */}
                         <button
@@ -226,6 +252,7 @@ const Navbar = () => {
                     <Link to="/scan/web" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">Web Application Scan</Link>
                     <Link to="/scan/dast" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">Dynamic Analysis</Link>
                     <Link to="/scan/code" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">Code Analysis</Link>
+                    <Link to="/scan/ssl" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">SSL/TLS Audit</Link>
 
                     <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Scan Server</p>
                     <Link to="/scan/apache" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">Internal Config Audit</Link>

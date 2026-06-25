@@ -266,11 +266,13 @@ const ReportPage = () => {
                 <div className="flex flex-wrap justify-center gap-3">
                     {[
                         { href: '/scan/web',         label: 'Web Scanner' },
-                        { href: '/scan/apache',       label: 'Config Audit' },
-                        { href: '/scan/code',         label: 'Code Analyzer' },
+                        { href: '/scan/ssl',          label: 'SSL/TLS Audit' },
                         { href: '/scan/network',      label: 'Network Recon' },
+                        { href: '/scan/code',         label: 'Code Analyzer' },
                         { href: '/scan/dast',         label: 'DAST Scanner' },
+                        { href: '/scan/apache',       label: 'Config Audit' },
                         { href: '/scan/dependencies', label: 'Dependencies' },
+                        { href: '/scan/server-ext',   label: 'Server Audit' },
                     ].map(link => (
                         <Link
                             key={link.href}

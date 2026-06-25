@@ -23,6 +23,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from database import (
     create_user, get_user_by_id, log_event,
     update_last_login, update_user, update_user_totp,
+    set_api_token, revoke_api_token,
 )
 from extensions import limiter
 from forms import ChangePasswordForm, LoginForm, TOTPForm, check_password_complexity
@@ -349,6 +350,36 @@ def api_change_password():
     log_event("password_changed", uname, uid,
               category="auth", ip_address=request.remote_addr)
     return jsonify({"ok": True, "message": "Password changed. Please log in again.", "require_relogin": True})
+
+
+@auth_bp.route("/api/auth/token", methods=["GET"])
+@login_required
+def api_token_info():
+    row = get_user_by_id(current_user.id)
+    has_token = bool(row and row.get("api_token"))
+    created   = row.get("api_token_created") if row else None
+    return jsonify({"has_token": has_token, "created_at": created})
+
+
+@auth_bp.route("/api/auth/token/generate", methods=["POST"])
+@login_required
+@limiter.limit("5/minute")
+def api_token_generate():
+    import secrets
+    token = "sx_" + secrets.token_hex(32)
+    set_api_token(current_user.id, token)
+    log_event("api_token_generated", current_user.username, current_user.id,
+              category="auth", ip_address=request.remote_addr)
+    return jsonify({"ok": True, "token": token})
+
+
+@auth_bp.route("/api/auth/token/revoke", methods=["POST"])
+@login_required
+def api_token_revoke():
+    revoke_api_token(current_user.id)
+    log_event("api_token_revoked", current_user.username, current_user.id,
+              category="auth", ip_address=request.remote_addr)
+    return jsonify({"ok": True})
 
 
 @auth_bp.route("/api/auth/register", methods=["POST"])

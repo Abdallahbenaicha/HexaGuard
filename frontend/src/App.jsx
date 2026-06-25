@@ -5,6 +5,7 @@ import { AuthProvider, useAuth, ToastContainer } from './context/AuthContext';
 // Layout & Components
 import Layout from './components/Layout';
 import ChatBot from './components/ChatBot';
+import CommandPalette from './components/CommandPalette';
 
 // Public Pages
 import LoginPage    from './pages/LoginPage';
@@ -19,6 +20,7 @@ import NetworkScanPage  from './pages/NetworkScanPage';
 import DastScanPage     from './pages/DastScanPage';
 import DependencyScanPage from './pages/DependencyScanPage';
 import SslScanPage      from './pages/SslScanPage';
+import ProfilePage      from './pages/ProfilePage';
 import ReportPage       from './pages/ReportPage';
 
 // Admin Pages
@@ -134,6 +136,7 @@ function AppInner() {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-50 transition-colors duration-300">
             <ToastContainer />
+            <CommandPalette />
             <Routes>
                 {/* Public */}
                 <Route path="/"         element={<RootRedirect />} />
@@ -166,6 +169,9 @@ function AppInner() {
                 {/* New route aliases for reorganized nav */}
                 <Route path="/scan/network-ext"  element={<ProtectedRoute element={<NetworkScanPage />} />} />
                 <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ApacheScanPage />} />} />
+
+                {/* Profile */}
+                <Route path="/profile"           element={<ProtectedRoute element={<ProfilePage />} />} />
 
                 {/* Reports & Dashboard */}
                 <Route path="/reports"           element={<ProtectedRoute element={<ReportPage />} />} />
