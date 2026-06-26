@@ -745,7 +745,7 @@ def get_top_vulnerabilities(limit: int = 10) -> list[dict]:
         (limit,),
     ).fetchall()
     if rows:
-        return [{"check_name": r["check_name"], "severity": r["severity"], "count": r["count"]}
+        return [{"title": r["check_name"], "severity": r["severity"], "count": r["count"]}
                 for r in rows]
     # Fallback: parse result_json for databases that predate the scan_vulnerabilities table
     result_rows = _get_db().execute(

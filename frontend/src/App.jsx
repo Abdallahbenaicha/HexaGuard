@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth, ToastContainer } from './context/AuthContext';
+import { LangProvider } from './context/LangContext';
 
 // Layout & Components
 import Layout from './components/Layout';
@@ -198,9 +199,11 @@ function App() {
     return (
         <BrowserRouter>
             <ErrorBoundary>
-                <AuthProvider>
-                    <AppInner />
-                </AuthProvider>
+                <LangProvider>
+                    <AuthProvider>
+                        <AppInner />
+                    </AuthProvider>
+                </LangProvider>
             </ErrorBoundary>
         </BrowserRouter>
     );
