@@ -5,6 +5,7 @@ import {
     Shield, Package, LayoutDashboard, FileText,
     Users, ScrollText, Settings, MessageSquare,
     Search, ArrowRight, ScanLine, Activity, Clock, HelpCircle,
+    Container, Wordpress,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,6 +18,9 @@ const ALL_COMMANDS = [
     { category: 'Scanners', label: 'Config Audit',         desc: 'Apache/Nginx config review',    to: '/scan/apache',        icon: FileSearch,     keywords: 'config apache nginx server' },
     { category: 'Scanners', label: 'Server Audit',         desc: 'External server probing',       to: '/scan/server-ext',    icon: Shield,         keywords: 'server external probe' },
     { category: 'Scanners', label: 'Dependency Check',     desc: 'Supply chain vuln scan',        to: '/scan/dependencies',  icon: Package,        keywords: 'dependencies supply chain npm pip' },
+    { category: 'Scanners', label: 'Docker Security',      desc: 'Dockerfile & compose audit',    to: '/scan/docker',        icon: Container,      keywords: 'docker container dockerfile compose devops' },
+    { category: 'Scanners', label: 'DNS & Email Security', desc: 'SPF, DMARC, DKIM, DNSSEC',     to: '/scan/dns',           icon: Globe,          keywords: 'dns spf dmarc dkim email mx dnssec zone' },
+    { category: 'Scanners', label: 'WordPress Audit',      desc: 'WordPress site security scan',  to: '/scan/wordpress',     icon: Wordpress || Globe, keywords: 'wordpress wp cms xmlrpc user enum admin' },
     { category: 'Navigate', label: 'Dashboard',            desc: 'Security overview & stats',     to: '/dashboard',          icon: LayoutDashboard, keywords: 'home dashboard overview' },
     { category: 'Navigate', label: 'Reports',              desc: 'All scan reports & exports',    to: '/reports',            icon: FileText,       keywords: 'reports export pdf' },
     { category: 'Navigate', label: 'Scheduled Scans',      desc: 'Recurring daily/weekly scans',  to: '/scheduled',          icon: Clock,          keywords: 'schedule recurring cron daily weekly' },

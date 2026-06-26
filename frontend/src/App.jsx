@@ -35,6 +35,9 @@ import ChatPage           from './pages/ChatPage';
 import LandingPage        from './pages/LandingPage';
 import ScheduledScansPage from './pages/ScheduledScansPage';
 import HelpPage           from './pages/HelpPage';
+import DockerScanPage     from './pages/DockerScanPage';
+import DnsScanPage        from './pages/DnsScanPage';
+import WordPressScanPage  from './pages/WordPressScanPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -196,6 +199,11 @@ function AppInner() {
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />
                 <Route path="/help"              element={<ProtectedRoute element={<HelpPage />} />} />
+
+                {/* Extra scanners */}
+                <Route path="/scan/docker"       element={<ProtectedRoute element={<DockerScanPage />} />} />
+                <Route path="/scan/dns"          element={<ProtectedRoute element={<DnsScanPage />} />} />
+                <Route path="/scan/wordpress"    element={<ProtectedRoute element={<WordPressScanPage />} />} />
 
                 {/* AI Chat */}
                 <Route path="/chat"              element={<ProtectedRoute element={<ChatPage />} />} />
