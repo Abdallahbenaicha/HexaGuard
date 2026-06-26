@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
-    Container, ArrowLeft, Upload, FileText,
+    Box, ArrowLeft, Upload, FileText,
     AlertTriangle, CheckCircle, Info, ShieldAlert,
     ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react';
@@ -200,7 +200,7 @@ const DockerScanPage = () => {
                     </Link>
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                            <Container className="w-5 h-5 text-cyan-400" />
+                            <Box className="w-5 h-5 text-cyan-400" />
                         </div>
                         <div>
                             <h1 className="font-orbitron font-bold text-lg text-white tracking-wider">Docker Security Scanner</h1>

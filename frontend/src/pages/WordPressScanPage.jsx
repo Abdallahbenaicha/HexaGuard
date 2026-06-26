@@ -5,11 +5,10 @@ import axios from 'axios';
 import {
     Globe, ArrowLeft, CheckCircle,
     AlertTriangle, Info, ShieldAlert, ExternalLink,
-    ChevronDown, ChevronUp, Wordpress,
+    ChevronDown, ChevronUp, LayoutGrid,
 } from 'lucide-react';
 
-// Fallback icon for Wordpress if not available in lucide-react version
-const WpIcon = Wordpress || Globe;
+const WpIcon = LayoutGrid;
 
 const SEV_STYLES = {
     critical: { badge: 'bg-red-500/10 text-red-400 border-red-500/30',     dot: 'bg-red-500',    border: 'border-red-500/20'    },

@@ -4,7 +4,7 @@ import {
     Moon, Sun, User, LogOut, Menu, X,
     ChevronDown, Network, Globe, Server, Package,
     Shield, FileSearch, Layers, Zap, Lock,
-    Command, Container, Mail,
+    Command, Box, Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -91,7 +91,7 @@ const NAV_GROUPS = [
         items: [
             { labelKey: 'nav_config_int',  descKey: 'nav_config_int_desc', to: '/scan/apache',     icon: FileSearch },
             { labelKey: 'nav_server_ext',  descKey: 'nav_server_ext_desc', to: '/scan/server-ext', icon: Shield     },
-            { labelKey: 'nav_docker',      descKey: 'nav_docker_desc',     to: '/scan/docker',     icon: Container  },
+            { labelKey: 'nav_docker',      descKey: 'nav_docker_desc',     to: '/scan/docker',     icon: Box  },
             { labelKey: 'nav_dns',         descKey: 'nav_dns_desc',        to: '/scan/dns',         icon: Mail       },
         ],
     },
