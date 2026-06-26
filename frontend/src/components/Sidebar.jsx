@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Users, ScanLine, ScrollText, LayoutDashboard,
-    LogOut, Settings
+    LogOut, Settings, Clock, HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -20,6 +20,8 @@ const Sidebar = () => {
         { labelKey: 'scan_records',    descKey: 'scan_records_desc', to: '/admin/scans', icon: ScanLine,       adminOnly: true  },
         { labelKey: 'audit_log',       descKey: 'audit_log_desc',    to: '/audit',       icon: ScrollText,     adminOnly: true  },
         { labelKey: 'my_dashboard',    descKey: 'dashboard_desc',    to: '/dashboard',   icon: LayoutDashboard,adminOnly: false },
+        { labelKey: 'scheduled_scans', descKey: 'scheduled_desc',    to: '/scheduled',   icon: Clock,          adminOnly: false },
+        { labelKey: 'help',            descKey: 'help_desc',         to: '/help',        icon: HelpCircle,     adminOnly: false },
         { labelKey: 'profile_settings',descKey: 'profile_desc',      to: '/profile',     icon: Settings,       adminOnly: false },
     ];
 

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Globe, Zap, Layers, Lock, Network, FileSearch,
     Shield, Package, LayoutDashboard, FileText,
     Users, ScrollText, Settings, MessageSquare,
-    Search, ArrowRight, ScanLine, Activity,
+    Search, ArrowRight, ScanLine, Activity, Clock, HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +19,8 @@ const ALL_COMMANDS = [
     { category: 'Scanners', label: 'Dependency Check',     desc: 'Supply chain vuln scan',        to: '/scan/dependencies',  icon: Package,        keywords: 'dependencies supply chain npm pip' },
     { category: 'Navigate', label: 'Dashboard',            desc: 'Security overview & stats',     to: '/dashboard',          icon: LayoutDashboard, keywords: 'home dashboard overview' },
     { category: 'Navigate', label: 'Reports',              desc: 'All scan reports & exports',    to: '/reports',            icon: FileText,       keywords: 'reports export pdf' },
+    { category: 'Navigate', label: 'Scheduled Scans',      desc: 'Recurring daily/weekly scans',  to: '/scheduled',          icon: Clock,          keywords: 'schedule recurring cron daily weekly' },
+    { category: 'Navigate', label: 'Help & Docs',          desc: 'Guides, FAQ, scan reference',   to: '/help',               icon: HelpCircle,     keywords: 'help docs faq guide' },
     { category: 'Navigate', label: 'ARIA AI Chat',         desc: 'AI security assistant',         to: '/chat',               icon: MessageSquare,  keywords: 'ai chat aria assistant' },
     { category: 'Account',  label: 'Profile & Settings',  desc: 'Password, 2FA, API tokens',     to: '/profile',            icon: Settings,       keywords: 'profile settings password 2fa token' },
     { category: 'Admin',    label: 'User Management',      desc: 'Create & revoke accounts',      to: '/admin/users',        icon: Users,          keywords: 'users admin manage', adminOnly: true },

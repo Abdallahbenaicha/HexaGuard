@@ -8,6 +8,8 @@ import { ScanJobsProvider } from './context/ScanJobsContext';
 import Layout from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import GlobalScanProgress from './components/GlobalScanProgress';
+import OnboardingTour from './components/OnboardingTour';
+import SkipToContent from './components/SkipToContent';
 
 // Public Pages
 import LoginPage    from './pages/LoginPage';
@@ -31,6 +33,8 @@ import AdminScansPage     from './pages/AdminScansPage';
 import AuditLogPage       from './pages/AuditLogPage';
 import ChatPage           from './pages/ChatPage';
 import LandingPage        from './pages/LandingPage';
+import ScheduledScansPage from './pages/ScheduledScansPage';
+import HelpPage           from './pages/HelpPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -137,9 +141,11 @@ function AppInner() {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-50 transition-colors duration-300">
+            <SkipToContent />
             <ToastContainer />
             <CommandPalette />
             <GlobalScanProgress />
+            <OnboardingTour />
             <Routes>
                 {/* Public */}
                 <Route path="/"         element={<RootRedirect />} />
@@ -186,6 +192,10 @@ function AppInner() {
                 <Route path="/admin/users"       element={<ProtectedRoute element={<AdminUsersPage />}     adminOnly />} />
                 <Route path="/admin/scans"       element={<ProtectedRoute element={<AdminScansPage />}     adminOnly />} />
                 <Route path="/audit"             element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
+
+                {/* Scheduled Scans & Help */}
+                <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />
+                <Route path="/help"              element={<ProtectedRoute element={<HelpPage />} />} />
 
                 {/* AI Chat */}
                 <Route path="/chat"              element={<ProtectedRoute element={<ChatPage />} />} />

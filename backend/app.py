@@ -69,12 +69,14 @@ def create_app() -> Flask:
     from blueprints.reports   import reports_bp
     from blueprints.admin     import admin_bp
     from blueprints.ai_routes import ai_bp
+    from blueprints.scheduled import scheduled_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(scheduled_bp)
 
     # ── DB init ──────────────────────────────────────────────────────────────
     from database import init_db

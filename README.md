@@ -1,90 +1,289 @@
-# Misconfiguration Datasets
-This datasets consist of real-world misconfiguration cases, papers for misconfiguration troubleshooting, and six reproduced scenarios in Docker.
+# SecurAX — Unified Security Scanning Platform
 
-- [cases/](#Misconfiguration-cases): It contains both raw data and the labeled datasets of the real-world misconfiguration cases.
+> **All-in-one cybersecurity platform** for SMBs and security teams — web, network, DAST, SSL, server, code & dependency scanning in a single dashboard, with Arabic/English support.
 
-- [papers/](#Misconfiguration-troubleshooting-papers): It contains a list of papers for misconfiguration troubleshooting.
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#testing)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://python.org)
+[![React](https://img.shields.io/badge/react-18-61dafb)](https://react.dev)
+[![License](https://img.shields.io/badge/license-MIT-green)](#license)
 
-- [reproduced_scenarios/](#Reproduced-misconfiguration-scenarios): It contains six reproduced real-world software misconfiguration scenarios which is wrapped Docker containers.
+---
 
-## Misconfiguration cases
+## Table of Contents
 
-### Targets and sources
-- We selected MySQL, PHP, Apache httpd, Nginx, PostgreSQL, and Hadoop as our main targets. 
-- We select popular technical forums (i.e., StackOverflow and ServerFault), and official customer service channels (e.g., GitHub, Mailing lists, Offical online forums, etc.) as our data sources.
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Security](#security)
+- [Roadmap](#roadmap)
 
-| **Software**      | **Total**  | **Auto-filtered** | **Manually filtered** |
-|---------------|--------|---------------|-------------------|
-| MySQL         | 25435  | 391           | 123               |
-| PHP           | 41468  | 164           | 79                |
-| Apache httpd  | 44146  | 510           | 187               |
-| Nginx         | 24433  | 405           | 211               |
-| PostgreSQL    | 7287   | 117           | 56                |
-| Hadoop        | 7566   | 100           | 43                |
-| Others        | 17719  | 626           | 124               |
-| **Total**     | 168054 | 2313          | 823               |
+---
 
-### Collecting and analyzing
-1. We selected 2,313 solved and configuration-related cases from nearly 167.8 thousand total items.
-2. we manually inspected all 2,313 cases and sampled out 823 real-world misconfigurations cases.
-3. We categorized the root causes of misconfigurations into four groups, i.e., constraint violation, resource unavailability, component-dependency error, and misunderstanding of configuration effects.
+## Features
 
-| **Type**                                | **Subtype**                         | **# Cases** |
-|-----------------------------------------|-------------------------------------|-------------|
-| **Constraint violation**                | Syntax error                        | 52          |
-|                                         | Invalid name                        | 13          |
-|                                         | Misplaced configuration             | 25          |
-|                                         | Duplicate option                    | 14          |
-|                                         | Multi-configuration error           | 7           |
-| **Resource unavailability**             | Resource identifier mismatch        | 165         |
-|                                         | Resource competition                | 9           |
-|                                         | Unauthorized resource access        | 58          |
-|                                         | Hardware limitation                 | 8           |
-| **Component-dependency error**          | Component incompatibility           | 56          |
-|                                         | Component missing                   | 40          |
-|                                         | Cross-component misconfiguration    | 23          |
-| **Misunderstanding of configuration effects** | Business functionality deviation    | 316         |
-|                                         | Performance degradation             | 20          |
-|                                         | Security risk                       | 17          |
-
-
-## Misconfiguration troubleshooting papers
-### Targets and sources
-1. We conducted manual search on 13 top conferences and journals.
-2. We crawled the papers from the top venues from December 2003 to September 2024. The keyword set includes `configuration\*`, `misconfiguration\*`, `configure\*`, `configuration error\*`.
-and `configuration fault\*`.
-3. We verified papers that were relevant to our research objective, i.e., software misconfiguration detection and diagnosis.
-4. We searched for the papers cited by these papers or those cited these papers and identified whether they were relevant papers.
-
-| **Acronym** | **Venues** |
+| Feature | Description |
 |---|---|
-| ASE | International Conference on Automated Software Engineering |
-| ASPLOS | International Conference on Architectural Support for Programming Languages and Operating Systems |
-| CCS | ACM Conference on Computer and Communications Security |
-| ESEC/FSE | ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering |
-| EuroSys | European Conference on Computer Systems |
-| ICSE | International Conference on Software Engineering |
-| NSDI | Symposium on Network System Design and Implementation |
-| OOPSLA | Conference on Object-Oriented Programming Systems, Languages, and Applications |
-| SOSP | ACM Symposium on Operating Systems Principles |
-| TDSC | IEEE Transactions on Dependable and Secure Computing |
-| TSE | IEEE Transactions on Software Engineering |
-| USENIX ATC | USENIX Annual Technical Conference |
+| **7 Scan Types** | Web (OWASP), Network (ext/int), DAST, SSL/TLS, Server config, SAST, Dependencies |
+| **Background Scans** | Queue scans and navigate freely — browser notifications on completion |
+| **Scheduled Scans** | Daily / weekly / monthly recurring scans per user |
+| **AI Security Assistant** | ARIA chatbot for real-time security guidance (Arabic + English) |
+| **Admin Dashboard** | System-wide stats, user management, 7-day trend charts |
+| **PDF Reports** | Professional export with CVSS scores, OWASP mapping, remediation |
+| **Audit Logs** | Full event trail for compliance (SOC 2 / ISO 27001) |
+| **Role-Based Access** | Admin / Analyst roles with per-user target locking |
+| **Arabic + English** | Full RTL/LTR i18n — rare in security tools |
+| **Dark / Light Mode** | Persistent theme preference |
+| **Command Palette** | Ctrl+K quick navigation across all features |
 
-### Content
-The list of papers for misconfiguration troubleshooting includes `Year`, `Info`, and `Link`.
+---
 
-## Reproduced misconfiguration scenarios
-### Description
-Each compressed file is named after the `case ID` and only contains one real-world misconfiguration scenario.
+## Architecture
 
-## Cite this work
-We would appreciate it if you cite this paper utilizing the misconfiguration datasets in your research work: Yuhao Liu et al. "Rethinking Software Misconfigurations in the Real World: An Empirical Study and Literature Analysis".
-```bib
-@article{liu2024rethinking,
-  title={Rethinking Software Misconfigurations in the Real World: An Empirical Study and Literature Analysis},
-  author={Liu, Yuhao and Zhou, Yingnan and Zhang, Hanfeng and Chang, Zhiwei and Xu, Sihan and Jia, Yan and Wang, Wei and Liu, Zheli},
-  journal={arXiv preprint arXiv:2412.11121},
-  year={2024}
-}
 ```
+┌────────────────────────────────────────────────┐
+│              Frontend (Vercel)                  │
+│        React 18 + Vite + Tailwind CSS           │
+│  Framer Motion · Lucide Icons · Axios · i18n    │
+└────────────────────┬───────────────────────────┘
+                     │ HTTPS REST API
+┌────────────────────▼───────────────────────────┐
+│           Backend (PythonAnywhere)              │
+│       Flask 3 · uWSGI · Python 3.13             │
+│  auth · scans · reports · admin ·               │
+│  ai_routes · scheduled blueprints               │
+│  Flask-WTF CSRF · Flask-Limiter · bcrypt        │
+└────────────────────┬───────────────────────────┘
+                     │
+┌────────────────────▼───────────────────────────┐
+│              Database (SQLite WAL)              │
+│  users · scan_reports · scan_vulnerabilities    │
+│  audit_logs · scan_jobs · scheduled_scans       │
+└────────────────────────────────────────────────┘
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+
+### 1 — Backend
+
+```bash
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # then edit SECRET_KEY
+python app.py
+# → http://localhost:5000
+```
+
+### 2 — Frontend
+
+```bash
+cd frontend
+npm install
+echo "VITE_API_BASE_URL=http://localhost:5000" > .env.local
+npm run dev
+# → http://localhost:5173
+```
+
+### Default Credentials
+
+| Role | Username | Password |
+|---|---|---|
+| Admin | `admin` | `Admin@2024!` |
+| Analyst | `analyst` | `Analyst@2024!` |
+
+> **Change these immediately after first login.**
+
+---
+
+## Environment Variables
+
+### Backend (`.env`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SECRET_KEY` | ✅ | — | Flask session secret (min 32 chars random) |
+| `FLASK_ENV` | — | `development` | Set `production` on server |
+| `DB_PATH` | — | `securax.db` | SQLite file path |
+| `MYSQL_HOST` | — | — | Enable MySQL (set all 4 MYSQL_* vars) |
+| `MYSQL_USER` | — | — | MySQL username |
+| `MYSQL_PASS` | — | — | MySQL password |
+| `MYSQL_DB` | — | `securax` | MySQL database name |
+| `SECURAX_ADMIN_PASSWORD` | — | `Admin@2024!` | Bootstrap admin password |
+| `ALLOWED_ORIGINS` | — | `http://localhost:5173` | Comma-separated CORS origins |
+
+### Frontend (`.env.local`)
+
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | ✅ | Backend URL (no trailing slash) |
+
+---
+
+## API Reference
+
+### Authentication
+
+| Method | Endpoint | Body / Params |
+|---|---|---|
+| `POST` | `/api/login` | `{username, password}` |
+| `POST` | `/api/logout` | — |
+| `GET` | `/api/profile` | — |
+
+### Scans (synchronous)
+
+| Method | Endpoint | Body |
+|---|---|---|
+| `POST` | `/api/scan/web` | `{url, mode}` |
+| `POST` | `/api/scan/network` | `{target, mode}` |
+| `POST` | `/api/scan/dast` | `{url}` |
+| `POST` | `/api/scan/ssl` | `{host}` |
+| `POST` | `/api/scan/server` | `{target, mode}` |
+
+### Scans (background / async)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/scan/async/web` | Queue web scan |
+| `POST` | `/api/scan/async/network` | Queue network scan |
+| `POST` | `/api/scan/async/dast` | Queue DAST scan |
+| `POST` | `/api/scan/async/ssl` | Queue SSL scan |
+| `POST` | `/api/scan/async/server` | Queue server scan |
+| `GET` | `/api/scan/job/<id>` | Poll job status |
+| `GET` | `/api/scan/jobs` | List active jobs |
+
+### Scheduled Scans
+
+| Method | Endpoint | Body |
+|---|---|---|
+| `GET` | `/api/scheduled-scans` | — |
+| `POST` | `/api/scheduled-scans` | `{scan_type, target, cron_expr}` |
+| `PATCH` | `/api/scheduled-scans/<id>` | `{is_active: bool}` |
+| `DELETE` | `/api/scheduled-scans/<id>` | — |
+
+`cron_expr` values: `daily` · `weekly` · `monthly`
+
+### Reports
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/reports` | User report list |
+| `GET` | `/api/reports/<token>` | Report detail |
+| `DELETE` | `/api/reports/<token>` | Delete |
+| `GET` | `/api/reports/<token>/pdf` | PDF download |
+
+### Admin (admin role only)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/admin/stats` | Platform statistics + top vulns |
+| `GET` | `/api/admin/scans` | All scan reports |
+| `GET` | `/api/admin/users` | User list |
+| `POST` | `/api/admin/users` | Create user |
+| `PATCH` | `/api/admin/users/<id>` | Update role / password / target |
+| `DELETE` | `/api/admin/users/<id>` | Deactivate user |
+| `GET` | `/api/audit` | Audit log with filters |
+
+---
+
+## Deployment
+
+### PythonAnywhere (Backend)
+
+```bash
+# In PythonAnywhere Bash console:
+cd /home/<user>/finalpfe-master
+git pull origin main
+pip install -r backend/requirements.txt
+```
+
+Set in **Web tab → Environment variables**:
+```
+SECRET_KEY=<64-char random string>
+FLASK_ENV=production
+ALLOWED_ORIGINS=https://your-app.vercel.app
+```
+
+Set WSGI file entry point: `backend/wsgi.py` → `application`
+
+Click **Reload**.
+
+### Vercel (Frontend)
+
+Set in Vercel project settings → Environment Variables:
+```
+VITE_API_BASE_URL=https://username.pythonanywhere.com
+```
+
+Build command: `npm run build` | Output directory: `dist`
+
+Deploys automatically on every `git push main`.
+
+---
+
+## Testing
+
+```bash
+cd backend
+pip install pytest pytest-cov
+
+# All tests
+pytest tests/ -v
+
+# Coverage
+pytest tests/ --cov=. --cov-report=term-missing --cov-report=html
+
+# Individual suites
+pytest tests/test_risk_engine.py -v   # 12 tests — risk scoring
+pytest tests/test_database.py -v      # 18 tests — CRUD operations
+pytest tests/test_job_manager.py -v   # 10 tests — background jobs
+pytest tests/test_auth.py -v          # 8 tests  — auth endpoints
+pytest tests/test_api.py -v           # 12 tests — API integration
+```
+
+**Total: 60+ tests** covering risk engine, database CRUD, job manager persistence, auth flows, API endpoints, and security headers.
+
+---
+
+## Security
+
+| Layer | Implementation |
+|---|---|
+| CSRF | Flask-WTF token on every mutation |
+| Rate Limiting | Per-user, per-endpoint via Flask-Limiter |
+| Password Storage | bcrypt + per-user salt |
+| Session | HTTPOnly · SameSite · Secure (prod) · 30 min timeout |
+| Headers | CSP nonce · HSTS · X-Frame-Options · Referrer-Policy · Permissions-Policy |
+| RBAC | Admin / Analyst roles + per-permission checks on every endpoint |
+| Target Locking | Analysts restricted to admin-approved targets |
+| Audit Trail | IP + user-agent logged for every login, scan, and admin action |
+| Input Validation | URL sanitization · extension blocklist · zip-bomb guard |
+
+**Report vulnerabilities privately:** innovation.team.dz@gmail.com
+
+---
+
+## Roadmap
+
+- [ ] TOTP / 2FA enforcement (schema ready)
+- [ ] Webhook alerts (Slack / Teams / email)
+- [ ] NVD CVE database integration
+- [ ] GitHub Actions CI/CD scan plugin
+- [ ] Multi-tenant organization accounts
+- [ ] Vulnerability fix-rate trend dashboard
+
+---
+
+## License
+
+MIT © 2024 SecurAX Team

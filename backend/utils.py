@@ -4,6 +4,8 @@ import io
 import logging
 import os
 import re
+import threading
+import time
 import zipfile
 from functools import wraps
 
@@ -13,6 +15,51 @@ from flask_login import current_user, login_required
 from database import get_locked_target, log_event
 
 logger = logging.getLogger(__name__)
+
+# ── Simple in-memory API response cache ───────────────────────────────────────
+
+_cache_store: dict[str, tuple[object, float]] = {}
+_cache_lock = threading.Lock()
+
+
+def cache_response(ttl: int = 30):
+    """Cache a GET endpoint's JSON response for `ttl` seconds per user.
+
+    Only caches 200 responses.  Key is (user_id, path, query_string).
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if request.method != "GET":
+                return f(*args, **kwargs)
+            uid = getattr(current_user, "id", "anon")
+            key = f"{uid}:{request.path}:{request.query_string.decode()}"
+            now = time.monotonic()
+            with _cache_lock:
+                hit = _cache_store.get(key)
+                if hit and (now - hit[1]) < ttl:
+                    return hit[0]
+            result = f(*args, **kwargs)
+            # Only cache successful JSON responses
+            try:
+                status = result[1] if isinstance(result, tuple) else 200
+                if status == 200:
+                    with _cache_lock:
+                        _cache_store[key] = (result, now)
+            except Exception:
+                pass
+            return result
+        return wrapper
+    return decorator
+
+
+def invalidate_cache_for(user_id: int) -> None:
+    """Clear all cached responses for a given user."""
+    prefix = f"{user_id}:"
+    with _cache_lock:
+        stale = [k for k in _cache_store if k.startswith(prefix)]
+        for k in stale:
+            del _cache_store[k]
 
 # ── Regex ──────────────────────────────────────────────────────────────────────
 _UUID_RE = re.compile(r"^[0-9a-f]{32}$")

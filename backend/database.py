@@ -225,6 +225,38 @@ _SCHEMA_SQLITE = """
     CREATE INDEX IF NOT EXISTS idx_audit_logs_action     ON audit_logs (action);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_category   ON audit_logs (category);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_time       ON audit_logs (created_at);
+    CREATE TABLE IF NOT EXISTS scan_jobs (
+        job_id        TEXT    PRIMARY KEY,
+        scan_type     TEXT    NOT NULL,
+        target        TEXT    NOT NULL,
+        user_id       INTEGER NOT NULL,
+        username      TEXT    NOT NULL,
+        status        TEXT    NOT NULL DEFAULT 'queued',
+        progress      INTEGER NOT NULL DEFAULT 0,
+        message       TEXT    NOT NULL DEFAULT 'Queued…',
+        result_json   TEXT,
+        error         TEXT,
+        report_token  TEXT,
+        started_at    TEXT    NOT NULL,
+        completed_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_scan_jobs_user   ON scan_jobs (user_id, started_at);
+    CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs (status);
+    CREATE TABLE IF NOT EXISTS scheduled_scans (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id       INTEGER NOT NULL,
+        username      TEXT    NOT NULL,
+        scan_type     TEXT    NOT NULL,
+        target        TEXT    NOT NULL,
+        cron_expr     TEXT    NOT NULL DEFAULT 'daily',
+        is_active     INTEGER NOT NULL DEFAULT 1,
+        last_run_at   TEXT,
+        next_run_at   TEXT,
+        created_at    TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_scheduled_user   ON scheduled_scans (user_id);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_active ON scheduled_scans (is_active, next_run_at);
 """
 
 _SCHEMA_MYSQL = """
@@ -310,6 +342,38 @@ _SCHEMA_MYSQL = """
     CREATE INDEX IF NOT EXISTS idx_audit_user         ON audit_logs (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_audit_action       ON audit_logs (action);
     CREATE INDEX IF NOT EXISTS idx_audit_time         ON audit_logs (created_at);
+    CREATE TABLE IF NOT EXISTS scan_jobs (
+        job_id        VARCHAR(36)  PRIMARY KEY,
+        scan_type     VARCHAR(50)  NOT NULL,
+        target        VARCHAR(500) NOT NULL,
+        user_id       INT          NOT NULL,
+        username      VARCHAR(150) NOT NULL,
+        status        VARCHAR(20)  NOT NULL DEFAULT 'queued',
+        progress      INT          NOT NULL DEFAULT 0,
+        message       TEXT         NOT NULL,
+        result_json   MEDIUMTEXT,
+        error         TEXT,
+        report_token  VARCHAR(64),
+        started_at    VARCHAR(50)  NOT NULL,
+        completed_at  VARCHAR(50)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_jobs_user   ON scan_jobs (user_id, started_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_status ON scan_jobs (status);
+    CREATE TABLE IF NOT EXISTS scheduled_scans (
+        id            INT          AUTO_INCREMENT PRIMARY KEY,
+        user_id       INT          NOT NULL,
+        username      VARCHAR(150) NOT NULL,
+        scan_type     VARCHAR(50)  NOT NULL,
+        target        VARCHAR(500) NOT NULL,
+        cron_expr     VARCHAR(50)  NOT NULL DEFAULT 'daily',
+        is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+        last_run_at   VARCHAR(50),
+        next_run_at   VARCHAR(50),
+        created_at    VARCHAR(50)  NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_sched_user   ON scheduled_scans (user_id);
+    CREATE INDEX IF NOT EXISTS idx_sched_active ON scheduled_scans (is_active, next_run_at);
 """
 
 
@@ -924,3 +988,113 @@ def get_top_vulnerabilities(limit: int = 10) -> list[dict]:
     ordered = sorted(counts.values(), key=lambda x: x["count"], reverse=True)
     return ordered[:limit]
 
+
+# ── Scan Jobs (persistent background jobs) ────────────────────────────────────
+
+def upsert_job(job: dict) -> None:
+    """Insert or replace a background scan job record."""
+    _exec(
+        "INSERT OR REPLACE INTO scan_jobs"
+        " (job_id,scan_type,target,user_id,username,status,progress,message,"
+        "  result_json,error,report_token,started_at,completed_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            job["job_id"], job["scan_type"], job["target"],
+            job["user_id"], job["username"], job["status"],
+            job["progress"], job["message"],
+            json.dumps(job.get("result")) if job.get("result") is not None else None,
+            job.get("error"), job.get("report_token"),
+            job["started_at"], job.get("completed_at"),
+        ),
+    )
+
+
+def get_job_from_db(job_id: str) -> dict | None:
+    row = _get_db().execute(
+        "SELECT * FROM scan_jobs WHERE job_id=?", (job_id,)
+    ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    if d.get("result_json"):
+        try:
+            d["result"] = json.loads(d["result_json"])
+        except (ValueError, TypeError):
+            d["result"] = None
+    else:
+        d["result"] = None
+    return d
+
+
+def get_user_jobs_from_db(user_id: int, limit: int = 20) -> list[dict]:
+    rows = _get_db().execute(
+        "SELECT job_id,scan_type,target,user_id,username,status,progress,"
+        "message,error,report_token,started_at,completed_at"
+        " FROM scan_jobs WHERE user_id=? ORDER BY started_at DESC LIMIT ?",
+        (user_id, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def purge_old_jobs(ttl_minutes: int = 60) -> int:
+    """Delete completed/errored jobs older than ttl_minutes. Returns count deleted."""
+    cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(minutes=ttl_minutes)).isoformat()
+    cur = _exec(
+        "DELETE FROM scan_jobs WHERE status IN ('done','error') AND completed_at < ?",
+        (cutoff,),
+    )
+    return cur.rowcount if hasattr(cur, "rowcount") else 0
+
+
+# ── Scheduled Scans ───────────────────────────────────────────────────────────
+
+def create_scheduled_scan(user_id: int, username: str, scan_type: str,
+                          target: str, cron_expr: str = "daily") -> int:
+    from datetime import timedelta
+    next_run = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    cur = _exec(
+        "INSERT INTO scheduled_scans"
+        " (user_id,username,scan_type,target,cron_expr,is_active,next_run_at,created_at)"
+        " VALUES (?,?,?,?,?,1,?,?)",
+        (user_id, username, scan_type, target, cron_expr, next_run,
+         datetime.now(timezone.utc).isoformat()),
+    )
+    return cur.lastrowid
+
+
+def get_user_scheduled_scans(user_id: int) -> list[dict]:
+    rows = _get_db().execute(
+        "SELECT * FROM scheduled_scans WHERE user_id=? ORDER BY created_at DESC",
+        (user_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_all_scheduled_scans() -> list[dict]:
+    rows = _get_db().execute(
+        "SELECT * FROM scheduled_scans WHERE is_active=1 ORDER BY next_run_at ASC"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def update_scheduled_scan_run(sched_id: int, last_run_at: str, next_run_at: str) -> None:
+    _exec(
+        "UPDATE scheduled_scans SET last_run_at=?, next_run_at=? WHERE id=?",
+        (last_run_at, next_run_at, sched_id),
+    )
+
+
+def toggle_scheduled_scan(sched_id: int, user_id: int, active: bool) -> bool:
+    cur = _exec(
+        "UPDATE scheduled_scans SET is_active=? WHERE id=? AND user_id=?",
+        (int(active), sched_id, user_id),
+    )
+    return (cur.rowcount if hasattr(cur, "rowcount") else 1) > 0
+
+
+def delete_scheduled_scan(sched_id: int, user_id: int) -> bool:
+    cur = _exec(
+        "DELETE FROM scheduled_scans WHERE id=? AND user_id=?",
+        (sched_id, user_id),
+    )
+    return (cur.rowcount if hasattr(cur, "rowcount") else 1) > 0

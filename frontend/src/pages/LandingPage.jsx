@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import securaxLogo from '../assets/securax_logo.png';
 import {
-    ShieldAlert, Shield, Globe, Server, Code, Network,
+    Shield, Globe, Code, Network,
     Package, Zap, ChevronRight, CheckCircle, Lock, Eye,
-    FileSearch, Activity, ArrowRight, Star, Users
+    FileSearch, Activity, ArrowRight, X, Clock,
 } from 'lucide-react';
 
 const SERVICES = [
@@ -59,17 +59,56 @@ const SERVICES = [
 ];
 
 const FEATURES = [
-    { icon: Shield, text: 'AI-powered ARIA security advisor' },
-    { icon: Lock, text: 'Role-based access control' },
-    { icon: Eye, text: 'Full audit log trail' },
-    { icon: Activity, text: 'Real-time scan progress' },
-    { icon: FileSearch, text: 'Auto-generated fix config files' },
+    { icon: Shield,      text: 'AI-powered ARIA security advisor' },
+    { icon: Lock,        text: 'Role-based access control' },
+    { icon: Eye,         text: 'Full audit log trail' },
+    { icon: Activity,    text: 'Real-time scan progress' },
+    { icon: FileSearch,  text: 'Auto-generated fix config files' },
     { icon: CheckCircle, text: 'CVE enrichment via NVD' },
+    { icon: Clock,       text: 'Scheduled recurring scans' },
+    { icon: Globe,       text: 'Arabic + English (RTL/LTR)' },
 ];
 
 const STATS = [
-    { value: '6+', label: 'Scan Types' },
+    { value: '7',    label: 'Scan Types' },
     { value: 'ARIA', label: 'AI Security Advisor' },
+    { value: 'AR/EN',label: 'Bilingual Platform' },
+    { value: 'Free', label: 'To Get Started' },
+];
+
+// Comparison table data
+const COMPARE_FEATURES = [
+    'Web + Network + DAST + SSL + SAST + Deps',
+    'Background scans (no blocking)',
+    'Scheduled recurring scans',
+    'AI security advisor (chat)',
+    'Arabic language support',
+    'PDF report export',
+    'Role-based access control',
+    'Audit log trail',
+    'Free tier available',
+];
+const COMPARE_TOOLS = [
+    {
+        name: 'SecurAX',
+        highlight: true,
+        checks: [true, true, true, true, true, true, true, true, true],
+    },
+    {
+        name: 'Detectify',
+        highlight: false,
+        checks: [false, false, false, false, false, true, false, false, false],
+    },
+    {
+        name: 'Pentest-Tools',
+        highlight: false,
+        checks: [true, false, false, false, false, true, false, false, false],
+    },
+    {
+        name: 'OpenVAS / CLI',
+        highlight: false,
+        checks: [false, false, false, false, false, false, false, false, true],
+    },
 ];
 
 function FloatingOrb({ style, className }) {
@@ -160,7 +199,7 @@ const LandingPage = () => {
                     </div>
 
                     {/* Stats row */}
-                    <div className="mt-16 grid grid-cols-2 gap-4 max-w-md mx-auto">
+                    <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
                         {STATS.map((s, i) => (
                             <div key={i} className="bg-white/[0.03] border border-white/8 rounded-2xl py-4 px-3 backdrop-blur-sm">
                                 <div className="text-2xl font-bold text-white mb-1">{s.value}</div>
@@ -301,6 +340,63 @@ const LandingPage = () => {
                             );
                         })}
                     </div>
+                </div>
+            </section>
+
+            {/* ── Comparison Table ──────────────────────────────────────── */}
+            <section className="py-20 px-6">
+                <div className="max-w-5xl mx-auto">
+                    <div className="text-center mb-12">
+                        <p className="text-xs font-semibold text-cyan-400 uppercase tracking-widest mb-3">Why SecurAX</p>
+                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                            The only tool that does it all
+                        </h2>
+                        <p className="text-slate-400 text-sm max-w-xl mx-auto">
+                            Competitors force you to buy multiple tools. SecurAX combines everything — with Arabic support no other platform offers.
+                        </p>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-white/10">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10">
+                                    <th className="text-left px-5 py-4 text-slate-400 font-medium w-1/3">Feature</th>
+                                    {COMPARE_TOOLS.map((tool) => (
+                                        <th key={tool.name} className={`px-4 py-4 text-center font-bold ${
+                                            tool.highlight
+                                                ? 'text-cyan-400 bg-cyan-500/5'
+                                                : 'text-slate-500'
+                                        }`}>
+                                            {tool.name}
+                                            {tool.highlight && (
+                                                <span className="ml-1.5 text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30 font-semibold">YOU</span>
+                                            )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {COMPARE_FEATURES.map((feat, fi) => (
+                                    <tr key={fi} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                        <td className="px-5 py-3.5 text-slate-300 text-xs">{feat}</td>
+                                        {COMPARE_TOOLS.map((tool) => (
+                                            <td key={tool.name} className={`px-4 py-3.5 text-center ${tool.highlight ? 'bg-cyan-500/[0.03]' : ''}`}>
+                                                {tool.checks[fi] ? (
+                                                    <CheckCircle className="w-4 h-4 text-emerald-400 mx-auto" />
+                                                ) : (
+                                                    <X className="w-4 h-4 text-slate-700 mx-auto" />
+                                                )}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p className="text-center text-xs text-slate-600 mt-4">
+                        Feature comparison based on publicly available information. Last updated 2024.
+                    </p>
                 </div>
             </section>
 
