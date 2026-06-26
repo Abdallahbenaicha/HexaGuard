@@ -2,11 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth, ToastContainer } from './context/AuthContext';
 import { LangProvider } from './context/LangContext';
+import { ScanJobsProvider } from './context/ScanJobsContext';
 
 // Layout & Components
 import Layout from './components/Layout';
-import ChatBot from './components/ChatBot';
 import CommandPalette from './components/CommandPalette';
+import GlobalScanProgress from './components/GlobalScanProgress';
 
 // Public Pages
 import LoginPage    from './pages/LoginPage';
@@ -138,6 +139,7 @@ function AppInner() {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-50 transition-colors duration-300">
             <ToastContainer />
             <CommandPalette />
+            <GlobalScanProgress />
             <Routes>
                 {/* Public */}
                 <Route path="/"         element={<RootRedirect />} />
@@ -201,7 +203,9 @@ function App() {
             <ErrorBoundary>
                 <LangProvider>
                     <AuthProvider>
-                        <AppInner />
+                        <ScanJobsProvider>
+                            <AppInner />
+                        </ScanJobsProvider>
                     </AuthProvider>
                 </LangProvider>
             </ErrorBoundary>

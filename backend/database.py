@@ -9,39 +9,102 @@ import bcrypt
 
 logger = logging.getLogger(__name__)
 
-# Allow overriding DB location via env var (e.g. Render Persistent Disk).
-# If the requested path is not accessible, fall back to securax.db in cwd.
 import os as _os
 
-def _resolve_db_path(requested: str) -> str:
-    parent = _os.path.dirname(_os.path.abspath(requested))
-    if parent:
-        try:
-            _os.makedirs(parent, exist_ok=True)
-            return requested          # parent exists (or was just created) — use it
-        except OSError:
-            pass                      # permission denied / disk not mounted
-    # Fallback: store next to this file (always writable on Render)
-    fallback = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "securax.db")
-    logger.warning(
-        "DB path '%s' is not accessible — falling back to '%s'. "
-        "Mount the persistent disk or remove DB_PATH from env vars.",
-        requested, fallback,
-    )
-    return fallback
+# ── Backend detection ─────────────────────────────────────────────────────────
+# Set MYSQL_HOST (+ MYSQL_USER, MYSQL_PASS, MYSQL_DB) env vars to switch to
+# MySQL (e.g. PythonAnywhere free MySQL).  Omit them to keep SQLite.
+_MYSQL_HOST = _os.environ.get("MYSQL_HOST", "").strip()
+_USE_MYSQL   = bool(_MYSQL_HOST)
 
-DB_PATH = _resolve_db_path(_os.environ.get("DB_PATH", "securax.db"))
+if _USE_MYSQL:
+    try:
+        import pymysql
+        import pymysql.cursors
+        logger.info("database backend: MySQL @ %s", _MYSQL_HOST)
+    except ImportError:
+        logger.warning("pymysql not installed — falling back to SQLite")
+        _USE_MYSQL = False
 
-# Sentinel — distinguishes "caller didn't pass locked_target_value" from passing None (clear it)
+
+# ── Sentinel ──────────────────────────────────────────────────────────────────
 _UNSET = object()
 
-# ── Thread-local connection pool ──────────────────────────────────────────────
+# ── Thread-local connections ──────────────────────────────────────────────────
 _local = threading.local()
 
 
-def _get_db() -> sqlite3.Connection:
+# ══════════════════════════════════════════════════════════════════════════════
+#  MySQL adapter  — wraps pymysql connection with SQLite-compatible interface
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _MySQLAdapter:
+    """Thin wrapper that makes a pymysql connection look like sqlite3.Connection."""
+
+    def __init__(self, conn):
+        self._c = conn
+
+    def _fix(self, sql: str) -> str:
+        return sql.replace("?", "%s")
+
+    def execute(self, sql: str, params=()):
+        sql = self._fix(sql)
+        cur = self._c.cursor()
+        cur.execute(sql, params)
+        self._c.commit()
+        return cur
+
+    def executescript(self, sql: str):
+        cur = self._c.cursor()
+        for stmt in sql.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("--"):
+                try:
+                    cur.execute(stmt)
+                except Exception as exc:
+                    logger.debug("executescript stmt skipped: %s | %s", stmt[:60], exc)
+        self._c.commit()
+
+    def commit(self):
+        self._c.commit()
+
+    def rollback(self):
+        self._c.rollback()
+
+
+def _make_mysql_conn():
+    conn = pymysql.connect(
+        host=_MYSQL_HOST,
+        user=_os.environ.get("MYSQL_USER", ""),
+        password=_os.environ.get("MYSQL_PASS", ""),
+        database=_os.environ.get("MYSQL_DB", "securax"),
+        port=int(_os.environ.get("MYSQL_PORT", "3306")),
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False,
+        charset="utf8mb4",
+        connect_timeout=10,
+    )
+    return conn
+
+
+def _get_db():
+    if _USE_MYSQL:
+        conn = getattr(_local, "mysql_conn", None)
+        if conn is None:
+            conn = _make_mysql_conn()
+            _local.mysql_conn = conn
+        else:
+            try:
+                conn.ping(reconnect=True)
+            except Exception:
+                conn = _make_mysql_conn()
+                _local.mysql_conn = conn
+        return _MySQLAdapter(conn)
+
+    # ── SQLite path (default) ─────────────────────────────────────────────────
     if not getattr(_local, "conn", None):
-        conn = sqlite3.connect(DB_PATH, check_same_thread=True)
+        db_path = _resolve_db_path(_os.environ.get("DB_PATH", "securax.db"))
+        conn = sqlite3.connect(db_path, check_same_thread=True)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
@@ -50,7 +113,25 @@ def _get_db() -> sqlite3.Connection:
     return _local.conn
 
 
-def _exec(sql: str, params: tuple = ()) -> sqlite3.Cursor:
+def _resolve_db_path(requested: str) -> str:
+    parent = _os.path.dirname(_os.path.abspath(requested))
+    if parent:
+        try:
+            _os.makedirs(parent, exist_ok=True)
+            return requested
+        except OSError:
+            pass
+    fallback = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "securax.db")
+    logger.warning(
+        "DB path '%s' is not accessible — falling back to '%s'.",
+        requested, fallback,
+    )
+    return fallback
+
+DB_PATH = _os.environ.get("DB_PATH", "securax.db")
+
+
+def _exec(sql: str, params: tuple = ()):
     db = _get_db()
     try:
         cur = db.execute(sql, params)
@@ -64,110 +145,200 @@ def _exec(sql: str, params: tuple = ()) -> sqlite3.Cursor:
 
 # ── Schema bootstrap ──────────────────────────────────────────────────────────
 
+_SCHEMA_SQLITE = """
+    CREATE TABLE IF NOT EXISTS users (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        username         TEXT    UNIQUE NOT NULL,
+        email            TEXT,
+        password_hash    TEXT    NOT NULL,
+        role             TEXT    NOT NULL DEFAULT 'analyst',
+        permissions      TEXT    NOT NULL DEFAULT '[]',
+        is_active        INTEGER NOT NULL DEFAULT 1,
+        totp_secret      TEXT,
+        totp_enabled     INTEGER NOT NULL DEFAULT 0,
+        failed_attempts  INTEGER NOT NULL DEFAULT 0,
+        locked_until     TEXT,
+        last_login       TEXT,
+        login_count      INTEGER NOT NULL DEFAULT 0,
+        created_at       TEXT    NOT NULL,
+        created_by       TEXT,
+        locked_target    TEXT,
+        api_token        TEXT,
+        api_token_created TEXT
+    );
+    CREATE TABLE IF NOT EXISTS scan_reports (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        token            TEXT    UNIQUE NOT NULL,
+        user_id          INTEGER,
+        username         TEXT,
+        scan_type        TEXT,
+        target           TEXT,
+        risk_score       REAL    NOT NULL DEFAULT 0,
+        vuln_count       INTEGER NOT NULL DEFAULT 0,
+        critical_count   INTEGER NOT NULL DEFAULT 0,
+        high_count       INTEGER NOT NULL DEFAULT 0,
+        medium_count     INTEGER NOT NULL DEFAULT 0,
+        low_count        INTEGER NOT NULL DEFAULT 0,
+        result_json      TEXT    NOT NULL,
+        original_content TEXT,
+        stored_at        TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
+    );
+    CREATE TABLE IF NOT EXISTS scan_vulnerabilities (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_id   INTEGER NOT NULL,
+        check_name  TEXT    NOT NULL,
+        severity    TEXT    NOT NULL,
+        title       TEXT    NOT NULL,
+        description TEXT,
+        evidence    TEXT,
+        remediation TEXT,
+        line_number INTEGER NOT NULL DEFAULT 0,
+        cve_ids     TEXT    NOT NULL DEFAULT '[]',
+        is_fixed    INTEGER NOT NULL DEFAULT 0,
+        fixed_at    TEXT,
+        found_at    TEXT    NOT NULL,
+        FOREIGN KEY (report_id) REFERENCES scan_reports(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        action       TEXT    NOT NULL,
+        username     TEXT,
+        user_id      INTEGER,
+        category     TEXT    NOT NULL DEFAULT 'general',
+        resource     TEXT,
+        ip_address   TEXT,
+        user_agent   TEXT,
+        status       TEXT,
+        details      TEXT,
+        created_at   TEXT    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_username        ON users (username);
+    CREATE INDEX IF NOT EXISTS idx_scan_reports_user     ON scan_reports (user_id, stored_at);
+    CREATE INDEX IF NOT EXISTS idx_scan_reports_token    ON scan_reports (token);
+    CREATE INDEX IF NOT EXISTS idx_scan_reports_stored   ON scan_reports (stored_at);
+    CREATE INDEX IF NOT EXISTS idx_scan_reports_type     ON scan_reports (scan_type);
+    CREATE INDEX IF NOT EXISTS idx_vulns_report          ON scan_vulnerabilities (report_id);
+    CREATE INDEX IF NOT EXISTS idx_vulns_severity        ON scan_vulnerabilities (severity, report_id);
+    CREATE INDEX IF NOT EXISTS idx_vulns_check           ON scan_vulnerabilities (check_name);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_user       ON audit_logs (user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action     ON audit_logs (action);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_category   ON audit_logs (category);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_time       ON audit_logs (created_at);
+"""
+
+_SCHEMA_MYSQL = """
+    CREATE TABLE IF NOT EXISTS users (
+        id               INT          AUTO_INCREMENT PRIMARY KEY,
+        username         VARCHAR(150) UNIQUE NOT NULL,
+        email            VARCHAR(255),
+        password_hash    TEXT         NOT NULL,
+        role             VARCHAR(50)  NOT NULL DEFAULT 'analyst',
+        permissions      TEXT         NOT NULL,
+        is_active        TINYINT(1)   NOT NULL DEFAULT 1,
+        totp_secret      TEXT,
+        totp_enabled     TINYINT(1)   NOT NULL DEFAULT 0,
+        failed_attempts  INT          NOT NULL DEFAULT 0,
+        locked_until     VARCHAR(50),
+        last_login       VARCHAR(50),
+        login_count      INT          NOT NULL DEFAULT 0,
+        created_at       VARCHAR(50)  NOT NULL,
+        created_by       VARCHAR(150),
+        locked_target    VARCHAR(255),
+        api_token        VARCHAR(255),
+        api_token_created VARCHAR(50)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS scan_reports (
+        id               INT          AUTO_INCREMENT PRIMARY KEY,
+        token            VARCHAR(64)  UNIQUE NOT NULL,
+        user_id          INT,
+        username         VARCHAR(150),
+        scan_type        VARCHAR(50),
+        target           VARCHAR(500),
+        risk_score       FLOAT        NOT NULL DEFAULT 0,
+        vuln_count       INT          NOT NULL DEFAULT 0,
+        critical_count   INT          NOT NULL DEFAULT 0,
+        high_count       INT          NOT NULL DEFAULT 0,
+        medium_count     INT          NOT NULL DEFAULT 0,
+        low_count        INT          NOT NULL DEFAULT 0,
+        result_json      MEDIUMTEXT   NOT NULL,
+        original_content MEDIUMTEXT,
+        stored_at        VARCHAR(50)  NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS scan_vulnerabilities (
+        id          INT          AUTO_INCREMENT PRIMARY KEY,
+        report_id   INT          NOT NULL,
+        check_name  VARCHAR(255) NOT NULL,
+        severity    VARCHAR(20)  NOT NULL,
+        title       VARCHAR(500) NOT NULL,
+        description TEXT,
+        evidence    TEXT,
+        remediation TEXT,
+        line_number INT          NOT NULL DEFAULT 0,
+        cve_ids     TEXT         NOT NULL,
+        is_fixed    TINYINT(1)   NOT NULL DEFAULT 0,
+        fixed_at    VARCHAR(50),
+        found_at    VARCHAR(50)  NOT NULL,
+        FOREIGN KEY (report_id) REFERENCES scan_reports(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id           INT          AUTO_INCREMENT PRIMARY KEY,
+        action       VARCHAR(100) NOT NULL,
+        username     VARCHAR(150),
+        user_id      INT,
+        category     VARCHAR(50)  NOT NULL DEFAULT 'general',
+        resource     VARCHAR(500),
+        ip_address   VARCHAR(45),
+        user_agent   TEXT,
+        status       VARCHAR(50),
+        details      TEXT,
+        created_at   VARCHAR(50)  NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE INDEX IF NOT EXISTS idx_users_username     ON users (username);
+    CREATE INDEX IF NOT EXISTS idx_reports_user       ON scan_reports (user_id, stored_at);
+    CREATE INDEX IF NOT EXISTS idx_reports_token      ON scan_reports (token);
+    CREATE INDEX IF NOT EXISTS idx_reports_stored     ON scan_reports (stored_at);
+    CREATE INDEX IF NOT EXISTS idx_reports_type       ON scan_reports (scan_type);
+    CREATE INDEX IF NOT EXISTS idx_vulns_report       ON scan_vulnerabilities (report_id);
+    CREATE INDEX IF NOT EXISTS idx_vulns_severity     ON scan_vulnerabilities (severity);
+    CREATE INDEX IF NOT EXISTS idx_vulns_check        ON scan_vulnerabilities (check_name);
+    CREATE INDEX IF NOT EXISTS idx_audit_user         ON audit_logs (user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_action       ON audit_logs (action);
+    CREATE INDEX IF NOT EXISTS idx_audit_time         ON audit_logs (created_at);
+"""
+
+
 def init_db():
     db = _get_db()
-    db.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            username         TEXT    UNIQUE NOT NULL,
-            email            TEXT,
-            password_hash    TEXT    NOT NULL,
-            role             TEXT    NOT NULL DEFAULT 'analyst',
-            permissions      TEXT    NOT NULL DEFAULT '[]',
-            is_active        INTEGER NOT NULL DEFAULT 1,
-            totp_secret      TEXT,
-            totp_enabled     INTEGER NOT NULL DEFAULT 0,
-            failed_attempts  INTEGER NOT NULL DEFAULT 0,
-            locked_until     TEXT,
-            last_login       TEXT,
-            login_count      INTEGER NOT NULL DEFAULT 0,
-            created_at       TEXT    NOT NULL,
-            created_by       TEXT,
-            locked_target    TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS scan_reports (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            token            TEXT    UNIQUE NOT NULL,
-            user_id          INTEGER,
-            username         TEXT,
-            scan_type        TEXT,
-            target           TEXT,
-            risk_score       REAL    NOT NULL DEFAULT 0,
-            vuln_count       INTEGER NOT NULL DEFAULT 0,
-            critical_count   INTEGER NOT NULL DEFAULT 0,
-            high_count       INTEGER NOT NULL DEFAULT 0,
-            medium_count     INTEGER NOT NULL DEFAULT 0,
-            low_count        INTEGER NOT NULL DEFAULT 0,
-            result_json      TEXT    NOT NULL,
-            original_content TEXT,
-            stored_at        TEXT    NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
-        );
-
-        CREATE TABLE IF NOT EXISTS scan_vulnerabilities (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            report_id   INTEGER NOT NULL,
-            check_name  TEXT    NOT NULL,
-            severity    TEXT    NOT NULL CHECK (severity IN ('critical','high','medium','low','info')),
-            title       TEXT    NOT NULL,
-            description TEXT,
-            evidence    TEXT,
-            remediation TEXT,
-            line_number INTEGER NOT NULL DEFAULT 0,
-            cve_ids     TEXT    NOT NULL DEFAULT '[]',
-            is_fixed    INTEGER NOT NULL DEFAULT 0,
-            fixed_at    TEXT,
-            found_at    TEXT    NOT NULL,
-            FOREIGN KEY (report_id) REFERENCES scan_reports(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            action       TEXT    NOT NULL,
-            username     TEXT,
-            user_id      INTEGER,
-            category     TEXT    NOT NULL DEFAULT 'general',
-            resource     TEXT,
-            ip_address   TEXT,
-            user_agent   TEXT,
-            status       TEXT,
-            details      TEXT,
-            created_at   TEXT    NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_users_username        ON users (username);
-        CREATE INDEX IF NOT EXISTS idx_scan_reports_user     ON scan_reports (user_id, stored_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_scan_reports_token    ON scan_reports (token);
-        CREATE INDEX IF NOT EXISTS idx_scan_reports_stored   ON scan_reports (stored_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_scan_reports_type     ON scan_reports (scan_type);
-        CREATE INDEX IF NOT EXISTS idx_vulns_report          ON scan_vulnerabilities (report_id);
-        CREATE INDEX IF NOT EXISTS idx_vulns_severity        ON scan_vulnerabilities (severity, report_id);
-        CREATE INDEX IF NOT EXISTS idx_vulns_check           ON scan_vulnerabilities (check_name);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_user       ON audit_logs (user_id, created_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_action     ON audit_logs (action);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_category   ON audit_logs (category);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_time       ON audit_logs (created_at DESC);
-    """)
+    schema = _SCHEMA_MYSQL if _USE_MYSQL else _SCHEMA_SQLITE
+    db.executescript(schema)
     db.commit()
 
-    # Built-in migrations for existing databases
-    for migration in [
-        "ALTER TABLE users ADD COLUMN totp_secret TEXT",
-        "ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN last_login TEXT",
-        "ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN locked_until TEXT",
-        "ALTER TABLE users ADD COLUMN locked_target TEXT",
-        "ALTER TABLE users ADD COLUMN created_by TEXT",
-        "ALTER TABLE users ADD COLUMN email TEXT",
-    ]:
-        try:
-            db.execute(migration)
-            db.commit()
-        except sqlite3.OperationalError:
-            pass  # column already exists
+    # SQLite-only column migrations (MySQL schema is always up-to-date)
+    if not _USE_MYSQL:
+        for migration in [
+            "ALTER TABLE users ADD COLUMN totp_secret TEXT",
+            "ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_login TEXT",
+            "ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN locked_until TEXT",
+            "ALTER TABLE users ADD COLUMN locked_target TEXT",
+            "ALTER TABLE users ADD COLUMN created_by TEXT",
+            "ALTER TABLE users ADD COLUMN email TEXT",
+            "ALTER TABLE users ADD COLUMN api_token TEXT",
+            "ALTER TABLE users ADD COLUMN api_token_created TEXT",
+        ]:
+            try:
+                db.execute(migration)
+                db.commit()
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
     # TOTP migration: add api_token columns if they don't exist yet
     for migration in [
@@ -313,23 +484,10 @@ def create_user(username: str, password: str, role: str = "analyst",
             (username, email_val, pw_hash, role, json.dumps(permissions), now, created_by, target_val),
         )
         return True, "User created successfully."
-    except sqlite3.IntegrityError:
-        return False, "Username already exists."
-    except sqlite3.OperationalError:
-        # email column may not exist yet (schema migration pending) — retry without it
-        try:
-            _exec(
-                "INSERT INTO users (username,password_hash,role,permissions,is_active,created_at,created_by,locked_target)"
-                " VALUES (?,?,?,?,1,?,?,?)",
-                (username, pw_hash, role, json.dumps(permissions), now, created_by, target_val),
-            )
-            return True, "User created successfully."
-        except sqlite3.IntegrityError:
-            return False, "Username already exists."
-        except Exception as exc2:
-            logger.error("create_user fallback: %s", exc2)
-            return False, f"Database error: {exc2}"
     except Exception as exc:
+        msg = str(exc).lower()
+        if "unique" in msg or "duplicate" in msg or "1062" in msg:
+            return False, "Username already exists."
         logger.error("create_user: %s", exc)
         return False, f"Database error: {exc}"
 

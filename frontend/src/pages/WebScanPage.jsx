@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
     Activity, ArrowLeft, Globe, Shield,
-    AlertTriangle, Terminal, ChevronRight, Download
+    AlertTriangle, Terminal, ChevronRight, Download, Layers
 } from 'lucide-react';
+import { useScanJobs } from '../context/ScanJobsContext';
 
 const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|localhost$)/i;
 const isPrivateIP = (host) => PRIVATE_IP_RE.test(host);
@@ -19,6 +20,7 @@ const SEVERITY_COLORS = {
 };
 
 const WebScanPage = () => {
+    const { startJob } = useScanJobs();
     const [target, setTarget] = useState('');
     const [scanMode, setScanMode] = useState('full');
     const [loading, setLoading] = useState(false);
@@ -27,6 +29,8 @@ const WebScanPage = () => {
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [ariaAnalysis, setAriaAnalysis] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
+    const [runInBackground, setRunInBackground] = useState(false);
+    const [bgJobQueued, setBgJobQueued] = useState(false);
 
     const scanModes = [
         { id: 'full',    label: 'Deep Infiltration', desc: 'Comprehensive XSS, SQLi, and misconfiguration scan', icon: Shield },
@@ -41,14 +45,24 @@ const WebScanPage = () => {
         const scanTarget = target.trim();
         const host = domainOf(scanTarget);
 
-        setLoading(true);
         setResults(null);
         setError(null);
         setAriaAnalysis('');
+        setBgJobQueued(false);
 
+        if (runInBackground) {
+            try {
+                await startJob('/api/scan/async/web', { url: scanTarget, mode: scanMode });
+                setBgJobQueued(true);
+            } catch (e) {
+                setError(`Failed to queue scan: ${e.response?.data?.error || e.message}`);
+            }
+            return;
+        }
+
+        setLoading(true);
         try {
             if (isPrivateIP(host)) {
-                // Route internal targets to the backend network scanner
                 const { data } = await axios.post(
                     '/scan_network',
                     { target: host, mode: scanMode, scan_type: 'network_int' },
@@ -190,12 +204,30 @@ const WebScanPage = () => {
                             </div>
                         )}
 
+                        {/* Background scan toggle */}
+                        <label className="flex items-center gap-3 mb-3 cursor-pointer select-none">
+                            <div
+                                onClick={() => setRunInBackground(v => !v)}
+                                className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${runInBackground ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${runInBackground ? 'translate-x-4' : ''}`} />
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                    <Layers className="w-3 h-3 text-cyan-500" /> Run in Background
+                                </div>
+                                <div className="text-[10px] text-slate-400">Navigate freely while scan runs</div>
+                            </div>
+                        </label>
+
                         <button
                             onClick={handleExecuteScan}
                             disabled={loading || !target.trim() || !permissionGranted}
                             className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                                 loading || !target.trim() || !permissionGranted
                                     ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                    : runInBackground
+                                    ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-500/20'
                                     : 'bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/20'
                             }`}
                         >
@@ -204,6 +236,8 @@ const WebScanPage = () => {
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     Scanning...
                                 </>
+                            ) : runInBackground ? (
+                                <><Layers className="w-4 h-4" /> Queue Background Scan</>
                             ) : (
                                 <>Start Scan <ChevronRight className="w-4 h-4" /></>
                             )}
@@ -212,6 +246,12 @@ const WebScanPage = () => {
                 </div>
 
                 <div className="lg:col-span-8">
+                    {bgJobQueued && (
+                        <div className="bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 text-cyan-700 dark:text-cyan-300 p-4 rounded-xl text-sm font-medium flex items-center gap-3 mb-6">
+                            <Layers className="w-5 h-5 flex-shrink-0" />
+                            <span>Scan queued in background — you can navigate away. Results appear in the progress widget (bottom-right).</span>
+                        </div>
+                    )}
                     {error && (
                         <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm font-medium flex items-center gap-3 mb-6">
                             <AlertTriangle className="w-5 h-5 flex-shrink-0" />

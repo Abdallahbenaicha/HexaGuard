@@ -19,6 +19,7 @@ from database import (
 )
 from extensions import csrf, limiter
 from forms import ScanForm
+import job_manager
 from report_generator import (
     attach_risk_breakdown, build_network_recon, executive_summary, vulns_to_findings,
 )
@@ -620,3 +621,245 @@ def scan_dependencies_bridge():
                 os.unlink(tmp_path)
             except OSError:
                 pass
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  ASYNC SCAN ENDPOINTS  — start in background, poll /api/scan/job/<id>
+# ════════════════════════════════════════════════════════════════════════════
+
+def _ctx_finalize(result, breakdown, target, user_id, username):
+    """Finalize a scan result inside a background thread (no Flask context)."""
+    from database import store_report as _store
+    attach_risk_breakdown(result, breakdown)
+    token = _store(result, breakdown.final_score, None, user_id, username)
+    return token
+
+
+@scans_bp.route("/api/scan/async/web", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("5/minute")
+@csrf.exempt
+def async_scan_web():
+    data          = request.get_json(silent=True) or {}
+    target        = (data.get("url") or data.get("target") or "").strip()
+    has_pii       = bool(data.get("has_pii", False))
+    has_payment   = bool(data.get("has_payment", False))
+    exploit_known = bool(data.get("exploit_known", False))
+    if not target:
+        return jsonify({"error": "Target required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+
+    uid, uname = current_user.id, current_user.username
+    job_id = job_manager.create_job("web", target, uid, uname)
+    log_event("scan_queued", uname, uid, category="scan", resource=target,
+              details=f"async=web job={job_id}")
+
+    def _run():
+        result    = run_web_scan(target, cve_check=True, ssl_check=True)
+        breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
+                                      has_pii=has_pii, has_payment=has_payment,
+                                      exploit_known=exploit_known)
+        token     = _ctx_finalize(result, breakdown, target, uid, uname)
+        findings  = vulns_to_findings(result.get("vulnerabilities", []), target)
+        return {
+            "findings": findings, "risk": breakdown.risk_level,
+            "risk_score": breakdown.final_score, "report_token": token,
+            "recommendations": breakdown.recommendations,
+            "executive_summary": executive_summary(
+                {"result": result, "risk_score": breakdown.final_score, "stored_at": ""}
+            ),
+        }
+
+    job_manager.run_in_background(job_id, _run)
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+@scans_bp.route("/api/scan/async/network", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("3/minute")
+@csrf.exempt
+def async_scan_network():
+    data          = request.get_json(silent=True) or {}
+    target        = (data.get("target") or "").strip()
+    mode          = data.get("mode", "full")
+    has_pii       = bool(data.get("has_pii", False))
+    has_payment   = bool(data.get("has_payment", False))
+    exploit_known = bool(data.get("exploit_known", False))
+    if not target:
+        return jsonify({"error": "Target required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+
+    uid, uname = current_user.id, current_user.username
+    job_id = job_manager.create_job("network", target, uid, uname)
+    log_event("scan_queued", uname, uid, category="scan", resource=target,
+              details=f"async=network job={job_id}")
+    deep = mode == "full"
+
+    def _run():
+        result    = run_nmap_scan(target, deep=deep)
+        breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
+                                      has_pii=has_pii, has_payment=has_payment,
+                                      exploit_known=exploit_known)
+        token     = _ctx_finalize(result, breakdown, target, uid, uname)
+        findings  = vulns_to_findings(result.get("vulnerabilities", []), target)
+        recon     = build_network_recon(result)
+        return {
+            "findings": findings, "recon": recon, "risk": breakdown.risk_level,
+            "risk_score": breakdown.final_score, "report_token": token,
+            "recommendations": breakdown.recommendations,
+        }
+
+    job_manager.run_in_background(job_id, _run)
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+@scans_bp.route("/api/scan/async/dast", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("5/minute")
+@csrf.exempt
+def async_scan_dast():
+    data   = request.get_json(silent=True) or {}
+    target = (data.get("url") or data.get("target") or "").strip()
+    if not target:
+        return jsonify({"error": "Target URL required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+
+    uid, uname = current_user.id, current_user.username
+    job_id = job_manager.create_job("dast", target, uid, uname)
+    log_event("scan_queued", uname, uid, category="scan", resource=target,
+              details=f"async=dast job={job_id}")
+
+    def _run():
+        try:
+            result = run_dast_scan(target)
+        except (ValueError, RuntimeError, OSError) as exc:
+            result = {
+                "scan_type": "dast", "target": target,
+                "vulnerabilities": [{"title": "DAST Unavailable", "severity": "INFO",
+                                      "description": str(exc), "evidence": "",
+                                      "remediation": "Check target reachability."}],
+                "meta": {"scan_time": "", "profile": "standard",
+                         "tools": [], "target_url": target, "issues_found": 0},
+            }
+        breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
+                                      has_pii=False, has_payment=False, exploit_known=False)
+        token    = _ctx_finalize(result, breakdown, target, uid, uname)
+        findings = vulns_to_findings(result.get("vulnerabilities", []), target)
+        return {
+            "findings": findings, "risk": breakdown.risk_level,
+            "risk_score": breakdown.final_score, "report_token": token,
+        }
+
+    job_manager.run_in_background(job_id, _run)
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+@scans_bp.route("/api/scan/async/ssl", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("5/minute")
+@csrf.exempt
+def async_scan_ssl():
+    data        = request.get_json(silent=True) or {}
+    target      = (data.get("target") or data.get("url") or "").strip()
+    has_pii     = bool(data.get("has_pii", False))
+    has_payment = bool(data.get("has_payment", False))
+    if not target:
+        return jsonify({"error": "Target required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+
+    uid, uname = current_user.id, current_user.username
+    job_id = job_manager.create_job("ssl", target, uid, uname)
+    log_event("scan_queued", uname, uid, category="scan", resource=target,
+              details=f"async=ssl job={job_id}")
+
+    def _run():
+        result    = run_ssl_scan(target)
+        breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
+                                      has_pii=has_pii, has_payment=has_payment,
+                                      exploit_known=False)
+        token    = _ctx_finalize(result, breakdown, target, uid, uname)
+        findings = vulns_to_findings(result.get("vulnerabilities", []), target)
+        return {
+            "findings": findings, "risk": breakdown.risk_level,
+            "risk_score": breakdown.final_score, "report_token": token,
+            "meta": result.get("meta", {}),
+        }
+
+    job_manager.run_in_background(job_id, _run)
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+@scans_bp.route("/api/scan/async/server", methods=["POST"])
+@require_permission("run_scan")
+@limiter.limit("3/minute")
+@csrf.exempt
+def async_scan_server():
+    data          = request.get_json(silent=True) or {}
+    target        = (data.get("target") or data.get("url") or "").strip()
+    deep          = bool(data.get("deep", False))
+    has_pii       = bool(data.get("has_pii", False))
+    has_payment   = bool(data.get("has_payment", False))
+    exploit_known = bool(data.get("exploit_known", False))
+    if not target:
+        return jsonify({"error": "Target required."}), 400
+    ok, err = _check_target_lock(target)
+    if not ok:
+        return err
+
+    uid, uname = current_user.id, current_user.username
+    job_id = job_manager.create_job("server_ext", target, uid, uname)
+    log_event("scan_queued", uname, uid, category="scan", resource=target,
+              details=f"async=server_ext job={job_id}")
+
+    def _run():
+        result    = run_server_scan(target, deep=deep)
+        breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
+                                      has_pii=has_pii, has_payment=has_payment,
+                                      exploit_known=exploit_known)
+        token    = _ctx_finalize(result, breakdown, target, uid, uname)
+        findings = vulns_to_findings(result.get("vulnerabilities", []), target)
+        return {
+            "findings": findings, "risk": breakdown.risk_level,
+            "risk_score": breakdown.final_score, "report_token": token,
+            "server_type": result.get("server_type", "unknown"),
+            "server_version": result.get("server_version", ""),
+        }
+
+    job_manager.run_in_background(job_id, _run)
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+# ── Job status polling ────────────────────────────────────────────────────────
+
+@scans_bp.route("/api/scan/job/<job_id>")
+@require_permission("run_scan")
+@csrf.exempt
+def get_scan_job(job_id):
+    job = job_manager.get_job(job_id)
+    if not job:
+        return jsonify({"error": "Job not found or expired."}), 404
+    if job["user_id"] != current_user.id and current_user.role != "admin":
+        return jsonify({"error": "Not authorized."}), 403
+    payload = {k: v for k, v in job.items() if k != "result"}
+    if job["status"] == "done":
+        payload["result"] = job["result"]
+    return jsonify(payload)
+
+
+@scans_bp.route("/api/scan/jobs")
+@require_permission("run_scan")
+@csrf.exempt
+def list_scan_jobs():
+    jobs = job_manager.get_user_jobs(current_user.id)
+    return jsonify([
+        {k: v for k, v in j.items() if k != "result"}
+        for j in jobs
+    ])
