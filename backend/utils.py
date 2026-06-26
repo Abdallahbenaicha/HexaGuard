@@ -1,9 +1,11 @@
 """SecurAx — shared utilities and decorators used across blueprints."""
 
 import io
+import ipaddress
 import logging
 import os
 import re
+import socket
 import threading
 import time
 import zipfile
@@ -138,6 +140,68 @@ def require_permission(permission: str):
     return decorator
 
 
+# ── SSRF Protection ───────────────────────────────────────────────────────────
+
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),     # loopback
+    ipaddress.ip_network("10.0.0.0/8"),      # RFC-1918
+    ipaddress.ip_network("172.16.0.0/12"),   # RFC-1918
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC-1918
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local (AWS metadata)
+    ipaddress.ip_network("100.64.0.0/10"),   # shared address space
+    ipaddress.ip_network("::1/128"),         # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),        # IPv6 ULA
+    ipaddress.ip_network("fe80::/10"),       # IPv6 link-local
+]
+
+_BLOCKED_HOSTNAMES = {
+    "localhost", "metadata.google.internal",
+    "169.254.169.254",  # AWS/GCP/Azure metadata endpoint
+}
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in _PRIVATE_NETWORKS)
+    except ValueError:
+        return False
+
+
+def check_ssrf(raw_target: str) -> tuple[bool, str]:
+    """Return (is_safe, error_msg).
+
+    Blocks scan targets that resolve to private / link-local / metadata IPs
+    to prevent Server-Side Request Forgery attacks against internal infrastructure.
+    """
+    stripped = re.sub(r"^https?://", "", raw_target.strip())
+    host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
+
+    if not host:
+        return False, "Empty target."
+
+    # Block known dangerous hostnames directly
+    if host in _BLOCKED_HOSTNAMES:
+        return False, f"Target '{host}' is blocked for security reasons."
+
+    # Block if target is already a private IP literal
+    if _is_private_ip(host):
+        return False, f"Scanning private/internal IP addresses is not allowed."
+
+    # Resolve hostname and check the resolved IP(s)
+    try:
+        resolved = socket.getaddrinfo(host, None)
+        for item in resolved:
+            ip_str = item[4][0]
+            if _is_private_ip(ip_str):
+                logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
+                return False, f"Target resolves to a private/internal IP address — not allowed."
+    except socket.gaierror:
+        pass  # DNS failure — let the scanner handle it
+
+    return True, ""
+
+
 # ── Target lock helpers ────────────────────────────────────────────────────────
 
 def _normalize_target(raw: str) -> str:
@@ -148,10 +212,21 @@ def _normalize_target(raw: str) -> str:
 
 
 def _check_target_lock(raw_target: str):
-    """
-    Enforce admin-assigned target restriction.
+    """Enforce SSRF protection and admin-assigned target restriction.
+
     Returns (True, None) if allowed, (False, error_response) if blocked.
     """
+    # ── SSRF guard (applies to everyone including admin) ──────────────────
+    safe, ssrf_err = check_ssrf(raw_target)
+    if not safe:
+        log_event(
+            "ssrf_blocked", getattr(current_user, "username", "?"),
+            getattr(current_user, "id", 0),
+            category="security", resource=raw_target, status="denied",
+            ip_address=request.remote_addr, details=ssrf_err,
+        )
+        return False, (jsonify({"error": ssrf_err, "ssrf_blocked": True}), 403)
+
     if current_user.role == "admin":
         return True, None
 

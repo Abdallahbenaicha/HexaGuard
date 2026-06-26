@@ -20,6 +20,12 @@ const translations = {
         nav_config_int_desc:   'Analyse uploaded config file for issues',
         nav_server_ext:        'External Server Audit',
         nav_server_ext_desc:   'Probe server externally for misconfigs',
+        nav_docker:            'Docker Security',
+        nav_docker_desc:       'Dockerfile & compose.yml audit',
+        nav_dns:               'DNS & Email Security',
+        nav_dns_desc:          'SPF, DMARC, DKIM, DNSSEC checks',
+        nav_wordpress:         'WordPress Audit',
+        nav_wordpress_desc:    'WordPress site security scan',
 
         // ── Sidebar ───────────────────────────────────────────
         admin_panel:      'Admin Panel',
@@ -214,6 +220,12 @@ const translations = {
         nav_config_int_desc:   'تحليل ملف الإعداد المرفوع',
         nav_server_ext:        'تدقيق الخادم الخارجي',
         nav_server_ext_desc:   'فحص الخادم خارجياً للإعدادات الخاطئة',
+        nav_docker:            'أمان Docker',
+        nav_docker_desc:       'تدقيق Dockerfile وdocker-compose',
+        nav_dns:               'أمان DNS والبريد',
+        nav_dns_desc:          'فحص SPF وDMARC وDKIM وDNSSEC',
+        nav_wordpress:         'تدقيق WordPress',
+        nav_wordpress_desc:    'فحص أمان مواقع WordPress',
 
         // ── Sidebar ───────────────────────────────────────────
         admin_panel:      'لوحة الإدارة',

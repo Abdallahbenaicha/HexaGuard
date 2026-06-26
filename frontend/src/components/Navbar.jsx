@@ -4,7 +4,7 @@ import {
     Moon, Sun, User, LogOut, Menu, X,
     ChevronDown, Network, Globe, Server, Package,
     Shield, FileSearch, Layers, Zap, Lock,
-    Command
+    Command, Container, Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -78,18 +78,21 @@ const NAV_GROUPS = [
         labelKey: 'nav_scan_web',
         icon: Globe,
         items: [
-            { labelKey: 'nav_web_app_scan', descKey: 'nav_web_app_desc', to: '/scan/web',    icon: Globe  },
-            { labelKey: 'nav_dast',         descKey: 'nav_dast_desc',    to: '/scan/dast',   icon: Zap    },
-            { labelKey: 'nav_code_sast',    descKey: 'nav_code_desc',    to: '/scan/code',   icon: Layers },
-            { labelKey: 'nav_ssl_audit',    descKey: 'nav_ssl_desc',     to: '/scan/ssl',    icon: Lock   },
+            { labelKey: 'nav_web_app_scan', descKey: 'nav_web_app_desc', to: '/scan/web',       icon: Globe  },
+            { labelKey: 'nav_dast',         descKey: 'nav_dast_desc',    to: '/scan/dast',       icon: Zap    },
+            { labelKey: 'nav_code_sast',    descKey: 'nav_code_desc',    to: '/scan/code',       icon: Layers },
+            { labelKey: 'nav_ssl_audit',    descKey: 'nav_ssl_desc',     to: '/scan/ssl',        icon: Lock   },
+            { labelKey: 'nav_wordpress',    descKey: 'nav_wordpress_desc', to: '/scan/wordpress', icon: Globe  },
         ],
     },
     {
         labelKey: 'nav_scan_server',
         icon: Server,
         items: [
-            { labelKey: 'nav_config_int', descKey: 'nav_config_int_desc', to: '/scan/apache',     icon: FileSearch },
-            { labelKey: 'nav_server_ext', descKey: 'nav_server_ext_desc', to: '/scan/server-ext', icon: Shield     },
+            { labelKey: 'nav_config_int',  descKey: 'nav_config_int_desc', to: '/scan/apache',     icon: FileSearch },
+            { labelKey: 'nav_server_ext',  descKey: 'nav_server_ext_desc', to: '/scan/server-ext', icon: Shield     },
+            { labelKey: 'nav_docker',      descKey: 'nav_docker_desc',     to: '/scan/docker',     icon: Container  },
+            { labelKey: 'nav_dns',         descKey: 'nav_dns_desc',        to: '/scan/dns',         icon: Mail       },
         ],
     },
 ];
@@ -237,14 +240,17 @@ const Navbar = () => {
                     </Link>
 
                     <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t('nav_scan_web')}</p>
-                    <Link to="/scan/web"   onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_web_app_scan')}</Link>
-                    <Link to="/scan/dast"  onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_dast')}</Link>
-                    <Link to="/scan/code"  onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_code_sast')}</Link>
-                    <Link to="/scan/ssl"   onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_ssl_audit')}</Link>
+                    <Link to="/scan/web"       onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_web_app_scan')}</Link>
+                    <Link to="/scan/dast"      onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_dast')}</Link>
+                    <Link to="/scan/code"      onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_code_sast')}</Link>
+                    <Link to="/scan/ssl"       onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_ssl_audit')}</Link>
+                    <Link to="/scan/wordpress" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_wordpress')}</Link>
 
                     <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t('nav_scan_server')}</p>
                     <Link to="/scan/apache"     onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_config_int')}</Link>
                     <Link to="/scan/server-ext" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_server_ext')}</Link>
+                    <Link to="/scan/docker"     onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_docker')}</Link>
+                    <Link to="/scan/dns"        onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('nav_dns')}</Link>
 
                     <Link to="/scan/dependencies" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm font-medium text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800">{t('nav_dependencies')}</Link>
                     <Link to="/chat"              onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10">{t('nav_aria_ai')}</Link>
