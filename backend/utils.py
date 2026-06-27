@@ -140,6 +140,56 @@ def require_permission(permission: str):
     return decorator
 
 
+# ── Scanner permission guard ───────────────────────────────────────────────────
+
+# Canonical slug → human label (used in error messages)
+SCANNER_LABELS: dict[str, str] = {
+    "web":       "Web Application Scan",
+    "ssl":       "SSL/TLS Audit",
+    "network":   "Network Recon",
+    "dast":      "Dynamic Analysis (DAST)",
+    "code":      "Code Audit (SAST)",
+    "config":    "Config Audit",
+    "server":    "Server Audit",
+    "deps":      "Dependency Check",
+    "docker":    "Docker Security",
+    "dns":       "DNS & Email Security",
+    "wordpress": "WordPress Audit",
+}
+
+
+def require_scanner(slug: str):
+    """Enforce scanner-level access control.
+
+    Admin: always allowed.
+    User with allowed_scanners=None (legacy/unrestricted): allowed.
+    User with allowed_scanners=[...]: only if slug is in the list.
+    """
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if current_user.role == "admin":
+                return f(*args, **kwargs)
+            scanners = getattr(current_user, "allowed_scanners", None)
+            if scanners is not None and slug not in scanners:
+                label = SCANNER_LABELS.get(slug, slug)
+                log_event(
+                    "scanner_forbidden", current_user.username, current_user.id,
+                    category="security", resource=slug, status="denied",
+                    ip_address=request.remote_addr,
+                    details=f"Scanner '{slug}' not in user's subscription",
+                )
+                return jsonify({
+                    "error": f"ليس لديك صلاحية استخدام «{label}». تواصل مع المدير لتفعيل هذا الفاحص.",
+                    "scanner_forbidden": True,
+                    "scanner_slug": slug,
+                }), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 # ── SSRF Protection ───────────────────────────────────────────────────────────
 
 _PRIVATE_NETWORKS = [

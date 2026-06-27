@@ -1,6 +1,7 @@
 const translations = {
     en: {
         // ── Navbar ────────────────────────────────────────────
+        nav_scanners:       'Scanners',
         nav_scan_network:   'Scan Network',
         nav_scan_web:       'Scan Web',
         nav_scan_server:    'Scan Server',
@@ -201,6 +202,7 @@ const translations = {
 
     ar: {
         // ── Navbar ────────────────────────────────────────────
+        nav_scanners:       'الفاحصات',
         nav_scan_network:   'فحص الشبكة',
         nav_scan_web:       'فحص الويب',
         nav_scan_server:    'فحص الخادم',

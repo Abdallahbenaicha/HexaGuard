@@ -32,7 +32,7 @@ from scanners.server_ext import run_server_scan
 from scanners.server_int import generate_fixed_config, run_server_config_scan
 from scanners.ssl_scanner import run_ssl_scan
 from scanners.web_scanner import run_web_scan
-from utils import _check_target_lock, require_permission, validate_upload
+from utils import _check_target_lock, require_permission, require_scanner, validate_upload
 from flask_cors import cross_origin
 
 logger = logging.getLogger(__name__)
@@ -269,6 +269,7 @@ def start_scan():
 # ════════════════════════════════════════════════════════════════════════════
 
 @scans_bp.route("/scan_url", methods=["POST"])
+@require_scanner("web")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -311,6 +312,7 @@ def scan_url_bridge():
 
 
 @scans_bp.route("/scan_network", methods=["POST"])
+@require_scanner("network")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
 @csrf.exempt
@@ -357,6 +359,7 @@ def scan_network_bridge():
 
 
 @scans_bp.route("/analyze_code", methods=["POST"])
+@require_scanner("code")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -397,6 +400,7 @@ def analyze_code_bridge():
 
 
 @scans_bp.route("/fix_config", methods=["POST"])
+@require_scanner("config")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -447,6 +451,7 @@ def fix_config_bridge():
 
 
 @scans_bp.route("/scan_server", methods=["POST"])
+@require_scanner("server")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
 @csrf.exempt
@@ -487,6 +492,7 @@ def scan_server_bridge():
 
 
 @scans_bp.route("/scan_dast", methods=["POST"])
+@require_scanner("dast")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -542,6 +548,7 @@ def scan_dast_bridge():
 
 
 @scans_bp.route("/scan_ssl", methods=["POST"])
+@require_scanner("ssl")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -579,6 +586,7 @@ def scan_ssl_bridge():
 
 
 @scans_bp.route("/scan_dependencies", methods=["POST"])
+@require_scanner("deps")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -636,6 +644,7 @@ def _ctx_finalize(result, breakdown, target, user_id, username):
 
 
 @scans_bp.route("/api/scan/async/web", methods=["POST"])
+@require_scanner("web")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -677,6 +686,7 @@ def async_scan_web():
 
 
 @scans_bp.route("/api/scan/async/network", methods=["POST"])
+@require_scanner("network")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
 @csrf.exempt
@@ -718,6 +728,7 @@ def async_scan_network():
 
 
 @scans_bp.route("/api/scan/async/dast", methods=["POST"])
+@require_scanner("dast")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -761,6 +772,7 @@ def async_scan_dast():
 
 
 @scans_bp.route("/api/scan/async/ssl", methods=["POST"])
+@require_scanner("ssl")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
@@ -798,6 +810,7 @@ def async_scan_ssl():
 
 
 @scans_bp.route("/api/scan/async/server", methods=["POST"])
+@require_scanner("server")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
 @csrf.exempt

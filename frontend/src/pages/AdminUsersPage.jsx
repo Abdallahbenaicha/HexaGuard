@@ -5,8 +5,113 @@ import {
     Users, AlertTriangle, ShieldCheck, UserPlus, Trash2,
     ArrowLeft, Activity, FileText,
     Search, ChevronLeft, ChevronRight, RefreshCw, KeyRound, Globe, Unlock,
-    Ban, ShieldOff, MapPin
+    Ban, ShieldOff, MapPin, ScanLine, X, Check,
 } from 'lucide-react';
+
+// ── All scanner slugs/labels for the permission modal ────────────────────────
+const ALL_SCANNERS = [
+    { slug: 'web',       label: 'Web Application' },
+    { slug: 'ssl',       label: 'SSL/TLS Audit'   },
+    { slug: 'network',   label: 'Network Recon'   },
+    { slug: 'dast',      label: 'Dynamic (DAST)'  },
+    { slug: 'code',      label: 'Code (SAST)'     },
+    { slug: 'config',    label: 'Config Audit'    },
+    { slug: 'server',    label: 'Server Audit'    },
+    { slug: 'deps',      label: 'Dependencies'    },
+    { slug: 'docker',    label: 'Docker Security' },
+    { slug: 'dns',       label: 'DNS & Email'     },
+    { slug: 'wordpress', label: 'WordPress Audit' },
+];
+
+function ScannerPermModal({ targetUser, onClose, onSave }) {
+    const current = targetUser.allowed_scanners; // null = unrestricted, [] / [...] = whitelist
+    const [unrestricted, setUnrestricted] = React.useState(current === null || current === undefined);
+    const [selected, setSelected] = React.useState(
+        Array.isArray(current) ? new Set(current) : new Set(ALL_SCANNERS.map(s => s.slug))
+    );
+    const [saving, setSaving] = React.useState(false);
+
+    const toggle = (slug) => {
+        setSelected(prev => {
+            const next = new Set(prev);
+            next.has(slug) ? next.delete(slug) : next.add(slug);
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        await onSave(unrestricted ? null : [...selected]);
+        setSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between mb-5">
+                    <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <ScanLine className="w-4 h-4 text-primary-500" />
+                            Scanner Permissions
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">@{targetUser.username}</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Unrestricted toggle */}
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mb-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <input
+                        type="checkbox"
+                        checked={unrestricted}
+                        onChange={e => setUnrestricted(e.target.checked)}
+                        className="w-4 h-4 rounded accent-primary-500"
+                    />
+                    <div>
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Unrestricted access</div>
+                        <div className="text-xs text-slate-400">Can use all current and future scanners</div>
+                    </div>
+                </label>
+
+                {/* Per-scanner toggles */}
+                {!unrestricted && (
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                        {ALL_SCANNERS.map(s => (
+                            <label key={s.slug} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                <div className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-colors flex-shrink-0 ${
+                                    selected.has(s.slug)
+                                        ? 'bg-primary-500 border-primary-500'
+                                        : 'border-slate-300 dark:border-slate-600'
+                                }`} onClick={() => toggle(s.slug)}>
+                                    {selected.has(s.slug) && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <span className="text-sm text-slate-700 dark:text-slate-300 select-none" onClick={() => toggle(s.slug)}>
+                                    {s.label}
+                                </span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+
+                <div className="flex gap-2 mt-5">
+                    <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex-1 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
+                    >
+                        {saving ? 'Saving…' : 'Save Permissions'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 import { useAuth } from '../context/AuthContext';
 
 const AdminUsersPage = () => {
@@ -24,6 +129,7 @@ const AdminUsersPage = () => {
     const [createError, setCreateError]     = useState('');
     const [createSuccess, setCreateSuccess] = useState('');
     const [showModal, setShowModal]         = useState(false);
+    const [scannerModal, setScannerModal]   = useState(null); // user object or null
 
     // Filters & pagination
     const [search, setSearch]   = useState('');
@@ -124,6 +230,18 @@ const AdminUsersPage = () => {
 
     return (
         <div className="animate-in fade-in duration-500">
+
+        {/* Scanner Permission Modal */}
+        {scannerModal && (
+            <ScannerPermModal
+                targetUser={scannerModal}
+                onClose={() => setScannerModal(null)}
+                onSave={async (allowedScanners) => {
+                    await handlePatch(scannerModal.id, { allowed_scanners: allowedScanners });
+                    setScannerModal(null);
+                }}
+            />
+        )}
             {/* ── Header ── */}
             <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -337,6 +455,21 @@ const AdminUsersPage = () => {
                                                             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20" title={`Authorized target: ${u.locked_target}`}>
                                                                 <MapPin className="w-2.5 h-2.5" />
                                                                 {u.locked_target}
+                                                            </span>
+                                                        )}
+                                                        {u.role !== 'admin' && (
+                                                            <span
+                                                                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer
+                                                                    bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400
+                                                                    border border-emerald-200 dark:border-emerald-500/20 hover:opacity-80 transition-opacity"
+                                                                title="Click to manage scanner permissions"
+                                                                onClick={() => setScannerModal(u)}
+                                                            >
+                                                                <ScanLine className="w-2.5 h-2.5" />
+                                                                {u.allowed_scanners === null || u.allowed_scanners === undefined
+                                                                    ? 'All scanners'
+                                                                    : `${u.allowed_scanners.length} scanner${u.allowed_scanners.length !== 1 ? 's' : ''}`
+                                                                }
                                                             </span>
                                                         )}
                                                     </div>

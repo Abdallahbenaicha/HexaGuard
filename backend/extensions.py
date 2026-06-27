@@ -17,7 +17,7 @@ csrf          = CSRFProtect()
 login_manager = LoginManager()
 limiter       = Limiter(
     key_func=get_remote_address,
-    default_limits=["200/hour", "50/minute"],
+    default_limits=["500/hour", "200/minute"],
 )
 
 _DEFAULT_ORIGINS = (

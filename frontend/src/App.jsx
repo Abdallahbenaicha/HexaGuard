@@ -38,6 +38,8 @@ import HelpPage           from './pages/HelpPage';
 import DockerScanPage     from './pages/DockerScanPage';
 import DnsScanPage        from './pages/DnsScanPage';
 import WordPressScanPage  from './pages/WordPressScanPage';
+import ScannerHubPage    from './pages/ScannerHubPage';
+import ScannerGuard      from './components/ScannerGuard';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -156,31 +158,34 @@ function AppInner() {
                 <Route path="/login"    element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
-                {/* Scan routes — require login */}
-                <Route path="/scan/web"          element={<ProtectedRoute element={<WebScanPage />} />} />
+                {/* Scanner Hub — discovery page */}
+                <Route path="/scan"              element={<ProtectedRoute element={<ScannerHubPage />} />} />
+
+                {/* Scan routes — guarded by ScannerGuard (checks allowed_scanners) */}
+                <Route path="/scan/web"          element={<ProtectedRoute element={<ScannerGuard slug="web"    element={<WebScanPage />} />} />} />
                 <Route path="/web-scan"          element={<Navigate to="/scan/web"      replace />} />
 
-                <Route path="/scan/apache"       element={<ProtectedRoute element={<ApacheScanPage />} />} />
+                <Route path="/scan/apache"       element={<ProtectedRoute element={<ScannerGuard slug="config" element={<ApacheScanPage />} />} />} />
                 <Route path="/apache-scan"       element={<Navigate to="/scan/apache"   replace />} />
 
-                <Route path="/scan/code"         element={<ProtectedRoute element={<CodeScanPage />} />} />
+                <Route path="/scan/code"         element={<ProtectedRoute element={<ScannerGuard slug="code"   element={<CodeScanPage />} />} />} />
                 <Route path="/code-scan"         element={<Navigate to="/scan/code"     replace />} />
 
-                <Route path="/scan/network"      element={<ProtectedRoute element={<NetworkScanPage />} />} />
+                <Route path="/scan/network"      element={<ProtectedRoute element={<ScannerGuard slug="network" element={<NetworkScanPage />} />} />} />
                 <Route path="/network-scan"      element={<Navigate to="/scan/network"  replace />} />
 
-                <Route path="/scan/dast"         element={<ProtectedRoute element={<DastScanPage />} />} />
+                <Route path="/scan/dast"         element={<ProtectedRoute element={<ScannerGuard slug="dast"   element={<DastScanPage />} />} />} />
                 <Route path="/dast-scan"         element={<Navigate to="/scan/dast"     replace />} />
 
-                <Route path="/scan/dependencies" element={<ProtectedRoute element={<DependencyScanPage />} />} />
+                <Route path="/scan/dependencies" element={<ProtectedRoute element={<ScannerGuard slug="deps"   element={<DependencyScanPage />} />} />} />
                 <Route path="/dependency-scan"   element={<Navigate to="/scan/dependencies" replace />} />
 
-                <Route path="/scan/ssl"          element={<ProtectedRoute element={<SslScanPage />} />} />
+                <Route path="/scan/ssl"          element={<ProtectedRoute element={<ScannerGuard slug="ssl"    element={<SslScanPage />} />} />} />
                 <Route path="/ssl-scan"          element={<Navigate to="/scan/ssl"          replace />} />
 
-                {/* New route aliases for reorganized nav */}
-                <Route path="/scan/network-ext"  element={<ProtectedRoute element={<NetworkScanPage />} />} />
-                <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ApacheScanPage />} />} />
+                {/* Route aliases */}
+                <Route path="/scan/network-ext"  element={<ProtectedRoute element={<ScannerGuard slug="network" element={<NetworkScanPage />} />} />} />
+                <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ScannerGuard slug="server"  element={<ApacheScanPage />} />} />} />
 
                 {/* Profile */}
                 <Route path="/profile"           element={<ProtectedRoute element={<ProfilePage />} />} />
@@ -200,10 +205,10 @@ function AppInner() {
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />
                 <Route path="/help"              element={<ProtectedRoute element={<HelpPage />} />} />
 
-                {/* Extra scanners */}
-                <Route path="/scan/docker"       element={<ProtectedRoute element={<DockerScanPage />} />} />
-                <Route path="/scan/dns"          element={<ProtectedRoute element={<DnsScanPage />} />} />
-                <Route path="/scan/wordpress"    element={<ProtectedRoute element={<WordPressScanPage />} />} />
+                {/* Extra scanners — permission-guarded */}
+                <Route path="/scan/docker"       element={<ProtectedRoute element={<ScannerGuard slug="docker"    element={<DockerScanPage />} />} />} />
+                <Route path="/scan/dns"          element={<ProtectedRoute element={<ScannerGuard slug="dns"       element={<DnsScanPage />} />} />} />
+                <Route path="/scan/wordpress"    element={<ProtectedRoute element={<ScannerGuard slug="wordpress" element={<WordPressScanPage />} />} />} />
 
                 {/* AI Chat */}
                 <Route path="/chat"              element={<ProtectedRoute element={<ChatPage />} />} />

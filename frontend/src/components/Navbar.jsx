@@ -4,7 +4,7 @@ import {
     Moon, Sun, User, LogOut, Menu, X,
     ChevronDown, Network, Globe, Server, Package,
     Shield, FileSearch, Layers, Zap, Lock,
-    Command, Box, Mail,
+    Command, Box, Mail, LayoutGrid as HubIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -147,6 +147,19 @@ const Navbar = () => {
 
                     {/* Center: nav items */}
                     <div className="hidden lg:flex items-center gap-2">
+                        {/* Scanner Hub — always visible, shows all scanners with lock state */}
+                        <Link
+                            to="/scan"
+                            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                                pathname === '/scan'
+                                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/50'
+                            }`}
+                        >
+                            <HubIcon className="w-3.5 h-3.5" />
+                            {t('nav_scanners') || 'Scanners'}
+                        </Link>
+
                         <Link
                             to="/scan/network"
                             className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${

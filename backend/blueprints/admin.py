@@ -254,6 +254,15 @@ def api_admin_update_user(uid: int):
             locked_target_value = None
             audit_action = "target_lock_reset"
 
+    from database import _UNSET as _DB_UNSET2
+    # Scanner permissions: accept list or None (unrestricted)
+    scanner_key = "allowed_scanners"
+    allowed_scanners = _DB_UNSET2
+    if scanner_key in data:
+        raw_scanners = data[scanner_key]
+        # None → unrestricted, list → whitelist
+        allowed_scanners = raw_scanners if isinstance(raw_scanners, list) else None
+
     ok, msg = update_user(
         uid,
         role=role,
@@ -263,10 +272,12 @@ def api_admin_update_user(uid: int):
         reset_locked_target=reset_locked_target,
         locked_target_value=locked_target_value,
         failed_attempts=0 if reset_failed else None,
+        allowed_scanners=allowed_scanners,
     )
     if ok:
         log_event(audit_action, current_user.username, current_user.id,
-                  category="admin", resource=str(uid), status="success")
+                  category="admin", resource=str(uid), status="success",
+                  details=f"scanners={allowed_scanners if allowed_scanners is not _DB_UNSET2 else 'unchanged'}")
     return jsonify({"ok": ok, "message": msg}), (200 if ok else 400)
 
 

@@ -404,10 +404,12 @@ def init_db():
             except sqlite3.OperationalError:
                 pass  # column already exists
 
-    # TOTP migration: add api_token columns if they don't exist yet
+    # Incremental migrations (safe to run repeatedly — each is idempotent)
     for migration in [
         "ALTER TABLE users ADD COLUMN api_token TEXT",
         "ALTER TABLE users ADD COLUMN api_token_created TEXT",
+        # Scanner permission system: NULL = unrestricted (admin/legacy), JSON array = whitelist
+        "ALTER TABLE users ADD COLUMN allowed_scanners TEXT DEFAULT NULL",
     ]:
         try:
             db.execute(migration)
@@ -481,6 +483,12 @@ def _norm(row) -> dict | None:
             d["permissions"] = []
     elif not isinstance(d.get("permissions"), list):
         d["permissions"] = []
+    # Parse allowed_scanners JSON string → list (None stays None = unrestricted)
+    if "allowed_scanners" in d and isinstance(d.get("allowed_scanners"), str):
+        try:
+            d["allowed_scanners"] = json.loads(d["allowed_scanners"])
+        except (ValueError, TypeError):
+            d["allowed_scanners"] = None
     return d
 
 
@@ -556,9 +564,27 @@ def create_user(username: str, password: str, role: str = "analyst",
         return False, f"Database error: {exc}"
 
 
+def get_allowed_scanners(user_id: int) -> list[str] | None:
+    """Return the whitelist of allowed scanner slugs, or None if unrestricted."""
+    row = _get_db().execute(
+        "SELECT allowed_scanners FROM users WHERE id=?", (user_id,)
+    ).fetchone()
+    if not row:
+        return None
+    raw = row[0] if isinstance(row, (list, tuple)) else row.get("allowed_scanners")
+    if raw is None:
+        return None  # unrestricted
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, list) else None
+    except Exception:
+        return None
+
+
 def update_user(uid: int, role=None, permissions=None, is_active=None,
                 new_password=None, failed_attempts=None, locked_until=None,
-                reset_locked_target=False, locked_target_value=_UNSET, **_) -> tuple[bool, str]:
+                reset_locked_target=False, locked_target_value=_UNSET,
+                allowed_scanners=_UNSET, **_) -> tuple[bool, str]:
     fields, values = [], []
     if role            is not None: fields.append("role=?");             values.append(role)
     if permissions     is not None: fields.append("permissions=?");      values.append(json.dumps(permissions))
@@ -571,8 +597,11 @@ def update_user(uid: int, role=None, permissions=None, is_active=None,
     if reset_locked_target:
         fields.append("locked_target=?"); values.append(None)
     elif locked_target_value is not _UNSET:
-        # Admin explicitly setting a target (None = clear, str = set)
         fields.append("locked_target=?"); values.append(locked_target_value)
+    if allowed_scanners is not _UNSET:
+        # None → unrestricted (NULL in DB), list → JSON whitelist
+        fields.append("allowed_scanners=?")
+        values.append(None if allowed_scanners is None else json.dumps(list(allowed_scanners)))
     if not fields:
         return True, ""
     values.append(uid)

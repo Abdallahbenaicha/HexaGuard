@@ -20,19 +20,21 @@ class User(UserMixin):
                  totp_secret: Optional[str] = None, totp_enabled: bool = False,
                  failed_attempts: int = 0, locked_until: Optional[str] = None,
                  is_active: bool = True, last_login: Optional[str] = None,
-                 login_count: int = 0):
-        self.id              = user_id
-        self.username        = username
-        self._pass_hash      = password_hash
-        self.role            = role
-        self._permissions    = set(permissions)
-        self.totp_secret     = totp_secret
-        self.totp_enabled    = bool(totp_enabled)
-        self.failed_attempts = int(failed_attempts or 0)
-        self.locked_until    = locked_until
-        self._is_active      = bool(is_active)
-        self.last_login      = last_login
-        self.login_count     = int(login_count or 0)
+                 login_count: int = 0, allowed_scanners: Optional[list] = None):
+        self.id               = user_id
+        self.username         = username
+        self._pass_hash       = password_hash
+        self.role             = role
+        self._permissions     = set(permissions)
+        self.totp_secret      = totp_secret
+        self.totp_enabled     = bool(totp_enabled)
+        self.failed_attempts  = int(failed_attempts or 0)
+        self.locked_until     = locked_until
+        self._is_active       = bool(is_active)
+        self.last_login       = last_login
+        self.login_count      = int(login_count or 0)
+        # None = unrestricted (admin / legacy); list = explicit whitelist
+        self.allowed_scanners = allowed_scanners
 
     def check_password(self, password: str) -> bool:
         try:
@@ -86,19 +88,27 @@ class User(UserMixin):
 
 
 def _row_to_user(row: dict) -> User:
+    import json as _json
+    raw_scanners = row.get("allowed_scanners")
+    try:
+        allowed_scanners = _json.loads(raw_scanners) if raw_scanners is not None else None
+    except Exception:
+        allowed_scanners = None
+
     return User(
-        user_id       = row["id"],
-        username      = row["username"],
-        password_hash = row["password_hash"],
-        role          = row.get("role", "analyst"),
-        permissions   = row.get("permissions", []),
-        totp_secret   = row.get("totp_secret"),
-        totp_enabled  = row.get("totp_enabled", False),
-        failed_attempts = row.get("failed_attempts", 0),
-        locked_until  = row.get("locked_until"),
-        is_active     = bool(row.get("is_active", 1)),
-        last_login    = row.get("last_login"),
-        login_count   = row.get("login_count", 0),
+        user_id          = row["id"],
+        username         = row["username"],
+        password_hash    = row["password_hash"],
+        role             = row.get("role", "analyst"),
+        permissions      = row.get("permissions", []),
+        totp_secret      = row.get("totp_secret"),
+        totp_enabled     = row.get("totp_enabled", False),
+        failed_attempts  = row.get("failed_attempts", 0),
+        locked_until     = row.get("locked_until"),
+        is_active        = bool(row.get("is_active", 1)),
+        last_login       = row.get("last_login"),
+        login_count      = row.get("login_count", 0),
+        allowed_scanners = allowed_scanners,
     )
 
 

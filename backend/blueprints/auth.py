@@ -242,15 +242,16 @@ def api_me():
     return jsonify({
         "authenticated": True,
         "user": {
-            "id":           current_user.id,
-            "username":     current_user.username,
-            "role":         current_user.role,
-            "is_admin":     current_user.is_admin,
-            "permissions":  list(current_user._permissions),
-            "totp_enabled": current_user.totp_enabled,
-            "is_active":    current_user.is_active,
-            "last_login":   current_user.last_login,
-            "login_count":  current_user.login_count,
+            "id":               current_user.id,
+            "username":         current_user.username,
+            "role":             current_user.role,
+            "is_admin":         current_user.is_admin,
+            "permissions":      list(current_user._permissions),
+            "totp_enabled":     current_user.totp_enabled,
+            "is_active":        current_user.is_active,
+            "last_login":       current_user.last_login,
+            "login_count":      current_user.login_count,
+            "allowed_scanners": current_user.allowed_scanners,
         },
     })
 

@@ -20,7 +20,7 @@ from risk_engine import calculate_risk_v2
 from scanners.docker_scanner    import run_docker_scan
 from scanners.dns_scanner       import run_dns_scan
 from scanners.wordpress_scanner import run_wordpress_scan
-from utils import _check_target_lock, require_permission, validate_upload
+from utils import _check_target_lock, require_permission, require_scanner, validate_upload
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,7 @@ def _build_response(result: dict, breakdown, report_token: str) -> dict:
 # ── Docker / Container Scan ───────────────────────────────────────────────────
 
 @extra_bp.route("/scan_docker", methods=["POST"])
+@require_scanner("docker")
 @require_permission("run_scan")
 @limiter.limit("10/minute")
 @csrf.exempt
@@ -133,6 +134,7 @@ def scan_docker():
 # ── DNS / Email Security Scan ─────────────────────────────────────────────────
 
 @extra_bp.route("/scan_dns", methods=["POST"])
+@require_scanner("dns")
 @require_permission("run_scan")
 @limiter.limit("10/minute")
 @csrf.exempt
@@ -167,6 +169,7 @@ def scan_dns():
 # ── WordPress Security Scan ───────────────────────────────────────────────────
 
 @extra_bp.route("/scan_wordpress", methods=["POST"])
+@require_scanner("wordpress")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
 @csrf.exempt
