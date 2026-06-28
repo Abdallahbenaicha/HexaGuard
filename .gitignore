@@ -24,6 +24,10 @@ dist/
 report/vulnerability_report.md
 report/findings_summary.csv
 
+# External PDF/MD documents (generated outside codebase — not part of source)
+SecurAx_*.pdf
+SecurAx_*.md
+
 # OS files
 .DS_Store
 Thumbs.db
