@@ -64,13 +64,14 @@ def create_app() -> Flask:
         return redirect(url_for("auth.login"))
 
     # ── Blueprints ───────────────────────────────────────────────────────────
-    from blueprints.auth        import auth_bp
-    from blueprints.scans       import scans_bp
-    from blueprints.reports     import reports_bp
-    from blueprints.admin       import admin_bp
-    from blueprints.ai_routes   import ai_bp
-    from blueprints.scheduled   import scheduled_bp
-    from blueprints.extra_scans import extra_bp
+    from blueprints.auth                import auth_bp
+    from blueprints.scans               import scans_bp
+    from blueprints.reports             import reports_bp
+    from blueprints.admin               import admin_bp
+    from blueprints.ai_routes           import ai_bp
+    from blueprints.scheduled           import scheduled_bp
+    from blueprints.extra_scans         import extra_bp
+    from blueprints.domain_verification import domain_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)
@@ -79,6 +80,7 @@ def create_app() -> Flask:
     app.register_blueprint(ai_bp)
     app.register_blueprint(scheduled_bp)
     app.register_blueprint(extra_bp)
+    app.register_blueprint(domain_bp)
 
     # ── DB init ──────────────────────────────────────────────────────────────
     from database import init_db

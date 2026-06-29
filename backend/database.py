@@ -268,6 +268,16 @@ _SCHEMA_SQLITE = """
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_subs_plan ON subscriptions (plan);
+    CREATE TABLE IF NOT EXISTS domain_verifications (
+        user_id      INTEGER PRIMARY KEY,
+        domain       TEXT    NOT NULL,
+        verify_token TEXT    NOT NULL,
+        verified     INTEGER NOT NULL DEFAULT 0,
+        verified_at  TEXT,
+        verified_by  TEXT,
+        created_at   TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
 """
 
 _SCHEMA_MYSQL = """
@@ -393,6 +403,16 @@ _SCHEMA_MYSQL = """
         expires_at   VARCHAR(50),
         notes        TEXT,
         created_at   VARCHAR(50) NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE IF NOT EXISTS domain_verifications (
+        user_id      INT          PRIMARY KEY,
+        domain       VARCHAR(255) NOT NULL,
+        verify_token VARCHAR(64)  NOT NULL,
+        verified     TINYINT(1)   NOT NULL DEFAULT 0,
+        verified_at  VARCHAR(50),
+        verified_by  VARCHAR(150),
+        created_at   VARCHAR(50)  NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 """
@@ -1329,3 +1349,73 @@ def get_report_by_share_token(share_token: str) -> dict | None:
         return d
     except Exception:
         return None
+
+
+# ── Domain Verification ───────────────────────────────────────────────────────
+
+def request_domain_verification(user_id: int, domain: str) -> str:
+    """Create or refresh a verification request. Returns the verification token."""
+    token = uuid.uuid4().hex
+    now   = datetime.now(timezone.utc).isoformat()
+    domain = domain.strip().lower().removeprefix("http://").removeprefix("https://").split("/")[0]
+    existing = _get_db().execute(
+        "SELECT user_id FROM domain_verifications WHERE user_id=?", (user_id,)
+    ).fetchone()
+    if existing:
+        _exec(
+            "UPDATE domain_verifications"
+            " SET domain=?, verify_token=?, verified=0, verified_at=NULL, verified_by=NULL"
+            " WHERE user_id=?",
+            (domain, token, user_id),
+        )
+    else:
+        _exec(
+            "INSERT INTO domain_verifications"
+            " (user_id, domain, verify_token, verified, created_at)"
+            " VALUES (?, ?, ?, 0, ?)",
+            (user_id, domain, token, now),
+        )
+    return token
+
+
+def get_domain_verification(user_id: int) -> dict | None:
+    row = _get_db().execute(
+        "SELECT * FROM domain_verifications WHERE user_id=?", (user_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def mark_domain_verified(user_id: int, method: str) -> bool:
+    """Mark the user's domain as verified (called after DNS/meta check passes)."""
+    now = datetime.now(timezone.utc).isoformat()
+    cur = _exec(
+        "UPDATE domain_verifications"
+        " SET verified=1, verified_at=?, verified_by=?"
+        " WHERE user_id=? AND verified=0",
+        (now, method, user_id),
+    )
+    return (getattr(cur, "rowcount", 1) or 1) > 0
+
+
+def admin_verify_domain(user_id: int, domain: str) -> None:
+    """Admin bypass: directly set a domain as verified without any check."""
+    domain = domain.strip().lower().removeprefix("http://").removeprefix("https://").split("/")[0]
+    now   = datetime.now(timezone.utc).isoformat()
+    token = uuid.uuid4().hex
+    existing = _get_db().execute(
+        "SELECT user_id FROM domain_verifications WHERE user_id=?", (user_id,)
+    ).fetchone()
+    if existing:
+        _exec(
+            "UPDATE domain_verifications"
+            " SET domain=?, verify_token=?, verified=1, verified_at=?, verified_by='admin'"
+            " WHERE user_id=?",
+            (domain, token, now, user_id),
+        )
+    else:
+        _exec(
+            "INSERT INTO domain_verifications"
+            " (user_id, domain, verify_token, verified, verified_at, verified_by, created_at)"
+            " VALUES (?, ?, ?, 1, ?, 'admin', ?)",
+            (user_id, domain, token, now, now),
+        )
