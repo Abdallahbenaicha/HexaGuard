@@ -230,7 +230,7 @@ def _make_session() -> requests.Session:
     adapter = HTTPAdapter(max_retries=retry)
     sess.mount("https://", adapter)
     sess.mount("http://",  adapter)
-    sess.headers["User-Agent"] = "SecurAx-Security-Scanner/4.2"
+    sess.headers["User-Agent"] = "HexaGuard-Security-Scanner/4.2"
     return sess
 
 
@@ -278,7 +278,7 @@ def _dedup_key(v: dict) -> str:
 
 def _404_fingerprint(base_url: str, sess: requests.Session) -> tuple[int, str]:
     """Probe a nonexistent path to fingerprint soft-404 responses."""
-    probe = f"/securax-probe-{os.urandom(4).hex()}-notfound.html"
+    probe = f"/hexaguard-probe-{os.urandom(4).hex()}-notfound.html"
     try:
         r = sess.get(f"{base_url}{probe}", timeout=_PROBE_TO,
                      allow_redirects=False, verify=False)
@@ -693,7 +693,7 @@ def _api_google_safebrowsing(url: str) -> tuple[list[dict], dict]:
 
     try:
         body = {
-            "client":     {"clientId": "securax-scanner", "clientVersion": "4.2"},
+            "client":     {"clientId": "hexaguard-scanner", "clientVersion": "4.2"},
             "threatInfo": {
                 "threatTypes":      ["MALWARE", "SOCIAL_ENGINEERING",
                                      "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
@@ -1303,7 +1303,7 @@ def _local_cors(url: str, initial_headers: dict) -> list[dict]:
 
     # Test arbitrary origin reflection
     try:
-        evil_origin = "https://evil-attacker-securax.com"
+        evil_origin = "https://evil-attacker-hexaguard.com"
         r = sess.get(url, headers={"Origin": evil_origin},
                      timeout=_PROBE_TO, verify=False, allow_redirects=False)
         r_acao = r.headers.get("Access-Control-Allow-Origin", "")

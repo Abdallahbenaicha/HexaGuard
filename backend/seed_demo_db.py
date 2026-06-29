@@ -1,16 +1,16 @@
 """
 seed_demo_db.py
 ===============
-Creates a fresh demo database: securax_demo.db
+Creates a fresh demo database: hexaguard_demo.db
 populated with realistic security scan data that reflects
-the SecurAX PFE project goals (network, web, SAST, server scans).
+the HexaGuard PFE project goals (network, web, SAST, server scans).
 
 Usage:
     python seed_demo_db.py
 
 To switch to this DB:
-    1. Rename securax.db  ->  securax_backup.db
-    2. Rename securax_demo.db  ->  securax.db
+    1. Rename hexaguard.db  ->  hexaguard_backup.db
+    2. Rename hexaguard_demo.db  ->  hexaguard.db
     3. Restart the backend
 """
 
@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 
-DB_PATH = "securax_demo.db"
+DB_PATH = "hexaguard_demo.db"
 
 # ── Schema (identical to production) ─────────────────────────────────────────
 SCHEMA = """
@@ -212,14 +212,14 @@ def seed():
     print("[1/5] Creating users...")
 
     # Admin
-    insert_user(db, "admin",   "admin@securax.local",   "Admin@2024!",   "admin",
+    insert_user(db, "admin",   "admin@hexaguard.local",   "Admin@2024!",   "admin",
                 ["run_scan","view_reports","delete_reports","manage_users","view_audit"])
     # Analysts
-    insert_user(db, "yasser",  "yasser@securax.local",  "Analyst@2024!", "analyst",
+    insert_user(db, "yasser",  "yasser@hexaguard.local",  "Analyst@2024!", "analyst",
                 ["run_scan","view_reports"], created_days_ago=25)
-    insert_user(db, "sara",    "sara@securax.local",    "Analyst@2024!", "analyst",
+    insert_user(db, "sara",    "sara@hexaguard.local",    "Analyst@2024!", "analyst",
                 ["run_scan","view_reports"], created_days_ago=20)
-    insert_user(db, "hamza",   "hamza@securax.local",   "Analyst@2024!", "analyst",
+    insert_user(db, "hamza",   "hamza@hexaguard.local",   "Analyst@2024!", "analyst",
                 ["run_scan","view_reports"], created_days_ago=15)
     db.commit()
 
@@ -329,7 +329,7 @@ def seed():
         },
     ]
     r2_id, r2_tok = insert_report(db, uid_yasser, "yasser", "web",
-                                  "http://testapp.securax.local", 9.1, web_vulns_1,
+                                  "http://testapp.hexaguard.local", 9.1, web_vulns_1,
                                   stored_days_ago=10)
 
     # ── SAST SCAN — Python source code ───────────────────────────────────────
@@ -572,12 +572,12 @@ def seed():
         },
     ]
     r7_id, _ = insert_report(db, uid_admin, "admin", "dast",
-                              "http://staging.securax.local", 8.9, dast_vulns,
+                              "http://staging.hexaguard.local", 8.9, dast_vulns,
                               stored_days_ago=1)
 
     # ── Additional older reports for chart variety ────────────────────────────
     # Week ago scans
-    insert_report(db, uid_yasser, "yasser", "web", "http://blog.securax.local", 4.2,
+    insert_report(db, uid_yasser, "yasser", "web", "http://blog.hexaguard.local", 4.2,
                   [{"check":"missing_headers","severity":"medium","title":"Missing Security Headers",
                     "description":"X-Frame-Options and HSTS are missing.",
                     "evidence":"HTTP headers analyzed","remediation":"Add security headers","line_number":0,"cve_ids":[]}],
@@ -634,10 +634,10 @@ def seed():
                  "type=network_ext risk=8.7 level=HIGH findings=5", days_ago=14)
 
     insert_audit(db, "scan_started", "yasser", uid_yasser, "scan",
-                 "http://testapp.securax.local", "192.168.1.10", "success",
+                 "http://testapp.hexaguard.local", "192.168.1.10", "success",
                  "type=web", days_ago=10)
     insert_audit(db, "scan_completed", "yasser", uid_yasser, "scan",
-                 "http://testapp.securax.local", "192.168.1.10", "success",
+                 "http://testapp.hexaguard.local", "192.168.1.10", "success",
                  "type=web risk=9.1 level=CRITICAL findings=6", days_ago=10)
 
     insert_audit(db, "scan_started", "sara", uid_sara, "scan",
@@ -696,8 +696,8 @@ def seed():
     print("    hamza  / Analyst@2024! (analyst role)")
     print()
     print("  To switch to this DB (when you're ready):")
-    print("    1. Rename  securax.db       ->  securax_backup.db")
-    print("    2. Rename  securax_demo.db  ->  securax.db")
+    print("    1. Rename  hexaguard.db       ->  hexaguard_backup.db")
+    print("    2. Rename  hexaguard_demo.db  ->  hexaguard.db")
     print("    3. Restart the backend server")
     print("=" * 58)
 

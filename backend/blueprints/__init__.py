@@ -1,1 +1,1 @@
-# SecurAx blueprints package
+# HexaGuard blueprints package

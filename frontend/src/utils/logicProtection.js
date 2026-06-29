@@ -1,4 +1,4 @@
-// API base — set VITE_API_BASE_URL in .env for production (e.g. https://securax-backend.onrender.com)
+// API base — set VITE_API_BASE_URL in .env for production (e.g. https://hexaguard-backend.onrender.com)
 const BACKEND = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
 export const API_ENDPOINTS = {

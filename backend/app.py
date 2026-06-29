@@ -1,5 +1,5 @@
 """
-SecurAx Security Platform — Application factory.
+HexaGuard Security Platform — Application factory.
 
 All routes live in blueprints/. This file only wires extensions,
 middleware, blueprints, and the user-loader together.

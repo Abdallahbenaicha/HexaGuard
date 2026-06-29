@@ -1,4 +1,4 @@
-"""SecurAx — reports blueprint.
+"""HexaGuard — reports blueprint.
 
 Handles:
   - HTML views: /, /dashboard, /report/<token>, /download-fixed/<token>
@@ -150,7 +150,7 @@ def download_fixed(token: str):
         fixed_content.encode("utf-8"),
         mimetype="text/plain; charset=utf-8",
         headers={
-            "Content-Disposition": 'attachment; filename="httpd_securax_fixed.conf"',
+            "Content-Disposition": 'attachment; filename="httpd_hexaguard_fixed.conf"',
             "X-Changes-Count":     str(len(change_log)),
         },
     )
@@ -263,7 +263,7 @@ def download_report_pdf():
             canv.rect(0, PAGE_H - 1.1 * cm, PAGE_W, 1.1 * cm, fill=True, stroke=False)
             canv.setFillColor(rl_colors.white)
             canv.setFont(_FB, 8)
-            canv.drawString(L_MAR, PAGE_H - 0.72 * cm, "SECURAX Security Platform")
+            canv.drawString(L_MAR, PAGE_H - 0.72 * cm, "HEXAGUARD Security Platform")
             canv.setFont(_F, 8)
             canv.drawRightString(PAGE_W - R_MAR, PAGE_H - 0.72 * cm,
                                  f"CONFIDENTIAL  ·  Target: {target}")
@@ -315,7 +315,7 @@ def download_report_pdf():
         sub_s   = _ps("sub", fontSize=13, textColor=rl_colors.HexColor("#555555"),
                       alignment=TA_CENTER, spaceAfter=10)
         story.append(Spacer(1, 0.25 * cm))
-        story.append(Paragraph("SECURAX Security Platform", title_s))
+        story.append(Paragraph("HEXAGUARD Security Platform", title_s))
         story.append(Paragraph("Vulnerability Assessment Report", sub_s))
         story.append(Spacer(1, 0.25 * cm))
 
@@ -760,7 +760,7 @@ def download_report_pdf():
         story.append(HRFlowable(width="100%", thickness=0.5, color=C_BORDER))
         story.append(Spacer(1, 0.15 * cm))
         story.append(Paragraph(
-            "This report is generated automatically by SECURAX Security Platform. "
+            "This report is generated automatically by HEXAGUARD Security Platform. "
             "All findings should be verified by a qualified security professional "
             "before remediation. Unauthorized disclosure is prohibited.",
             _ps("fn", fontSize=7, textColor=C_MUTED, alignment=TA_CENTER, leading=10),
@@ -768,7 +768,7 @@ def download_report_pdf():
 
         doc.build(story, onFirstPage=_page_chrome, onLaterPages=_page_chrome)
         pdf_bytes = buf.getvalue()
-        fname = f"securax_report_{lang}.pdf"
+        fname = f"hexaguard_report_{lang}.pdf"
         return Response(
             pdf_bytes,
             mimetype="application/pdf",
@@ -977,7 +977,7 @@ def public_report(share_token):
         "low":         data.get("low_count"),
         "scanned_at":  data.get("stored_at"),
         "findings":    vulns[:50],
-        "powered_by":  "SecurAX — securax.dz",
+        "powered_by":  "HexaGuard — hexaguard.dz",
     })
 
 

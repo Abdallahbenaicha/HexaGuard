@@ -74,7 +74,7 @@ return jsonify({
     "fixed_config":  fixed_content,
     "change_log":    change_log,          # قائمة التعديلات
     "changes_count": len(change_log),
-    "filename":      "httpd_securax_fixed.conf",
+    "filename":      "httpd_hexaguard_fixed.conf",
 })
 ```
 

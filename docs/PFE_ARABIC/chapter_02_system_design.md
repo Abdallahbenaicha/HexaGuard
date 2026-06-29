@@ -1,5 +1,5 @@
 
-# الفصل الثاني: تحليل وتصميم نظام SecuraX
+# الفصل الثاني: تحليل وتصميم نظام HexaGuard
 
 ---
 
@@ -7,7 +7,7 @@
 
 قبل أن يُكتب أي سطر كود، لا بد من فهم النظام بشكل كامل: من يستخدمه؟ ماذا يحتاج؟ كيف تتفاعل مكوناته مع بعض؟ هذه المرحلة — التحليل والتصميم — هي التي تُحدد إذا كان المشروع سيُبنى على أسس صحيحة أم لا.
 
-في هذا الفصل، نعرض البنية المعمارية الكاملة لـ **SecuraX**، ومخططات الحالات (Use Cases)، ومخططات التسلسل (Sequence Diagrams)، ومخططات الفئات (Class Diagrams) — كل ذلك بأسلوب يُوضّح للمستخدم والمطور والمُحكِّم كيف يعمل النظام من الداخل.
+في هذا الفصل، نعرض البنية المعمارية الكاملة لـ **HexaGuard**، ومخططات الحالات (Use Cases)، ومخططات التسلسل (Sequence Diagrams)، ومخططات الفئات (Class Diagrams) — كل ذلك بأسلوب يُوضّح للمستخدم والمطور والمُحكِّم كيف يعمل النظام من الداخل.
 
 ---
 
@@ -17,12 +17,12 @@
 
 ### 2.1 مخطط السياق (Context Diagram)
 
-يُبيّن هذا المخطط موقع SecuraX بالنسبة للمستخدمين والأنظمة الخارجية:
+يُبيّن هذا المخطط موقع HexaGuard بالنسبة للمستخدمين والأنظمة الخارجية:
 
 ```
                      ┌─────────────────────────────────┐
                      │                                 │
-  [محلل أمني]  ──── │         منصة SecuraX            │ ──── [Gemini AI API]
+  [محلل أمني]  ──── │         منصة HexaGuard            │ ──── [Gemini AI API]
   [مطور ويب]   ──── │   (نظام كشف ثغرات متكامل)       │ ──── [NIST NVD API]
   [مدير نظام]  ──── │                                 │
                      └─────────────────────────────────┘
@@ -41,7 +41,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        منصة SecuraX                         │
+│                        منصة HexaGuard                         │
 │                                                             │
 │   ┌──────────────────┐         ┌──────────────────────┐    │
 │   │   واجهة أمامية  │  HTTP   │    خادم الخلفية      │    │
@@ -152,7 +152,7 @@ actor "Gemini AI" as AI
 User <|-- Analyst
 Analyst <|-- Admin
 
-rectangle "نظام SecuraX" {
+rectangle "نظام HexaGuard" {
   usecase "التسجيل / الدخول" as UC_Auth
   usecase "فحص موقع ويب (OWASP A01-A10)" as UC_Web
   usecase "فحص إعدادات Apache" as UC_Apache
@@ -209,7 +209,7 @@ participant "React Frontend" as FE
 participant "Flask Backend\n(app.py)" as BE
 participant "UrlScanner" as US
 participant "OWASPChecker" as OC
-participant "SecurAxAgent (AI)" as AI
+participant "HexaGuardAgent (AI)" as AI
 database "الموقع المستهدف" as Target
 
 User -> FE : إدخال URL والضغط على "فحص"
@@ -268,7 +268,7 @@ actor "المحلل" as User
 participant "React Frontend" as FE
 participant "Flask Backend" as BE
 participant "CodeAnalyzer" as CA
-participant "SecurAxAgent (AI)" as AI
+participant "HexaGuardAgent (AI)" as AI
 
 User -> FE : رفع ملف ZIP يحتوي الكود
 FE -> BE : POST /scan_code {file: zip_data}
@@ -394,7 +394,7 @@ class NetworkScanner {
   - _calc_overall_risk(): str
 }
 
-class SecurAxAgent {
+class HexaGuardAgent {
   + ai_active: bool
   + model: GenerativeModel
   + chat(message: str, context: dict): str
@@ -418,7 +418,7 @@ class ReportGenerator {
 UrlScanner "1" *-- "1" OWASPChecker : ينشئ >
 OWASPChecker <|.. ExtendedChecks : يُحقن وقت التشغيل
 UrlScanner "1" *-- "1" ReportGenerator : ينشئ >
-SecurAxAgent "1" *-- "1" ReportGenerator : يستخدم >
+HexaGuardAgent "1" *-- "1" ReportGenerator : يستخدم >
 
 note right of ExtendedChecks: تُحقن ديناميكياً عبر\nPython types.MethodType\nوقت التشغيل
 @enduml
@@ -430,5 +430,5 @@ note right of ExtendedChecks: تُحقن ديناميكياً عبر\nPython typ
 
 ## 8. الخاتمة
 
-في هذا الفصل قدّمنا الصورة الكاملة لتصميم SecuraX: من أعلى مستوى (مخطط السياق) وصولاً إلى تفاصيل الكلاسات والتسلسلات. هذا التصميم ليس نظرياً فحسب — بل هو ما يعمل فعلاً في النظام الذي طورناه وسنشرحه في الفصول التالية.
+في هذا الفصل قدّمنا الصورة الكاملة لتصميم HexaGuard: من أعلى مستوى (مخطط السياق) وصولاً إلى تفاصيل الكلاسات والتسلسلات. هذا التصميم ليس نظرياً فحسب — بل هو ما يعمل فعلاً في النظام الذي طورناه وسنشرحه في الفصول التالية.
 

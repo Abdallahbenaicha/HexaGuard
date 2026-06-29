@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SecurAx Manuel Analytique V4 — Generator
+HexaGuard Manuel Analytique V4 — Generator
 Architecture Cible : sans contraintes d'hebergement
 """
 
@@ -191,7 +191,7 @@ SCANNERS = [
             ("Filtres IA (ARIA)",
              "Envoyer les resultats bruts au moteur IA pour evaluer "
              "la pertinence reelle et eliminer les faux positifs. "
-             "Deja disponible dans SecurAx."),
+             "Deja disponible dans HexaGuard."),
             ("Taint Analysis (CodeQL)",
              "Integrer CodeQL pour un suivi complet : "
              "entree utilisateur -> execution base de donnees. Priorite Haute."),
@@ -670,7 +670,7 @@ class PDF(FPDF):
         self.set_font("Helvetica", "", 7.5)
         self.set_text_color(*GRAY)
         self.set_x(M)
-        self.cell(CW / 2, 5, "SecurAx - Manuel Analytique V4 (Architecture Cible)", 0, 0, "L")
+        self.cell(CW / 2, 5, "HexaGuard - Manuel Analytique V4 (Architecture Cible)", 0, 0, "L")
         self.cell(CW / 2, 5, f"Page {self.page_no()}", 0, 0, "R")
 
     # ── helpers ──────────────────────────────────────────────────────────────
@@ -752,7 +752,7 @@ class PDF(FPDF):
         self.set_y(55)
         self.set_font("Helvetica", "B", 38)
         self.set_text_color(*TEAL)
-        self.cell(CW + 2 * M, 18, "SecurAx Scanner Engine", 0, 1, "C")
+        self.cell(CW + 2 * M, 18, "HexaGuard Scanner Engine", 0, 1, "C")
 
         # Subtitle
         self.set_font("Helvetica", "", 13)
@@ -963,7 +963,7 @@ def generate():
     for scanner in SCANNERS:
         pdf.scanner_section(scanner)
 
-    out = "SecurAx_Manuel_Analytique_Scanners_V4.pdf"
+    out = "HexaGuard_Manuel_Analytique_Scanners_V4.pdf"
     pdf.output(out)
     print(f"[OK] Generated: {out}")
     print(f"[OK] Pages: {pdf.page}")

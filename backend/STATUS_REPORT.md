@@ -1,4 +1,4 @@
-# 🎯 ملخص التنظيم والإصلاحات — SecurAx v1.0.0
+# 🎯 ملخص التنظيم والإصلاحات — HexaGuard v1.0.0
 
 **التاريخ:** 2026-05-20  
 **الحالة:** ✅ اكتمل التنظيم والتحسينات
@@ -11,7 +11,7 @@
 
 **جذر المشروع الآن نظيف:**
 ```
-SecurAx4.1/
+HexaGuard4.1/
 ├── app.py ⭐ (نقطة الدخول)
 ├── database.py, models.py, forms.py, risk_engine.py
 ├── requirements.txt, .env
@@ -29,12 +29,12 @@ SecurAx4.1/
 │   └── demo_netscan_result.json (عينة)
 ├── templates/, css/, js/ ⭐ (الواجهة الأمامية)
 ├── migrations/ ⭐ (هجرات قاعدة البيانات)
-├── SecurAx.db (قاعدة البيانات)
+├── HexaGuard.db (قاعدة البيانات)
 └── archive_non_runtime/ 📦 (ملفات مؤرشفة)
     ├── docker-compose.yml, Dockerfile
     ├── gunicorn.conf.py
     ├── sample/, tests/
-    ├── DOCUMENTATION_COMPLETE_PROJET_SecurAx_FR.txt
+    ├── DOCUMENTATION_COMPLETE_PROJET_HexaGuard_FR.txt
     ├── README_ARCHIVE.md, ARCHIVED_FILES.md, KEPT_FILES.md
     └── ... (باقي الملفات الوثائقية)
 ```
@@ -80,7 +80,7 @@ logger.info("netscan | target=%s | args=%s", target, arguments)
 | **Python** | ✅ | موجود وفي البيئة الافتراضية |
 | **Flask** | ✅ | مثبت (من `requirements.txt`) |
 | **python-nmap** | ✅ | مثبت (من `requirements.txt`) |
-| **Database** | ✅ | موجود (`SecurAx.db`) |
+| **Database** | ✅ | موجود (`HexaGuard.db`) |
 | **Nmap (system)** | ❌ | **غير مثبت** — يجب تثبيته |
 
 ### 🔧 الخطوة التالية: تثبيت Nmap
@@ -151,9 +151,9 @@ python scripts/check_env.py
 - docker-compose.yml, Dockerfile, gunicorn.conf.py
 - *.bat, *.ps1 (سكريبتات البدء)
 - tests/, test_scanner.py
-- .env.example, httpd_SecurAx_fixed14.conf
+- .env.example, httpd_HexaGuard_fixed14.conf
 - README.md, QUICK_START.md
-- DOCUMENTATION_COMPLETE_PROJET_SecurAx_FR.txt
+- DOCUMENTATION_COMPLETE_PROJET_HexaGuard_FR.txt
 - arch_extract.txt, index.html, test_config.conf
 - sample/ (العروض التقديمية)
 ```
@@ -230,6 +230,6 @@ python scripts/check_env.py
 ---
 
 **آخر تحديث:** 2026-05-20 18:50 UTC  
-**الإصدار:** SecurAx v1.0.0 (NetScan Edition)  
+**الإصدار:** HexaGuard v1.0.0 (NetScan Edition)  
 **الحالة:** ✅ اكتمل التنظيم والتحسينات
 

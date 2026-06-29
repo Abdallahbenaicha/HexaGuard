@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SecurAx — SQLite → MySQL migration script.
+HexaGuard — SQLite → MySQL migration script.
 
 Usage (on PythonAnywhere Bash console):
     cd /home/abdallahbenaicha/finalpfe-master/backend
@@ -8,8 +8,8 @@ Usage (on PythonAnywhere Bash console):
     MYSQL_HOST=abdallahbenaicha.mysql.pythonanywhere-services.com \
     MYSQL_USER=abdallahbenaicha \
     MYSQL_PASS=your_mysql_password \
-    MYSQL_DB=abdallahbenaicha$securax \
-    DB_PATH=/home/abdallahbenaicha/finalpfe-master/backend/securax.db \
+    MYSQL_DB=abdallahbenaicha$hexaguard \
+    DB_PATH=/home/abdallahbenaicha/finalpfe-master/backend/hexaguard.db \
     python scripts/migrate_to_mysql.py
 """
 
@@ -25,7 +25,7 @@ except ImportError:
     sys.exit("ERROR: pymysql not installed. Run: pip install pymysql")
 
 # ── Config from env ───────────────────────────────────────────────────────────
-SQLITE_PATH = os.environ.get("DB_PATH", "securax.db")
+SQLITE_PATH = os.environ.get("DB_PATH", "hexaguard.db")
 MYSQL_HOST  = os.environ["MYSQL_HOST"]
 MYSQL_USER  = os.environ["MYSQL_USER"]
 MYSQL_PASS  = os.environ["MYSQL_PASS"]
@@ -93,7 +93,7 @@ def main():
     print("       MYSQL_HOST=abdallahbenaicha.mysql.pythonanywhere-services.com")
     print("       MYSQL_USER=abdallahbenaicha")
     print("       MYSQL_PASS=<your password>")
-    print("       MYSQL_DB=abdallahbenaicha$securax")
+    print("       MYSQL_DB=abdallahbenaicha$hexaguard")
     print("  2. Reload the web app in the PythonAnywhere Web tab.")
 
 

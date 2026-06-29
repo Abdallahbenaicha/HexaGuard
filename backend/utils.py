@@ -1,4 +1,4 @@
-"""SecurAx — shared utilities and decorators used across blueprints."""
+"""HexaGuard — shared utilities and decorators used across blueprints."""
 
 import io
 import ipaddress

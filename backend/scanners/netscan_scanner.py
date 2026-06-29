@@ -58,7 +58,7 @@ def _make_session() -> requests.Session:
     ))
     sess.mount("https://", adapter)
     sess.mount("http://",  adapter)
-    sess.headers["User-Agent"] = "SecurAx-NetScanner/3.0"
+    sess.headers["User-Agent"] = "HexaGuard-NetScanner/3.0"
     return sess
 
 

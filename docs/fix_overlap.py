@@ -1,5 +1,5 @@
 """
-Fix text overflow / overlap in the SecurAx PPT.
+Fix text overflow / overlap in the HexaGuard PPT.
 Strategy:
   - Reduce font size in all content boxes to 14pt
   - Resize / reposition content boxes so they don't overlap each other
@@ -66,7 +66,7 @@ BOTTOM = 26.0   # safe bottom margin in cm
 
 # ── Slide 2 — TITRE (short text, 32pt — just extend slightly) ────────────
 sl = slides[1]
-for key in ["SecurAx", "Logo SecurAx", "cybersecurite intelligente"]:
+for key in ["HexaGuard", "Logo HexaGuard", "cybersecurite intelligente"]:
     s = find(sl, key)
     if s:
         top_cm = round(s.top / CM, 1)
@@ -87,7 +87,7 @@ if s:
 
 # ── Slide 4 — RESUME (single box) ─────────────────────────────────────────
 sl = slides[3]
-s = find(sl, "SecurAx est une plateforme")
+s = find(sl, "HexaGuard est une plateforme")
 if s:
     top_cm = round(s.top / CM, 1)
     resize(s, height_cm=BOTTOM - top_cm, width_cm=44.0)
@@ -125,7 +125,7 @@ print(f"Slide 6 repositioned 3 boxes")
 
 # ── Slide 7 — SOLUTION (2 dense boxes — split slide) ──────────────────────
 sl = slides[6]
-b1 = find(sl, "SecurAx propose 7 modules")
+b1 = find(sl, "HexaGuard propose 7 modules")
 b2 = find(sl, "Moteur de risque")
 if b1:
     resize(b1, top_cm=6.3, height_cm=10.0, width_cm=44.0)
@@ -158,7 +158,7 @@ if s:
 
 # ── Slide 10 — VALEUR AJOUTEE ─────────────────────────────────────────────
 sl = slides[9]
-s = find(sl, "Ce que SecurAx apporte")
+s = find(sl, "Ce que HexaGuard apporte")
 if not s:
     s = find(sl, "GAIN DE TEMPS")
 if s:
@@ -187,7 +187,7 @@ if s:
 
 # ── Slide 13 — BUSINESS MODEL ─────────────────────────────────────────────
 sl = slides[12]
-s = find(sl, "Comment SecurAx genere")
+s = find(sl, "Comment HexaGuard genere")
 if s:
     top_cm = round(s.top / CM, 1)
     resize(s, height_cm=BOTTOM - top_cm, width_cm=44.0)

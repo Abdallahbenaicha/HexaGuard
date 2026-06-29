@@ -1,4 +1,4 @@
-# gunicorn.conf.py — SecurAx production server config
+# gunicorn.conf.py — HexaGuard production server config
 # ─────────────────────────────────────────────────────
 # SQLite + WAL mode supports concurrent readers but ONLY ONE writer at a time.
 # Using a single PROCESS (not multiple workers) eliminates write contention.
@@ -30,5 +30,5 @@ loglevel    = "info"
 capture_output = True
 
 # Process name shown in Render logs
-proc_name   = "securax"
+proc_name   = "hexaguard"
 

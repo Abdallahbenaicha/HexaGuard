@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
-import securaxLogo from '../assets/securax_logo.png';
+import hexaguardLogo from '../assets/hexaguard_logo.png';
 
 function DropdownMenu({ group, pathname }) {
     const Icon = group.icon;
@@ -137,11 +137,11 @@ const Navbar = () => {
                     <div className="flex-1 flex items-center gap-2">
                         <Link to="/dashboard" className="flex items-center gap-2">
                             <img
-                                src={securaxLogo}
-                                alt="securAX Logo"
+                                src={hexaguardLogo}
+                                alt="HexaGuard Logo"
                                 className="w-8 h-8 object-contain rounded-md"
                             />
-                            <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">securAX</span>
+                            <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">HexaGuard</span>
                         </Link>
                     </div>
 
@@ -204,7 +204,7 @@ const Navbar = () => {
                     <div className="flex-1 flex items-center justify-end gap-1.5">
                         {/* Command Palette trigger */}
                         <button
-                            onClick={() => window.dispatchEvent(new CustomEvent('securax-cmd-palette'))}
+                            onClick={() => window.dispatchEvent(new CustomEvent('hexaguard-cmd-palette'))}
                             title="Command Palette (Ctrl+K)"
                             className="hidden md:flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
                         >

@@ -4,7 +4,7 @@ import translations from '../i18n/translations';
 const LangContext = createContext(null);
 
 export const LangProvider = ({ children }) => {
-    const [lang, setLang] = useState(() => localStorage.getItem('securax_lang') || 'en');
+    const [lang, setLang] = useState(() => localStorage.getItem('hexaguard_lang') || 'en');
 
     useEffect(() => {
         document.dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -15,7 +15,7 @@ export const LangProvider = ({ children }) => {
     const toggleLang = useCallback(() => {
         setLang(prev => {
             const next = prev === 'en' ? 'ar' : 'en';
-            localStorage.setItem('securax_lang', next);
+            localStorage.setItem('hexaguard_lang', next);
             return next;
         });
     }, []);

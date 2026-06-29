@@ -1,4 +1,4 @@
-"""SecurAx — admin blueprint.
+"""HexaGuard — admin blueprint.
 
 Handles both HTML admin panel routes (Jinja2) and the JSON admin API
 consumed by the React frontend.

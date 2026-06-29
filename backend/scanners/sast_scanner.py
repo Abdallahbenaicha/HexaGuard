@@ -621,7 +621,7 @@ def run_sast_scan(file_path: str) -> dict:
                 f"{MAX_ZIP_SIZE // (1024*1024)} MB."
             )
 
-        tmp_dir = tempfile.mkdtemp(prefix="securax_sast_")
+        tmp_dir = tempfile.mkdtemp(prefix="hexaguard_sast_")
 
         with zipfile.ZipFile(file_path, "r") as zf:
             members = zf.namelist()

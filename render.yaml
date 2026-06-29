@@ -1,7 +1,7 @@
 services:
   # ── Flask Backend ────────────────────────────────────────────────────────────
   - type: web
-    name: securax-backend
+    name: hexaguard-backend
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -24,26 +24,26 @@ services:
 
       - key: ALLOWED_ORIGINS
         # After first deploy, replace with the exact frontend URL from Render dashboard
-        value: https://securax-frontend.onrender.com
+        value: https://hexaguard-frontend.onrender.com
 
       - key: DB_PATH
         # Add a Persistent Disk (Render dashboard → Disks, mount at /var/data).
-        # Without the disk this is ignored and securax.db resets on each deploy.
-        value: /var/data/securax.db
+        # Without the disk this is ignored and hexaguard.db resets on each deploy.
+        value: /var/data/hexaguard.db
 
       - key: GEMINI_API_KEY
         sync: false
 
-      - key: SECURAX_ADMIN_PASSWORD
+      - key: HEXAGUARD_ADMIN_PASSWORD
         sync: false
 
-      - key: SECURAX_ANALYST_PASSWORD
+      - key: HEXAGUARD_ANALYST_PASSWORD
         sync: false
 
   # ── React Frontend (Static Site — always free on Render) ─────────────────────
   - type: web
     runtime: static
-    name: securax-frontend
+    name: hexaguard-frontend
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -53,8 +53,8 @@ services:
         value: "20"
 
       - key: VITE_API_BASE_URL
-        # Must match the backend service name: securax-backend → securax-backend.onrender.com
-        value: https://securax-backend.onrender.com
+        # Must match the backend service name: hexaguard-backend → hexaguard-backend.onrender.com
+        value: https://hexaguard-backend.onrender.com
 
     routes:
       # SPA routing — all paths serve index.html

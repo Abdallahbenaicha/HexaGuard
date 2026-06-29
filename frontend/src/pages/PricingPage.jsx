@@ -99,7 +99,7 @@ const PLANS = {
             icon: Crown,
             badge: 'Best Value',
             cta: 'Contact Sales',
-            ctaLink: 'mailto:contact@securax.security',
+            ctaLink: 'mailto:contact@hexaguard.security',
             highlight: false,
             limits: {
                 webScans:     'Unlimited',
@@ -664,7 +664,7 @@ const PricingPage = () => {
                             },
                             {
                                 q: 'Do you offer student or academic discounts?',
-                                a: 'Yes! Students and academic researchers get 50% off Pro with a valid .edu email address. Contact us at contact@securax.security with proof of enrollment.',
+                                a: 'Yes! Students and academic researchers get 50% off Pro with a valid .edu email address. Contact us at contact@hexaguard.security with proof of enrollment.',
                             },
                         ].map((faq, i) => (
                             <FaqItem
@@ -718,7 +718,7 @@ const PricingPage = () => {
                             Start Free →
                         </a>
                         <a
-                            href="mailto:contact@securax.security"
+                            href="mailto:contact@hexaguard.security"
                             className="px-8 py-3 border
                                        border-white/10
                                        text-gray-400

@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────
-#  SecurAx Security — Python Dependencies (Production)
+#  HexaGuard Security — Python Dependencies (Production)
 #  Last updated: May 2026
 #
 #  REMOVED (safe):

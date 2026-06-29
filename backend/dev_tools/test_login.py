@@ -1,7 +1,7 @@
 import sqlite3
 import bcrypt
 
-db = sqlite3.connect('securax.db')
+db = sqlite3.connect('hexaguard.db')
 db.row_factory = sqlite3.Row
 row = db.execute("SELECT * FROM users WHERE username='admin'").fetchone()
 if not row:

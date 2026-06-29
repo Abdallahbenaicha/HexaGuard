@@ -199,7 +199,7 @@ const DashboardPage = () => {
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{t('overview')}</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm">{t('overview_sub')}</p>
                     <button
-                        onClick={() => window.dispatchEvent(new CustomEvent('securax-cmd-palette'))}
+                        onClick={() => window.dispatchEvent(new CustomEvent('hexaguard-cmd-palette'))}
                         className="mt-2 inline-flex items-center gap-2 text-xs text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                     >
                         <Command className="w-3 h-3" />

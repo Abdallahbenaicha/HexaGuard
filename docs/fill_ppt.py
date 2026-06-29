@@ -1,5 +1,5 @@
 """
-Fill Canevas-label-Projet-Innovant-2025-final.pptx with SecurAx project data.
+Fill Canevas-label-Projet-Innovant-2025-final.pptx with HexaGuard project data.
 Run from any directory: python fill_ppt.py
 """
 import os
@@ -92,11 +92,11 @@ print("Slide 2 — Titre")
 sl = slides[1]
 s = fs(sl, "Nom principal")
 if s:
-    set_shape_text(s, ["SecurAx"])
+    set_shape_text(s, ["HexaGuard"])
 
 s = fs(sl, "logo officiel")
 if s:
-    set_shape_text(s, ["[ Logo SecurAx — a inserer ]"])
+    set_shape_text(s, ["[ Logo HexaGuard — a inserer ]"])
 
 s = fs(sl, "phrase courte")
 if s:
@@ -111,12 +111,12 @@ sl = slides[2]
 s = fs(sl, "Nom(s) du")
 if s:
     set_shape_text(s, [
-        "Nom(s) du responsable(s) : Equipe SecurAx",
+        "Nom(s) du responsable(s) : Equipe HexaGuard",
         "Fonction : Ingenieurs en Cybersecurite & Developpeurs Full-Stack",
         "Email : innovation.team.dz@gmail.com",
         "Numero de telephone : [A completer]",
         "Site web (optionnel) : [En cours de deploiement]",
-        "Reseaux sociaux (optionnel) : GitHub — SecurAx Project",
+        "Reseaux sociaux (optionnel) : GitHub — HexaGuard Project",
     ])
 
 # ── Slide 4 — RESUME DU PROJET ────────────────────────────────────────────
@@ -127,7 +127,7 @@ if not s:
     s = fs(sl, "PRESENTEZ")
 if s:
     set_shape_text(s, [
-        "SecurAx est une plateforme algerienne de cybersecurite qui automatise",
+        "HexaGuard est une plateforme algerienne de cybersecurite qui automatise",
         "l'evaluation des vulnerabilites grace a l'intelligence artificielle.",
         "",
         "PROBLEMATIQUE : 60% des PME algeriennes n'ont jamais realise d'audit",
@@ -204,7 +204,7 @@ sl = slides[6]
 s = fs(sl, "DESCRIPTION CONCISE")
 if s:
     set_shape_text(s, [
-        "SecurAx propose 7 modules de scan integres dans une interface unifiee :",
+        "HexaGuard propose 7 modules de scan integres dans une interface unifiee :",
         "",
         "(1) Web Scanner        — Detection OWASP Top 10 (XSS, SQLi, CSRF...)",
         "(2) Network Scanner    — Reconnaissance reseau Nmap, ports, OS fingerprinting",
@@ -234,7 +234,7 @@ sl = slides[7]
 s = fs(sl, "METTEZ ICI LE LIEN")
 if s:
     set_shape_text(s, [
-        "Prototype fonctionnel : SecurAx v1.0 (Beta)",
+        "Prototype fonctionnel : HexaGuard v1.0 (Beta)",
         "",
         "Stack technique :",
         "  Backend  : Flask (Python 3.11), SQLite/PostgreSQL, Gunicorn + Docker",
@@ -251,8 +251,8 @@ if not s:
 if s:
     set_shape_text(s, [
         "Demo video   : [ lien a inserer — 4 min max ]",
-        "Code source  : [ GitHub — SecurAx — lien a inserer ]",
-        "Application  : [ https://securax.dz — deploiement en cours ]",
+        "Code source  : [ GitHub — HexaGuard — lien a inserer ]",
+        "Application  : [ https://hexaguard.dz — deploiement en cours ]",
         "Note         : Application web SaaS (pas d'APK Android/iOS prevu en phase 1)",
     ])
 
@@ -265,13 +265,13 @@ if s:
         "Statut de la propriete intellectuelle :",
         "",
         "Brevets deposes ou en cours :",
-        "  -> Brevet algerien (INAPI) prevu : moteur de risque multicritere SecurAx",
+        "  -> Brevet algerien (INAPI) prevu : moteur de risque multicritere HexaGuard",
         "",
         "Marques ou designs enregistres :",
-        "  -> Marque 'SecurAx' — enregistrement INAPI en cours",
+        "  -> Marque 'HexaGuard' — enregistrement INAPI en cours",
         "",
         "Droits d'auteur et licences :",
-        "  -> Code source sous licence proprietaire (droits reserves — equipe SecurAx)",
+        "  -> Code source sous licence proprietaire (droits reserves — equipe HexaGuard)",
         "  -> Composants open-source : licences MIT, Apache 2.0, BSD (conformite verifiee)",
     ])
 
@@ -281,7 +281,7 @@ sl = slides[9]
 s = fs(sl, "CE QUE VOUS APPORTEZ")
 if s:
     set_shape_text(s, [
-        "Ce que SecurAx apporte aux clients :",
+        "Ce que HexaGuard apporte aux clients :",
         "",
         "GAIN DE TEMPS      : Audit complet en 5 min vs. 5 jours manuellement (-80%)",
         "ECONOMIES          : 10x moins cher que les solutions professionnelles",
@@ -338,7 +338,7 @@ if not s:
     s = fs(sl, "GENERER DES REVENUS")
 if s:
     set_shape_text(s, [
-        "Comment SecurAx genere des revenus :",
+        "Comment HexaGuard genere des revenus :",
         "",
         "(1) Freemium SaaS :",
         "    Gratuit  : 2 scans/mois, rapport basique",
@@ -347,7 +347,7 @@ if s:
         "",
         "(2) Audits ponctuels a la carte : 99 $ - 499 $ selon le type de scan",
         "",
-        "(3) API SecurAx : Integration DevSecOps (GitHub Actions, GitLab CI) — pay-per-scan",
+        "(3) API HexaGuard : Integration DevSecOps (GitHub Actions, GitLab CI) — pay-per-scan",
         "",
         "(4) Formations & Certifications : e-learning en cybersecurite offensive/defensive",
         "",

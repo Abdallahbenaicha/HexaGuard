@@ -91,8 +91,8 @@ const CommandPalette = () => {
     // Custom event from Navbar button
     useEffect(() => {
         const handler = () => setOpen(o => !o);
-        window.addEventListener('securax-cmd-palette', handler);
-        return () => window.removeEventListener('securax-cmd-palette', handler);
+        window.addEventListener('hexaguard-cmd-palette', handler);
+        return () => window.removeEventListener('hexaguard-cmd-palette', handler);
     }, []);
 
     // Focus input when opened
@@ -216,7 +216,7 @@ const CommandPalette = () => {
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
                         <Activity className="w-3 h-3" />
-                        SecurAX
+                        HexaGuard
                     </div>
                 </div>
             </div>

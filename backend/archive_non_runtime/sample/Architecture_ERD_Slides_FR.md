@@ -1,4 +1,4 @@
-﻿# SecurAx - Architecture + ERD + Contenu Pret pour Slides
+﻿# HexaGuard - Architecture + ERD + Contenu Pret pour Slides
 
 ## 1) Diagramme d'architecture (Mermaid)
 
@@ -22,7 +22,7 @@ graph LR
     A --> S6[SAST\nsast_scanner.py]
     A --> S7[DAST\ndast_scanner.py]
 
-    A --> D[Persistence SQLite\ndatabase.py + securax.db]
+    A --> D[Persistence SQLite\ndatabase.py + hexaguard.db]
     D --> T1[(users)]
     D --> T2[(scan_reports)]
     D --> T3[(scan_vulnerabilities)]
@@ -116,7 +116,7 @@ erDiagram
 ## 3) Version slide-ready (copier coller direct dans PowerPoint)
 
 ### Slide 1 - Architecture globale
-- SecurAx suit une architecture modulaire en 5 couches.
+- HexaGuard suit une architecture modulaire en 5 couches.
 - Interface web (Templates + JS) connectee a Flask.
 - Flask orchestre les scanners, le calcul de risque et le stockage.
 - La base SQLite conserve rapports, vulnerabilites, utilisateurs et audit.

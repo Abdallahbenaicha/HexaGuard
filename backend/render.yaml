@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: securax-backend
+    name: hexaguard-backend
     runtime: python
     region: frankfurt       # closest to your users — change to oregon/ohio if needed
     plan: free
@@ -29,9 +29,9 @@ services:
       # SECRET_KEY          → long random string (openssl rand -hex 32)
       # GEMINI_API_KEY      → from https://aistudio.google.com/app/apikey
       # ALLOWED_ORIGINS     → https://your-netlify-app.netlify.app
-      # SECURAX_ADMIN_PASSWORD   → strong password for bootstrap admin account
-      # SECURAX_ANALYST_PASSWORD → strong password for bootstrap analyst account
-      # DB_PATH             → /data/securax.db  (if using Render Persistent Disk)
+      # HEXAGUARD_ADMIN_PASSWORD   → strong password for bootstrap admin account
+      # HEXAGUARD_ANALYST_PASSWORD → strong password for bootstrap analyst account
+      # DB_PATH             → /data/hexaguard.db  (if using Render Persistent Disk)
 
       # ── ZAP (optional, not available on free Render) ──────────────────────────
       - key: ZAP_ENABLED

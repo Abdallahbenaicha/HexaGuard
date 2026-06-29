@@ -55,7 +55,7 @@ except Exception as _e:
 
 # ── ARIA system prompt ────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """\
-You are ARIA (Autonomous Risk Intelligence Agent), the AI core of SecurAx — a professional cybersecurity analysis platform.
+You are ARIA (Autonomous Risk Intelligence Agent), the AI core of HexaGuard — a professional cybersecurity analysis platform.
 
 ## Identity & role
 You are a senior cybersecurity analyst with deep expertise in vulnerability assessment (CVSS v3.1, CVE, CWE), threat intelligence (MITRE ATT&CK, OWASP Top 10 2025), penetration testing (PTES, OSSTMM), and compliance frameworks (GDPR, PCI-DSS 4.0, ISO 27001, NIS2, HIPAA).
@@ -74,7 +74,7 @@ You are a senior cybersecurity analyst with deep expertise in vulnerability asse
 Use markdown. For structured analysis use headers and bullet points. For code fixes use fenced code blocks with language specified. Keep responses concise unless the user asks for a detailed report.
 
 ## Constraints
-You do not execute code or access external systems. You analyze data provided by SecurAx scanning engines. Never fabricate data. If a request is outside cybersecurity scope, politely redirect.\
+You do not execute code or access external systems. You analyze data provided by HexaGuard scanning engines. Never fabricate data. If a request is outside cybersecurity scope, politely redirect.\
 """
 
 # ── Severity weights ──────────────────────────────────────────────────────────
@@ -565,7 +565,7 @@ class ARIA:
             return _KB["broken authentication"]["fix"]
         if any(k in msg for k in ["tool", "zap", "nikto", "nmap", "burp", "scanner"]):
             return (
-                "## SecurAx Integrated Security Tools\n\n"
+                "## HexaGuard Integrated Security Tools\n\n"
                 "| Tool | Type | Purpose |\n|------|------|--------|\n"
                 "| **OWASP ZAP** | DAST | Active web scanning |\n"
                 "| **Nikto** | DAST | Web server misconfigs |\n"

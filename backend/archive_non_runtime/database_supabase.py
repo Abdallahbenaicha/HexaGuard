@@ -1,6 +1,6 @@
 # database.py
 """
-SecurAx — Supabase PostgreSQL Persistence Layer
+HexaGuard — Supabase PostgreSQL Persistence Layer
 ================================================
 Replaces the old SQLite backend.
 All function signatures are identical to the original so the rest of the
@@ -58,8 +58,8 @@ def init_db() -> None:
 
 def _seed_default_users(db) -> None:
     import bcrypt
-    admin_pw   = os.environ.get("SECURAX_ADMIN_PASSWORD", "").strip()
-    analyst_pw = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip()
+    admin_pw   = os.environ.get("HEXAGUARD_ADMIN_PASSWORD", "").strip()
+    analyst_pw = os.environ.get("HEXAGUARD_ANALYST_PASSWORD", "").strip()
     if not admin_pw:
         alpha = string.ascii_letters + string.digits + "!@#$%^&*"
         admin_pw = "".join(secrets.choice(alpha) for _ in range(16))

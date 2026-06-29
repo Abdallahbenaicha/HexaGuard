@@ -1,6 +1,6 @@
 # risk_engine.py
 """
-SecurAx Professional Risk Scoring Engine — v3
+HexaGuard Professional Risk Scoring Engine — v3
 ==============================================
 References:
   - CVSS v3.1  (NIST SP 800-30)

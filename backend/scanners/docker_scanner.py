@@ -1,4 +1,4 @@
-"""SecurAx — Docker / Container Security Scanner.
+"""HexaGuard — Docker / Container Security Scanner.
 
 Analyzes Dockerfile and docker-compose.yml files for security misconfigurations.
 No external dependencies — pure Python text analysis.

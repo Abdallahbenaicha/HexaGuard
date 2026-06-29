@@ -1,7 +1,7 @@
-# SecurAx — Manuel Technique des Scanners
+# HexaGuard — Manuel Technique des Scanners
 **Version 3.0 — Juin 2026 — Basé sur le code source réel**
 
-> Ce document couvre les **11 scanners** de SecurAx avec leurs capacités exactes,
+> Ce document couvre les **11 scanners** de HexaGuard avec leurs capacités exactes,
 > leurs limites réelles, et des améliorations réalistes tenant compte de l'environnement
 > PythonAnywhere (pas de root, pas d'outils système arbitraires).
 

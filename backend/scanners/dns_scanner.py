@@ -1,4 +1,4 @@
-"""SecurAx — DNS & Email Security Scanner.
+"""HexaGuard — DNS & Email Security Scanner.
 
 Uses DNS-over-HTTPS (Cloudflare DoH) via the already-installed `requests` library
 so no extra packages are required.
@@ -343,7 +343,7 @@ def _check_http_headers(domain: str) -> tuple[list, dict]:
             f"https://{domain}",
             timeout=8,
             allow_redirects=True,
-            headers={"User-Agent": "SecurAX-Security-Scanner/2.0"},
+            headers={"User-Agent": "HexaGuard-Security-Scanner/2.0"},
         )
         h = {k.lower(): v for k, v in r.headers.items()}
         headers_found = dict(r.headers)

@@ -151,7 +151,7 @@ export default function ChatPage() {
     const [messages, setMessages] = useState([{
         role: 'assistant',
         content: (
-            'Hello! I\'m **ARIA** — securAX\'s AI security expert.\n\n' +
+            'Hello! I\'m **ARIA** — HexaGuard\'s AI security expert.\n\n' +
             'I can help you:\n' +
             '• Understand vulnerabilities from your scans\n' +
             '• Explain attack techniques & real-world impact\n' +

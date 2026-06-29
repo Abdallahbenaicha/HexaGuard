@@ -68,7 +68,7 @@ const ReportPage = () => {
             const blobUrl = URL.createObjectURL(blob);
             const a       = document.createElement('a');
             a.href        = blobUrl;
-            a.download    = `securax_report_${pdfLang}.pdf`;
+            a.download    = `hexaguard_report_${pdfLang}.pdf`;
             a.click();
             URL.revokeObjectURL(blobUrl);
         } catch {
@@ -186,7 +186,7 @@ const ReportPage = () => {
                                 <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">Recommended</span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
-                                Professional SECURAX-branded PDF with severity summary, CVE table, and all findings — exactly like the sample.
+                                Professional HEXAGUARD-branded PDF with severity summary, CVE table, and all findings — exactly like the sample.
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">Language:</span>

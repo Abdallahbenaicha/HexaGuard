@@ -1,11 +1,11 @@
-"""SecurAx — domain ownership verification blueprint.
+"""HexaGuard — domain ownership verification blueprint.
 
 Verification is OPTIONAL — it never blocks scans.
 It adds a trust badge so clients know their domain is legitimately registered.
 
 Methods:
-  - DNS TXT:  add  `securax-verify=<token>`  as a TXT record on  `_securax.<domain>`
-  - Meta tag: add  `<meta name="securax-verification" content="<token>">`  to the site root
+  - DNS TXT:  add  `hexaguard-verify=<token>`  as a TXT record on  `_hexaguard.<domain>`
+  - Meta tag: add  `<meta name="hexaguard-verification" content="<token>">`  to the site root
   - Admin:    admin can approve any domain instantly via  PATCH /api/admin/users/<uid>/verify-domain
 """
 
@@ -36,12 +36,12 @@ _MAX_HTML     = 30_000  # bytes — only scan the first 30 KB for the meta tag
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _check_dns_txt(domain: str, token: str) -> bool:
-    """Query Cloudflare DNS-over-HTTPS for  _securax.<domain>  TXT records."""
-    expected = f"securax-verify={token}"
+    """Query Cloudflare DNS-over-HTTPS for  _hexaguard.<domain>  TXT records."""
+    expected = f"hexaguard-verify={token}"
     try:
         resp = _requests.get(
             "https://cloudflare-dns.com/dns-query",
-            params={"name": f"_securax.{domain}", "type": "TXT"},
+            params={"name": f"_hexaguard.{domain}", "type": "TXT"},
             headers={"Accept": "application/dns-json"},
             timeout=_DNS_TIMEOUT,
         )
@@ -65,19 +65,19 @@ class _MetaParser(HTMLParser):
         if self.found or tag != "meta":
             return
         d = dict(attrs)
-        if d.get("name") == "securax-verification" and d.get("content") == self._token:
+        if d.get("name") == "hexaguard-verification" and d.get("content") == self._token:
             self.found = True
 
 
 def _check_meta_tag(domain: str, token: str) -> bool:
-    """Fetch the site root page and look for the securax-verification meta tag."""
+    """Fetch the site root page and look for the hexaguard-verification meta tag."""
     for scheme in ("https", "http"):
         try:
             resp = _requests.get(
                 f"{scheme}://{domain}",
                 timeout=_HTTP_TIMEOUT,
                 verify=False,
-                headers={"User-Agent": "SecurAx-DomainVerifier/1.0"},
+                headers={"User-Agent": "HexaGuard-DomainVerifier/1.0"},
                 stream=True,
             )
             html = b""
@@ -137,15 +137,15 @@ def api_domain_request():
         "methods": {
             "dns": {
                 "record_type": "TXT",
-                "host":        f"_securax.{domain}",
-                "value":       f"securax-verify={token}",
+                "host":        f"_hexaguard.{domain}",
+                "value":       f"hexaguard-verify={token}",
                 "instructions": (
-                    f"Ajoutez un enregistrement TXT sur '_securax.{domain}' "
-                    f"avec la valeur : securax-verify={token}"
+                    f"Ajoutez un enregistrement TXT sur '_hexaguard.{domain}' "
+                    f"avec la valeur : hexaguard-verify={token}"
                 ),
             },
             "meta": {
-                "tag": f'<meta name="securax-verification" content="{token}">',
+                "tag": f'<meta name="hexaguard-verification" content="{token}">',
                 "instructions": (
                     f"Ajoutez cette balise dans le <head> de votre page d'accueil "
                     f"puis cliquez sur 'Vérifier'."
@@ -173,7 +173,7 @@ def api_domain_verify_dns():
         "verified": False,
         "domain":   info["domain"],
         "message":  (
-            f"Enregistrement TXT introuvable sur _securax.{info['domain']}. "
+            f"Enregistrement TXT introuvable sur _hexaguard.{info['domain']}. "
             "La propagation DNS peut prendre jusqu'à 24h."
         ),
     }), 200

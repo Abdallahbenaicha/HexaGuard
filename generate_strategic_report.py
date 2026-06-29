@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SecurAX Strategic Business Report 2026 — PDF Generator"""
+"""HexaGuard Strategic Business Report 2026 — PDF Generator"""
 
 from fpdf import FPDF
 import os
@@ -61,7 +61,7 @@ class PDF(FPDF):
         self.set_y(-10)
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*GRAY)
-        self.cell(CW // 2, 5, "SecurAX — Rapport Stratégique 2026", align="L")
+        self.cell(CW // 2, 5, "HexaGuard — Rapport Stratégique 2026", align="L")
         self.cell(CW // 2, 5, f"Page {self.page_no()}", align="R")
 
     def _fill(self, r, g, b):
@@ -200,7 +200,7 @@ def cover(pdf):
     pdf.set_xy(M, 12)
     pdf.set_font("Helvetica", "B", 28)
     pdf.set_text_color(*WHITE)
-    pdf.cell(CW, 12, "SecurAX", ln=True, align="L")
+    pdf.cell(CW, 12, "HexaGuard", ln=True, align="L")
 
     pdf.set_xy(M, 26)
     pdf.set_font("Helvetica", "", 13)
@@ -229,7 +229,7 @@ def cover(pdf):
     pdf.set_text_color(*TEAL)
     pdf.multi_cell(CW, 6,
         "Philosophie : Critiquer honnêtement → Clarifier les limites → Proposer des améliorations concrètes.\n"
-        "Ce rapport s'applique la même rigueur que SecurAX applique à ses cibles.", fill=True)
+        "Ce rapport s'applique la même rigueur que HexaGuard applique à ses cibles.", fill=True)
 
     # Summary KPI
     pdf.set_y(96)
@@ -285,7 +285,7 @@ def cover(pdf):
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(160, 190, 210)
     pdf.multi_cell(CW, 5,
-        "Auteur: Équipe SecurAX | innovation.team.dz@gmail.com\n"
+        "Auteur: Équipe HexaGuard | innovation.team.dz@gmail.com\n"
         "Ce document est strictement confidentiel. Toute reproduction est interdite sans autorisation.")
 
 
@@ -296,7 +296,7 @@ def partie1(pdf):
 
     pdf.sub_title("1.1 — Description du Produit")
     pdf.body(
-        "SecurAX est une plateforme web de cybersécurité développée en Python/Flask (backend) et React (frontend), "
+        "HexaGuard est une plateforme web de cybersécurité développée en Python/Flask (backend) et React (frontend), "
         "avec une base de données MySQL. Elle intègre 11 scanners de sécurité couvrant les couches applicatives, "
         "réseau, infrastructure et services spécialisés. Le produit est en phase MVP opérationnel."
     )
@@ -315,7 +315,7 @@ def partie1(pdf):
 
     pdf.sub_title("1.3 — Faiblesses Techniques (Honnêtes)")
     pdf.bullet([
-        "Pas d'API publique documentée (Swagger/OpenAPI) — impossible d'intégrer SecurAX dans une pipeline CI/CD externe.",
+        "Pas d'API publique documentée (Swagger/OpenAPI) — impossible d'intégrer HexaGuard dans une pipeline CI/CD externe.",
         "Pas de multi-tenant : un seul espace de données partagé — impossible de vendre à plusieurs organisations simultanément de façon isolée.",
         "Pas de monitoring produit : aucune alerte si un scanner échoue silencieusement, aucune métrique d'usage.",
         "Pas de white-label : impossible de revendre la plateforme à une agence qui veut la présenter à ses clients sous son propre nom.",
@@ -353,7 +353,7 @@ def partie1(pdf):
     )
 
     pdf.callout(
-        "Verdict : SecurAX est un MVP technique solide avec un différenciateur local fort. "
+        "Verdict : HexaGuard est un MVP technique solide avec un différenciateur local fort. "
         "L'urgence n'est PAS d'ajouter des fonctionnalités — c'est de vendre le produit existant "
         "et de collecter du feedback réel de vrais clients payants.",
         color=GOLD, bg=WARN
@@ -363,7 +363,7 @@ def partie1(pdf):
     pdf.bullet([
         "Arrêter d'ajouter des scanners sans valider commercialement les existants.",
         "Arrêter de perfectionner l'UI sans avoir de premier client.",
-        "Arrêter de comparer SecurAX à Nessus ou Qualys — ce n'est pas la cible à court terme.",
+        "Arrêter de comparer HexaGuard à Nessus ou Qualys — ce n'est pas la cible à court terme.",
         "Arrêter d'attendre que le produit soit 'parfait' avant de démarcher.",
         "Arrêter de travailler sur PythonAnywhere — migrer vers un VPS dès le premier revenu.",
     ])
@@ -401,7 +401,7 @@ def partie2(pdf):
     )
 
     pdf.table(
-        ["Segment", "Volume estimé", "Budget sécurité/an", "Potentiel SecurAX"],
+        ["Segment", "Volume estimé", "Budget sécurité/an", "Potentiel HexaGuard"],
         [
             ["PME (10-200 emp.)", "~15 000 actives web", "50 000 – 300 000 DZD", "FORT — cœur de cible"],
             ["Agences web locales", "~2 000 agences", "Variable (revente)", "FORT — partenariat"],
@@ -460,7 +460,7 @@ def partie2(pdf):
         "Mostaql.com : plateforme arabe B2B — créer un profil prestataire avec exemples de rapports.",
         "LinkedIn MENA : contenus en arabe et anglais sur la cybersécurité locale — génère des inbounds.",
         "Groupes WhatsApp/Telegram de CTO arabes : présence organique, partage de cas d'usage.",
-        "Partenariats avec agences web au Maroc et Tunisie — ils revendent SecurAX à leurs clients.",
+        "Partenariats avec agences web au Maroc et Tunisie — ils revendent HexaGuard à leurs clients.",
     ])
 
     pdf.sub_title("Tarification MENA (USD)")
@@ -481,7 +481,7 @@ def partie2(pdf):
     pdf.sub_title("2.3 — Marché International (Scénario C — SaaS Global)")
     pdf.body(
         "Le marché international de la cybersécurité SaaS est saturé par des acteurs bien financés. "
-        "SecurAX ne peut pas concurrencer Nessus ou Qualys de front. La stratégie internationale doit "
+        "HexaGuard ne peut pas concurrencer Nessus ou Qualys de front. La stratégie internationale doit "
         "se baser sur une niche claire : 'Security Scanner for Developers — Affordable, Fast, API-First'. "
         "Product Hunt, GitHub, Hacker News et IndieHackers sont les canaux à faible coût pour tester cette thèse."
     )
@@ -538,7 +538,7 @@ def partie3(pdf):
 
     pdf.sub_title("3.1 — Tableau Comparatif Global")
     pdf.table(
-        ["Produit", "Prix", "Cible", "Scanners", "Points forts", "Faiblesse vs SecurAX"],
+        ["Produit", "Prix", "Cible", "Scanners", "Points forts", "Faiblesse vs HexaGuard"],
         [
             ["Nessus Pro", "$3 590/an", "Enterprise", "100+", "CVE en temps réel, très mature", "Trop cher pour PME algériennes, anglais uniquement"],
             ["Nessus Essentials", "Gratuit", "Personnel", "16 IP max", "Notoriété Tenable", "Très limité, non commercial"],
@@ -547,21 +547,21 @@ def partie3(pdf):
             ["SonarQube", "Gratuit + $150+/mois", "Dev teams", "SAST uniquement", "Open source, CI/CD natif", "Pas de scanner réseau/infra"],
             ["Qualys", "$3 000+/an", "Enterprise", "Multi", "Cloud-based, compliance", "Complexe, très cher"],
             ["OpenVAS", "Gratuit", "Tech avancé", "Réseau", "Open source, complet", "Installation complexe, pas de SaaS"],
-            ["SecurAX", "5 000–25 000 DZD/m", "PME/Dev", "11", "Local, français/arabe, tout-en-un", "Moins mature, moins de CVE"],
+            ["HexaGuard", "5 000–25 000 DZD/m", "PME/Dev", "11", "Local, français/arabe, tout-en-un", "Moins mature, moins de CVE"],
         ],
         widths=[28, 27, 22, 18, 50, 57],
     )
 
-    pdf.sub_title("3.2 — Positionnement Stratégique de SecurAX")
+    pdf.sub_title("3.2 — Positionnement Stratégique de HexaGuard")
     pdf.callout(
-        "SecurAX n'est PAS un concurrent de Nessus. SecurAX est le 'Canva de la cybersécurité' : "
+        "HexaGuard n'est PAS un concurrent de Nessus. HexaGuard est le 'Canva de la cybersécurité' : "
         "accessible, tout-en-un, local, sans expertise requise. La cible est la PME algérienne "
         "qui n'a PAS de RSSI et qui ne peut PAS payer $3 000/an.",
         color=TEAL, bg=ROW_A
     )
 
     pdf.table(
-        ["Axe de positionnement", "SecurAX", "Concurrents enterprise"],
+        ["Axe de positionnement", "HexaGuard", "Concurrents enterprise"],
         [
             ["Prix", "5 000–25 000 DZD/mois", "$3 000–$5 000+/an"],
             ["Langue", "Français + Arabe (en cours)", "Anglais uniquement"],
@@ -582,9 +582,9 @@ def partie3(pdf):
             "name": "Nessus (Tenable)",
             "threat": "Faible à court terme",
             "reason": "Trop cher ($3 590/an), interface en anglais, complexe à configurer. "
-                      "Aucune PME algérienne ne l'utilise sans RSSI dédié. SecurAX s'y prend "
+                      "Aucune PME algérienne ne l'utilise sans RSSI dédié. HexaGuard s'y prend "
                       "en prix et simplicité. Menace si Nessus sort une offre PME francophone.",
-            "response": "Ne pas comparer à Nessus. Positionner SecurAX comme 'alternative accessible'."
+            "response": "Ne pas comparer à Nessus. Positionner HexaGuard comme 'alternative accessible'."
         },
         {
             "name": "Snyk",
@@ -598,13 +598,13 @@ def partie3(pdf):
             "threat": "Moyenne (technique)",
             "reason": "Gratuit, puissant pour le réseau. Mais installation complexe, pas de SaaS, "
                       "pas de rapport client propre. Utilisé par des techniciens, pas des dirigeants PME.",
-            "response": "SecurAX propose le rapport prêt à présenter au client/direction — OpenVAS ne le fait pas."
+            "response": "HexaGuard propose le rapport prêt à présenter au client/direction — OpenVAS ne le fait pas."
         },
         {
             "name": "SonarQube",
             "threat": "Faible",
             "reason": "SAST uniquement, orienté développeurs. Complémentaire plutôt que concurrent.",
-            "response": "Intégration possible : SecurAX peut appeler SonarQube en arrière-plan (valeur ajoutée)."
+            "response": "Intégration possible : HexaGuard peut appeler SonarQube en arrière-plan (valeur ajoutée)."
         },
     ]
 
@@ -655,7 +655,7 @@ def partie4(pdf):
     pdf.set_x(M)
     pdf.multi_cell(CW, 5,
         'Salam [Prénom],\n\n'
-        'Je travaille sur SecurAX, une plateforme de cybersécurité pour PME algériennes. '
+        'Je travaille sur HexaGuard, une plateforme de cybersécurité pour PME algériennes. '
         'Je peux analyser la sécurité de ton site web gratuitement et te donner un rapport complet '
         'en 24h (failles, recommandations, score de sécurité).\n\n'
         'Ça t\'intéresse ? Donne-moi juste ton URL.',
@@ -717,7 +717,7 @@ def partie4(pdf):
             ["Formation sécurité", "30 000 DZD", "Ponctuel", "Session 4h pour équipe IT ou direction"],
             ["Pentest assisté", "50 000–150 000 DZD", "Ponctuel", "Tests avancés avec intervention manuelle"],
             ["Surveillance mensuelle", "8 000 DZD/mois", "Récurrent", "Scan auto + alerte si nouvelle faille détectée"],
-            ["Intégration CI/CD", "20 000 DZD", "Ponctuel", "Mise en place SecurAX dans pipeline dev"],
+            ["Intégration CI/CD", "20 000 DZD", "Ponctuel", "Mise en place HexaGuard dans pipeline dev"],
         ],
         widths=[40, 30, 28, 84],
     )
@@ -836,7 +836,7 @@ def partie6(pdf):
                 ("CRITIQUE", "Créer un profil Khamsat avec service d'audit à 2 500–5 000 DZD"),
                 ("HAUTE", "Fixer les bugs critiques UX/UI remontés lors des démos"),
                 ("HAUTE", "Préparer une démo vidéo de 3 minutes (Loom ou OBS)"),
-                ("MOYENNE", "Créer une page LinkedIn SecurAX avec 3 posts par semaine"),
+                ("MOYENNE", "Créer une page LinkedIn HexaGuard avec 3 posts par semaine"),
             ]
         },
         {
@@ -906,7 +906,7 @@ def partie7(pdf):
     improvements = [
         {
             "title": "7.1 — API REST Publique (Impact : CRITIQUE)",
-            "desc": "Sans API, SecurAX ne peut pas être intégré dans une pipeline CI/CD. "
+            "desc": "Sans API, HexaGuard ne peut pas être intégré dans une pipeline CI/CD. "
                     "C'est la fonctionnalité la plus demandée par les développeurs.",
             "steps": [
                 "Ajouter un modèle APIKey dans la base de données (clé, user_id, créée le, expire le, permissions).",
@@ -964,8 +964,8 @@ def partie7(pdf):
             "title": "7.6 — Scan CI/CD GitHub Actions (Impact : HAUTE — marché dev)",
             "desc": "Les équipes de développement veulent scanner automatiquement à chaque Pull Request.",
             "steps": [
-                "Créer une GitHub Action officielle SecurAX (YAML disponible sur GitHub Marketplace).",
-                "L'action appelle l'API SecurAX, attend le résultat, fail si CVSS critique > 7.",
+                "Créer une GitHub Action officielle HexaGuard (YAML disponible sur GitHub Marketplace).",
+                "L'action appelle l'API HexaGuard, attend le résultat, fail si CVSS critique > 7.",
                 "Générer un commentaire automatique sur la PR avec le résumé du rapport.",
                 "Documenter l'intégration sur la landing page — fort attrait pour développeurs.",
             ]
@@ -1008,7 +1008,7 @@ def partie8(pdf):
             ["Hébergement", "Hetzner VPS CX11", "Serveur production principal", "~4€/mois"],
             ["Hébergement", "DigitalOcean Droplet", "Alternative avec $200 crédit initial", "~5$/mois"],
             ["Landing page", "Carrd.co", "Landing page simple en 1h", "19$/an"],
-            ["Email pro", "Zoho Mail", "Email @securax.dz professionnel", "Gratuit (1 user)"],
+            ["Email pro", "Zoho Mail", "Email @hexaguard.dz professionnel", "Gratuit (1 user)"],
             ["CRM", "Notion (template)", "Suivi prospects, clients, pipeline", "Gratuit"],
             ["Analytics", "Google Analytics 4", "Suivre les visiteurs landing page", "Gratuit"],
             ["Monitoring erreurs", "Sentry", "Capturer les erreurs Python en prod", "Gratuit (5k events)"],
@@ -1026,7 +1026,7 @@ def partie8(pdf):
     pdf.add_page()
     pdf.sub_title("8.3 — Partenariats Stratégiques")
     pdf.table(
-        ["Type de partenaire", "Approche", "Valeur pour eux", "Valeur pour SecurAX"],
+        ["Type de partenaire", "Approche", "Valeur pour eux", "Valeur pour HexaGuard"],
         [
             ["Agences web locales (50+)", "Proposer commission 20% sur chaque client apporté",
              "Nouveau service à vendre à leurs clients, sans investissement",
@@ -1037,7 +1037,7 @@ def partie8(pdf):
             ["Incubateurs/Startupdz", "Offrir plan gratuit aux startups incubées",
              "Service sécurité à 0 coût pour leurs incubés",
              "Notoriété, témoignages, futurs clients payants"],
-            ["Écoles de développement", "Ateliers sécurité avec SecurAX (formation)",
+            ["Écoles de développement", "Ateliers sécurité avec HexaGuard (formation)",
              "Contenu pratique, outil pédagogique",
              "Notoriété, accès aux futurs clients entreprise"],
             ["ANIE / ANSSI Algérie", "Collaboration sur des rapports de cybersécurité",
@@ -1050,7 +1050,7 @@ def partie8(pdf):
     pdf.sub_title("8.4 — Stratégie de Contenu (0 DZD)")
     pdf.bullet([
         "LinkedIn : 1 post/semaine sur une faille de sécurité connue en Algérie (ex. sites .dz piratés). Objectif : 500 abonnés en 3 mois.",
-        "Newsletter mensuelle 'SecurAX Security Digest' : top failles du mois, conseils, nouveautés produit.",
+        "Newsletter mensuelle 'HexaGuard Security Digest' : top failles du mois, conseils, nouveautés produit.",
         "YouTube : tutoriels gratuits 'Comment sécuriser son site WordPress en 30 minutes'. SEO organique long terme.",
         "Medium / Dev.to : articles techniques sur la cybersécurité pour attirer les développeurs.",
         "Rapport annuel public 'État de la cybersécurité des PME algériennes' — relations presse, crédibilité.",
@@ -1087,7 +1087,7 @@ def partie9(pdf):
         "Objet : Votre site [nomsite.dz] — Résultat de sécurité : [SCORE]/100\n\n"
         "Bonjour [Prénom],\n\n"
         "Je me permets de vous contacter car j'ai analysé brièvement la sécurité publique de "
-        "votre site [nomsite.dz] avec SecurAX, notre plateforme de cybersécurité.\n\n"
+        "votre site [nomsite.dz] avec HexaGuard, notre plateforme de cybersécurité.\n\n"
         "Résultats préliminaires :\n"
         "  • Score de sécurité : [X]/100\n"
         "  • Failles détectées : [N] (dont [M] critiques)\n"
@@ -1095,7 +1095,7 @@ def partie9(pdf):
         "Je peux vous envoyer le rapport complet gratuitement et vous proposer une solution "
         "adaptée à votre budget.\n\n"
         "Seriez-vous disponible pour un appel de 15 minutes cette semaine ?\n\n"
-        "Cordialement,\n[Votre Nom] — SecurAX | innovation.team.dz@gmail.com",
+        "Cordialement,\n[Votre Nom] — HexaGuard | innovation.team.dz@gmail.com",
         fill=True
     )
     pdf.ln(4)
@@ -1105,13 +1105,13 @@ def partie9(pdf):
     pdf.set_x(M)
     pdf.multi_cell(CW, 5,
         "Introduction (30s) :\n"
-        "'Bonjour, je suis [Nom] de SecurAX, une plateforme algérienne de cybersécurité. "
+        "'Bonjour, je suis [Nom] de HexaGuard, une plateforme algérienne de cybersécurité. "
         "J'ai analysé votre site et j'ai quelques résultats à vous partager — ça prend 5 minutes.'\n\n"
         "Problème (1min) :\n"
         "'Aujourd'hui 60% des PME algériennes en ligne ont au moins une faille de sécurité critique. "
         "Un site piraté coûte en moyenne 3 semaines de chiffre d'affaires perdu + dommages réputationnels.'\n\n"
         "Solution (1min) :\n"
-        "'SecurAX scanne votre site en 10 minutes, détecte les failles, et vous donne un rapport "
+        "'HexaGuard scanne votre site en 10 minutes, détecte les failles, et vous donne un rapport "
         "avec exactement quoi faire. C'est comme avoir un ingénieur sécurité à votre disposition.'\n\n"
         "Preuve (30s) :\n"
         "'On couvre 11 types de scans : web, réseau, SSL, dépendances, WordPress... "
@@ -1132,7 +1132,7 @@ def partie9(pdf):
             ["Démos réalisées", "5 démos", "20 démos", "50 démos", "Calendly / Loom"],
             ["Clients payants", "1 client", "5 clients", "20 clients", "Dashboard admin"],
             ["MRR (Revenu mensuel)", "5 000 DZD", "60 000 DZD", "250 000 DZD", "Tableau financier"],
-            ["Scans réalisés/mois", "10 scans", "50 scans", "200 scans", "DB SecurAX"],
+            ["Scans réalisés/mois", "10 scans", "50 scans", "200 scans", "DB HexaGuard"],
             ["Avis/témoignages", "0 → 2", "5 avis", "15 avis", "LinkedIn, Khamsat"],
             ["Uptime plateforme", ">99%", ">99.5%", ">99.9%", "UptimeRobot"],
             ["NPS (satisfaction)", "N/A", ">30", ">50", "Survey email mensuel"],
@@ -1219,7 +1219,7 @@ def partie9(pdf):
     pdf.set_font("Helvetica", "I", 9)
     pdf.set_text_color(*TEAL_LT)
     pdf.multi_cell(CW - 6, 5,
-        "SecurAX a tout ce qu'il faut pour réussir. Le produit existe. La technologie est là. "
+        "HexaGuard a tout ce qu'il faut pour réussir. Le produit existe. La technologie est là. "
         "Le marché est non saturé. Ce qui manque : vendre. Un seul client payant vaut plus "
         "que 100 fonctionnalités supplémentaires. Allez chercher ce premier client aujourd'hui.")
 
@@ -1241,7 +1241,7 @@ def main():
     partie8(pdf)
     partie9(pdf)
 
-    out = "SecurAX_Rapport_Strategique_2026.pdf"
+    out = "HexaGuard_Rapport_Strategique_2026.pdf"
     pdf.output(out)
     size_kb = os.path.getsize(out) / 1024
     print(f"[OK] {out} — {pdf.page} pages — {size_kb:.1f} KB")

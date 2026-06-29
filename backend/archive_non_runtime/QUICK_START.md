@@ -1,4 +1,4 @@
-﻿# 🚀 SecurAx - دليل التشغيل السريع
+﻿# 🚀 HexaGuard - دليل التشغيل السريع
 
 ## طرق التشغيل
 
@@ -16,7 +16,7 @@
 
 ### 2️⃣ **استخدام PowerShell** (خيار بديل)
 ```powershell
-cd e:\PFE\SecurAxV4.1\SecurAx4.1
+cd e:\PFE\HexaGuardV4.1\HexaGuard4.1
 .\start.ps1
 ```
 
@@ -24,7 +24,7 @@ cd e:\PFE\SecurAxV4.1\SecurAx4.1
 
 ### 3️⃣ **التشغيل اليدوي من Terminal**
 ```bash
-cd e:\PFE\SecurAxV4.1\SecurAx4.1
+cd e:\PFE\HexaGuardV4.1\HexaGuard4.1
 E:\PFE\.venv\Scripts\activate.bat
 pip install -r requirements.txt
 python app.py
@@ -49,7 +49,7 @@ http://127.0.0.1:5000
 ## ℹ️ معلومات مهمة
 
 - **البورت**: 5000
-- **قاعدة البيانات**: `SecurAx.db`
+- **قاعدة البيانات**: `HexaGuard.db`
 - **البيئة الافتراضية**: `E:\PFE\.venv`
 - **اللغات المدعومة**: العربية ✓
 

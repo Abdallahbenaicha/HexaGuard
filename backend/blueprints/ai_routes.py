@@ -1,4 +1,4 @@
-"""SecurAx — AI routes blueprint (ARIA agent endpoints)."""
+"""HexaGuard — AI routes blueprint (ARIA agent endpoints)."""
 
 import logging
 

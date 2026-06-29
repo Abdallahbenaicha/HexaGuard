@@ -526,7 +526,7 @@ def _check_dangerous_modules(parsed: list) -> list[ConfigFinding]:
                     f"أو عبر:\n"
                     f"  a2dismod {module_name.replace('mod_', '')}"
                 ),
-                fixed_directive=f"# LoadModule {value}  # Disabled by SecurAx",
+                fixed_directive=f"# LoadModule {value}  # Disabled by HexaGuard",
                 line_number=line_num,
             ))
 
@@ -1980,7 +1980,7 @@ def generate_fixed_config(original_content: str, vulnerabilities: list[dict]) ->
             indent = len(line) - len(line.lstrip())
             new_lines.append(" " * indent + working_line)
             for old_stripped, _, check, _ in fixes:
-                new_lines.append(f"# SecurAx fix [{check}]: was -> {old_stripped}")
+                new_lines.append(f"# HexaGuard fix [{check}]: was -> {old_stripped}")
 
             title = ", ".join([t for _, _, _, t in fixes if t])
             changes.append({
@@ -1997,7 +1997,7 @@ def generate_fixed_config(original_content: str, vulnerabilities: list[dict]) ->
         new_lines += [
             "",
             "# =========================================================",
-            "# SecurAx Security Fix - Missing Security Directives",
+            "# HexaGuard Security Fix - Missing Security Directives",
             "# =========================================================",
         ]
         for check, title, fixed in append_fixes:

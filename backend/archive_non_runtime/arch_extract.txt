@@ -1,5 +1,5 @@
 ﻿[Normal] المراجعة المعمارية والهيكلية
-[Normal] مشروع NEXUS / SecurAx SECURITY — pfeV1.2
+[Normal] مشروع NEXUS / HexaGuard SECURITY — pfeV1.2
 [Normal] تحليل بنية الفحوصات • إعادة التصميم المقترحة • خارطة التطوير
 [Normal] مارس 2026
 [Heading 1] 1. تشريح البنية الحالية — ماذا يفعل كل scanner فعلاً؟

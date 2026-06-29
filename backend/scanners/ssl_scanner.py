@@ -1,4 +1,4 @@
-"""SecurAx — SSL/TLS Certificate & Protocol Scanner.
+"""HexaGuard — SSL/TLS Certificate & Protocol Scanner.
 
 Uses only Python stdlib (ssl, socket, urllib) — no extra packages required.
 Checks performed:
@@ -113,7 +113,7 @@ def _check_https_redirect(host: str, port: int) -> bool:
     try:
         req = urllib.request.Request(
             f"http://{host}/",
-            headers={"User-Agent": "SecurAx-SSL-Scanner/2.1"},
+            headers={"User-Agent": "HexaGuard-SSL-Scanner/2.1"},
         )
         opener = urllib.request.build_opener(
             urllib.request.HTTPRedirectHandler()
@@ -135,7 +135,7 @@ def _check_hsts(host: str, port: int) -> tuple[bool, int]:
             with ctx.wrap_socket(raw, server_hostname=host) as conn:
                 request_bytes = (
                     f"HEAD / HTTP/1.1\r\nHost: {host}\r\n"
-                    "User-Agent: SecurAx-SSL-Scanner/2.1\r\n"
+                    "User-Agent: HexaGuard-SSL-Scanner/2.1\r\n"
                     "Connection: close\r\n\r\n"
                 ).encode()
                 conn.sendall(request_bytes)
@@ -191,7 +191,7 @@ def _weak_cipher(cipher_name: str) -> bool:
 
 
 def run_ssl_scan(target: str) -> dict:
-    """Run a comprehensive SSL/TLS scan and return SecurAx report format."""
+    """Run a comprehensive SSL/TLS scan and return HexaGuard report format."""
     host, port = _parse_host_port(target)
     scan_start = time.perf_counter()
     vulns: list[dict] = []

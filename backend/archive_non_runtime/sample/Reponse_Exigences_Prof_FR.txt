@@ -1,11 +1,11 @@
 ﻿Reponse aux exigences de presentation du PFE
-Projet: SecurAx Security Platform
+Projet: HexaGuard Security Platform
 Annee universitaire: 2025/2026
 
 ============================================================
 1) Introduction (Contexte)
 ============================================================
-Le projet SecurAx est une plateforme web de scan de securite developpee en Python/Flask.
+Le projet HexaGuard est une plateforme web de scan de securite developpee en Python/Flask.
 Son objectif est de centraliser plusieurs types d analyses de securite dans une seule interface:
 - scan reseau,
 - scan application web,
@@ -122,7 +122,7 @@ Moyen terme:
 ============================================================
 8) Conclusion
 ============================================================
-Le projet SecurAx est deja fonctionnel et apporte une vraie valeur: detection, analyse et aide a la correction des faiblesses de securite.
+Le projet HexaGuard est deja fonctionnel et apporte une vraie valeur: detection, analyse et aide a la correction des faiblesses de securite.
 Le travail realise couvre les points essentiels du plan de presentation de l enseignant.
 Les prochaines actions sont ciblees sur la finition, la robustesse et la qualite de demonstration.
 

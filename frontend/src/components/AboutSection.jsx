@@ -90,7 +90,7 @@ const AboutSection = () => {
                             whileInView={{ opacity: 1, x: 0 }}
                             className="font-orbitron font-black text-4xl md:text-5xl text-white tracking-widest leading-tight"
                         >
-                            THE <span className="text-cyan-400 text-glow-cyan">SecurAx</span> SOLUTION
+                            THE <span className="text-cyan-400 text-glow-cyan">HexaGuard</span> SOLUTION
                         </motion.h2>
                     </div>
                     <motion.div 

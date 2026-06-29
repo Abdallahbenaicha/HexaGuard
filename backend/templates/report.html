@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>SecurAx — تقرير الفحص الأمني</title>
+    <title>HexaGuard — تقرير الفحص الأمني</title>
     <style>
         /* ── Reset & Base ── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -629,7 +629,7 @@
         <div class="brand">
             <div class="brand-icon">🛡️</div>
             <div>
-                <div class="brand-name">SecurAx</div>
+                <div class="brand-name">HexaGuard</div>
                 <div class="brand-sub">SECURITY PLATFORM · تقرير الفحص الأمني</div>
             </div>
         </div>
@@ -881,7 +881,7 @@
     <div class="actions">
         <button class="btn btn-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
         {% if has_fix %}
-        <a class="btn btn-fix" href="/download-fixed/{{ token }}">⬇️ تحميل الملف المُصحَّح (httpd_SecurAx_fixed.conf)</a>
+        <a class="btn btn-fix" href="/download-fixed/{{ token }}">⬇️ تحميل الملف المُصحَّح (httpd_HexaGuard_fixed.conf)</a>
         {% endif %}
         <a class="btn btn-back" href="/">← العودة للمنصة</a>
         <span class="actions-note">
@@ -891,7 +891,7 @@
 
     <!-- ═══ FOOTER ═══ -->
     <div class="report-footer">
-        <span>SecurAx SECURITY PLATFORM · SCAN REPORT</span>
+        <span>HexaGuard SECURITY PLATFORM · SCAN REPORT</span>
         <span>{{ token[:8].upper() }} · CONFIDENTIAL</span>
     </div>
 

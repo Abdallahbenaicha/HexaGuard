@@ -1,4 +1,4 @@
-# SecurAX — Unified Security Scanning Platform
+# HexaGuard — Unified Security Scanning Platform
 
 > **All-in-one cybersecurity platform** for SMBs and security teams — web, network, DAST, SSL, server, code & dependency scanning in a single dashboard, with Arabic/English support.
 
@@ -114,12 +114,12 @@ npm run dev
 |---|---|---|---|
 | `SECRET_KEY` | ✅ | — | Flask session secret (min 32 chars random) |
 | `FLASK_ENV` | — | `development` | Set `production` on server |
-| `DB_PATH` | — | `securax.db` | SQLite file path |
+| `DB_PATH` | — | `hexaguard.db` | SQLite file path |
 | `MYSQL_HOST` | — | — | Enable MySQL (set all 4 MYSQL_* vars) |
 | `MYSQL_USER` | — | — | MySQL username |
 | `MYSQL_PASS` | — | — | MySQL password |
-| `MYSQL_DB` | — | `securax` | MySQL database name |
-| `SECURAX_ADMIN_PASSWORD` | — | `Admin@2024!` | Bootstrap admin password |
+| `MYSQL_DB` | — | `hexaguard` | MySQL database name |
+| `HEXAGUARD_ADMIN_PASSWORD` | — | `Admin@2024!` | Bootstrap admin password |
 | `ALLOWED_ORIGINS` | — | `http://localhost:5173` | Comma-separated CORS origins |
 
 ### Frontend (`.env.local`)
@@ -286,4 +286,4 @@ pytest tests/test_api.py -v           # 12 tests — API integration
 
 ## License
 
-MIT © 2024 SecurAX Team
+MIT © 2024 HexaGuard Team

@@ -1,11 +1,11 @@
-﻿DOCUMENTATION COMPLETE DU PROJET SecurAx (v1.2)
+﻿DOCUMENTATION COMPLETE DU PROJET HexaGuard (v1.2)
 Date: 2026-03-13
 Langue: Francais
 
 ====================================================================
 1) OBJECTIF DU PROJET
 ====================================================================
-SecurAx est une plateforme web de security assessment qui centralise:
+HexaGuard est une plateforme web de security assessment qui centralise:
 - la soumission de scans de securite
 - l'analyse de plusieurs surfaces (reseau, web, serveur, dependances, SAST, DAST)
 - le scoring de risque
@@ -475,7 +475,7 @@ Ameliorations possibles:
 ====================================================================
 15) RESUME EXECUTIF
 ====================================================================
-SecurAx est une plateforme de gouvernance securite orientee operationnel:
+HexaGuard est une plateforme de gouvernance securite orientee operationnel:
 - elle orchestre plusieurs moteurs de scan,
 - normalise leurs resultats,
 - calcule un risque,

@@ -1,4 +1,4 @@
-"""SecurAx — WordPress Security Scanner.
+"""HexaGuard — WordPress Security Scanner.
 
 Performs non-destructive, read-only HTTP probing of a WordPress installation.
 Uses only the already-installed `requests` library — no extra dependencies.
@@ -33,7 +33,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = 10
-_UA      = "Mozilla/5.0 (compatible; SecurAX-Scanner/2.0)"
+_UA      = "Mozilla/5.0 (compatible; HexaGuard-Scanner/2.0)"
 _HEADERS = {"User-Agent": _UA}
 
 # Known WP versions that are EOL / critically vulnerable

@@ -1,5 +1,5 @@
 """
-SecurAx — shared Flask extensions.
+HexaGuard — shared Flask extensions.
 All extension objects live here and are bound to the app via init_extensions().
 Blueprints import from here so they never touch the app object directly.
 """

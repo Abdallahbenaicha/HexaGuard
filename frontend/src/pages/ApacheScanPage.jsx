@@ -33,7 +33,7 @@ function downloadBlob(content, filename, mime = 'text/plain;charset=utf-8') {
 function buildJsonReport(results, scanMode, target, fileName) {
     return JSON.stringify({
         report: {
-            tool: 'securAX Security Platform',
+            tool: 'HexaGuard Security Platform',
             scan_type: scanMode === 'file' ? 'Internal Config Audit (White-Box)' : scanMode === 'full' ? 'External Deep Audit' : 'Security Headers Audit',
             target: scanMode === 'file' ? fileName : target,
             generated_at: new Date().toISOString(),
@@ -302,7 +302,7 @@ const ApacheScanPage = () => {
         if (!token) {
             // Fallback: no backend token yet, download JSON
             const json = buildJsonReport(results, scanMode, target, file?.name);
-            downloadBlob(json, 'securax-report.json', 'application/json');
+            downloadBlob(json, 'hexaguard-report.json', 'application/json');
             return;
         }
         try {
@@ -319,7 +319,7 @@ const ApacheScanPage = () => {
             const blobUrl = URL.createObjectURL(blob);
             const a       = document.createElement('a');
             a.href        = blobUrl;
-            a.download    = 'securax_report.pdf';
+            a.download    = 'hexaguard_report.pdf';
             a.click();
             URL.revokeObjectURL(blobUrl);
         } catch {

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
 import { Shield, Globe, BarChart2, Clock, ChevronRight, X, Zap } from 'lucide-react';
 
-const TOUR_KEY = 'securax_tour_done';
+const TOUR_KEY = 'hexaguard_tour_done';
 
 const STEPS = [
     {
@@ -52,7 +52,7 @@ const STEPS = [
 
 // Fallback strings for keys not yet in translations
 const FALLBACKS = {
-    tour_welcome_title:   'Welcome to SecurAX',
+    tour_welcome_title:   'Welcome to HexaGuard',
     tour_welcome_desc:    'Your all-in-one security platform. Let\'s take a quick tour of the key features.',
     tour_scan_title:      'Run Your First Scan',
     tour_scan_desc:       'Choose from 7 scan types: Web, Network, DAST, SSL, Server, Code, and Dependencies.',

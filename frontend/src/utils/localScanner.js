@@ -1,5 +1,5 @@
 /**
- * SECURAX — Deep Local Network Scanner
+ * HEXAGUARD — Deep Local Network Scanner
  * Runs entirely in the browser.
  * Detects open ports, router misconfigs, CVE-vulnerable endpoints,
  * network topology, and web service vulnerabilities.

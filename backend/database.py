@@ -77,7 +77,7 @@ def _make_mysql_conn():
         host=_MYSQL_HOST,
         user=_os.environ.get("MYSQL_USER", ""),
         password=_os.environ.get("MYSQL_PASS", ""),
-        database=_os.environ.get("MYSQL_DB", "securax"),
+        database=_os.environ.get("MYSQL_DB", "hexaguard"),
         port=int(_os.environ.get("MYSQL_PORT", "3306")),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
@@ -103,7 +103,7 @@ def _get_db():
 
     # ── SQLite path (default) ─────────────────────────────────────────────────
     if not getattr(_local, "conn", None):
-        db_path = _resolve_db_path(_os.environ.get("DB_PATH", "securax.db"))
+        db_path = _resolve_db_path(_os.environ.get("DB_PATH", "hexaguard.db"))
         conn = sqlite3.connect(db_path, check_same_thread=True)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
@@ -121,14 +121,14 @@ def _resolve_db_path(requested: str) -> str:
             return requested
         except OSError:
             pass
-    fallback = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "securax.db")
+    fallback = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "hexaguard.db")
     logger.warning(
         "DB path '%s' is not accessible — falling back to '%s'.",
         requested, fallback,
     )
     return fallback
 
-DB_PATH = _os.environ.get("DB_PATH", "securax.db")
+DB_PATH = _os.environ.get("DB_PATH", "hexaguard.db")
 
 
 def _exec(sql: str, params: tuple = ()):
@@ -472,8 +472,8 @@ def _bootstrap_admin():
     and won't clobber manually-added users.
     """
     import os
-    admin_pw   = os.environ.get("SECURAX_ADMIN_PASSWORD",   "").strip() or "Admin@2024!"
-    analyst_pw = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip() or "Analyst@2024!"
+    admin_pw   = os.environ.get("HEXAGUARD_ADMIN_PASSWORD",   "").strip() or "Admin@2024!"
+    analyst_pw = os.environ.get("HEXAGUARD_ANALYST_PASSWORD", "").strip() or "Analyst@2024!"
 
     now     = datetime.now(timezone.utc).isoformat()
     created = []

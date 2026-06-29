@@ -33,18 +33,18 @@
 
 - **`test_config.conf`** — ملف تكوين اختبار.
 - **`.env.example`** — قالب متغيرات البيئة.
-- **`httpd_SecurAx_fixed14.conf`** — نسخة إعدادات Apache قديمة.
+- **`httpd_HexaGuard_fixed14.conf`** — نسخة إعدادات Apache قديمة.
 
 ### 📄 وثائق ومقالات
 
-- **`DOCUMENTATION_COMPLETE_PROJET_SecurAx_FR.txt`** — توثيق شامل (فرنسي).
+- **`DOCUMENTATION_COMPLETE_PROJET_HexaGuard_FR.txt`** — توثيق شامل (فرنسي).
 - **`arch_extract.txt`** — ملاحظات معمارية.
 - **`index.html`** — ملف HTML قديم (التطبيق يستخدم `templates/` الآن).
 
 ### 📚 عينة / مراجع
 
 - **`sample/`** — مجلد العينات (عروض تقديمية، ملفات مرجعية).
-  - `Presentation_PFE_SecurAx_FR.pptx` — عرض تقديمي (فرنسي).
+  - `Presentation_PFE_HexaGuard_FR.pptx` — عرض تقديمي (فرنسي).
   - `Architecture_ERD_Slides_FR.md` — شرائح المعمارية.
   - `Reponse_Exigences_Prof_FR.txt` — ردود على المتطلبات.
 
@@ -64,13 +64,13 @@ python app.py  # تشغيل التطبيق
 
 استخدم ملفات Docker و Gunicorn من هنا:
 ```bash
-docker build -t SecurAx:latest -f archive_non_runtime/Dockerfile .
+docker build -t HexaGuard:latest -f archive_non_runtime/Dockerfile .
 docker-compose -f archive_non_runtime/docker-compose.yml up
 ```
 
 ### 📖 للمرجعية / التوثيق
 
-ابحث في `DOCUMENTATION_COMPLETE_PROJET_SecurAx_FR.txt` أو `arch_extract.txt` عن تفاصيل.
+ابحث في `DOCUMENTATION_COMPLETE_PROJET_HexaGuard_FR.txt` أو `arch_extract.txt` عن تفاصيل.
 
 ### 🗑️ الحذف الآمن
 

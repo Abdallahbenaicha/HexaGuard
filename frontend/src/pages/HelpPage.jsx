@@ -66,7 +66,7 @@ const FAQS = [
     },
     {
         q: 'What are scheduled scans?',
-        a: 'Go to Scheduled Scans to set up recurring scans (daily, weekly, monthly). SecurAX will automatically run the scan and save the results in your Reports. You\'ll be notified on completion.',
+        a: 'Go to Scheduled Scans to set up recurring scans (daily, weekly, monthly). HexaGuard will automatically run the scan and save the results in your Reports. You\'ll be notified on completion.',
     },
     {
         q: 'How is my risk score calculated?',
@@ -131,7 +131,7 @@ export default function HelpPage() {
                     Help & Documentation
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                    Everything you need to get the most out of SecurAX.
+                    Everything you need to get the most out of HexaGuard.
                 </p>
             </div>
 
@@ -200,7 +200,7 @@ export default function HelpPage() {
                 <Key className="w-8 h-8 text-cyan-500 mx-auto mb-3" />
                 <h3 className="font-semibold text-slate-900 dark:text-white mb-1">Need more help?</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                    Ask the AI assistant, or contact the SecurAX team.
+                    Ask the AI assistant, or contact the HexaGuard team.
                 </p>
                 <div className="flex gap-3 justify-center flex-wrap">
                     <Link

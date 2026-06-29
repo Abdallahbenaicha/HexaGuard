@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import securaxLogo from '../assets/securax_logo.png';
+import hexaguardLogo from '../assets/hexaguard_logo.png';
 import {
     Shield, Globe, Code, Network,
     Package, Zap, ChevronRight, CheckCircle, Lock, Eye,
@@ -90,7 +90,7 @@ const COMPARE_FEATURES = [
 ];
 const COMPARE_TOOLS = [
     {
-        name: 'SecurAX',
+        name: 'HexaGuard',
         highlight: true,
         checks: [true, true, true, true, true, true, true, true, true],
     },
@@ -139,8 +139,8 @@ const LandingPage = () => {
             }`}>
                 <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                        <img src={securaxLogo} alt="securAX Logo" className="w-8 h-8 object-contain" />
-                        <span className="font-bold text-lg tracking-tight text-white">securAX</span>
+                        <img src={hexaguardLogo} alt="HexaGuard Logo" className="w-8 h-8 object-contain" />
+                        <span className="font-bold text-lg tracking-tight text-white">HexaGuard</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Link
@@ -177,7 +177,7 @@ const LandingPage = () => {
                     </h1>
 
                     <p className="text-lg md:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-                        securAX is an AI-powered security assessment platform. Scan networks, web apps,
+                        HexaGuard is an AI-powered security assessment platform. Scan networks, web apps,
                         server configs, and code — then let ARIA AI guide you through every fix.
                     </p>
 
@@ -286,7 +286,7 @@ const LandingPage = () => {
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-white">ARIA</p>
-                                        <p className="text-[10px] text-slate-500">securAX AI</p>
+                                        <p className="text-[10px] text-slate-500">HexaGuard AI</p>
                                     </div>
                                     <span className="ml-auto flex items-center gap-1 text-[9px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
                                         <span className="w-1 h-1 rounded-full bg-green-400" />
@@ -347,12 +347,12 @@ const LandingPage = () => {
             <section className="py-20 px-6">
                 <div className="max-w-5xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-xs font-semibold text-cyan-400 uppercase tracking-widest mb-3">Why SecurAX</p>
+                        <p className="text-xs font-semibold text-cyan-400 uppercase tracking-widest mb-3">Why HexaGuard</p>
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                             The only tool that does it all
                         </h2>
                         <p className="text-slate-400 text-sm max-w-xl mx-auto">
-                            Competitors force you to buy multiple tools. SecurAX combines everything — with Arabic support no other platform offers.
+                            Competitors force you to buy multiple tools. HexaGuard combines everything — with Arabic support no other platform offers.
                         </p>
                     </div>
 
@@ -406,7 +406,7 @@ const LandingPage = () => {
                     <div className="relative bg-gradient-to-br from-primary-600/10 to-primary-700/5 border border-primary-500/20 rounded-3xl p-12 overflow-hidden">
                         <FloatingOrb className="w-64 h-64 bg-primary-500/10" style={{ top: '-30%', left: '-15%' }} />
                         <div className="relative z-10">
-                            <img src={securaxLogo} alt="securAX Logo" className="w-16 h-16 mx-auto mb-6 object-contain" />
+                            <img src={hexaguardLogo} alt="HexaGuard Logo" className="w-16 h-16 mx-auto mb-6 object-contain" />
                             <h2 className="text-3xl font-bold text-white mb-4">Ready to find your risks?</h2>
                             <p className="text-slate-400 mb-8 text-sm leading-relaxed max-w-lg mx-auto">
                                 Create your free account and run your first security scan in minutes.
@@ -435,11 +435,11 @@ const LandingPage = () => {
             <footer className="border-t border-white/5 py-8 px-6">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
-                        <img src={securaxLogo} alt="securAX Logo" className="w-6 h-6 object-contain" />
-                        <span className="text-sm font-bold text-slate-400">securAX</span>
+                        <img src={hexaguardLogo} alt="HexaGuard Logo" className="w-6 h-6 object-contain" />
+                        <span className="text-sm font-bold text-slate-400">HexaGuard</span>
                     </div>
                     <p className="text-xs text-slate-600 text-center">
-                        © {year} securAX — For authorized security testing only. All activity is logged and audited.
+                        © {year} HexaGuard — For authorized security testing only. All activity is logged and audited.
                     </p>
                     <div className="flex gap-4">
                         <Link to="/login" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Sign In</Link>

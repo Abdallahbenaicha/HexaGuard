@@ -1,4 +1,4 @@
-"""SecurAx — background scan job manager with SQLite persistence.
+"""HexaGuard — background scan job manager with SQLite persistence.
 
 Jobs are written to the scan_jobs table on every state change, so they
 survive server restarts.  An in-memory mirror is kept for fast reads.

@@ -1,4 +1,4 @@
-"""SecurAx — scan blueprint.
+"""HexaGuard — scan blueprint.
 
 Covers:
   - /start-scan  (legacy Flask form-based dispatcher)
@@ -103,7 +103,7 @@ def _finalize_bridge_scan(
 def api_version():
     """Service metadata — version, available scanners."""
     return jsonify({
-        "service":  "securax",
+        "service":  "hexaguard",
         "version":  "2.1.0",
         "scanners": ["web", "network", "sast", "dast", "dependencies", "apache", "ssl"],
         "features": ["risk_engine", "cisa_kev", "aria_ai", "2fa_totp", "pdf_reports"],
@@ -121,7 +121,7 @@ def health():
         status = "ok"
     except Exception:
         status = "degraded"
-    return jsonify({"status": status, "service": "securax"}), 200
+    return jsonify({"status": status, "service": "hexaguard"}), 200
 
 
 @scans_bp.route("/api/stats")
@@ -466,7 +466,7 @@ def fix_config_bridge():
             "changes":       change_log,
             "change_log":    change_log,
             "changes_count": len(change_log),
-            "filename":      "httpd_securax_fixed.conf",
+            "filename":      "httpd_hexaguard_fixed.conf",
             "risk":          breakdown.risk_level,
             "risk_score":    breakdown.final_score,
             "report_token":  report_token,

@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // ── Toast system (no external library) ────────────────────────────────────────
 export const showToast = (message, type = 'error') => {
-    window.dispatchEvent(new CustomEvent('securax-toast', { detail: { message, type, id: Date.now() + Math.random() } }));
+    window.dispatchEvent(new CustomEvent('hexaguard-toast', { detail: { message, type, id: Date.now() + Math.random() } }));
 };
 
 export const ToastContainer = () => {
@@ -16,8 +16,8 @@ export const ToastContainer = () => {
             setToasts(prev => [...prev.slice(-4), t]);
             setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 4000);
         };
-        window.addEventListener('securax-toast', handle);
-        return () => window.removeEventListener('securax-toast', handle);
+        window.addEventListener('hexaguard-toast', handle);
+        return () => window.removeEventListener('hexaguard-toast', handle);
     }, []);
 
     if (!toasts.length) return null;

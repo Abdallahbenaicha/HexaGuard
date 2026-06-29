@@ -13,7 +13,7 @@ import sqlite3
 import bcrypt
 from pathlib import Path
 
-DB_PATH = os.environ.get("DATABASE_URL", "securax.db")
+DB_PATH = os.environ.get("DATABASE_URL", "hexaguard.db")
 # If DATABASE_URL starts with sqlite:/// strip it
 if DB_PATH.startswith("sqlite:///"):
     DB_PATH = DB_PATH[10:]
@@ -49,7 +49,7 @@ def create_admin_if_missing(username: str, password: str, role: str, conn: sqlit
     return True
 
 def main():
-    parser = argparse.ArgumentParser(description="Reset SecurAx admin/analyst passwords")
+    parser = argparse.ArgumentParser(description="Reset HexaGuard admin/analyst passwords")
     parser.add_argument("--admin-password",   default="Admin@2024!",   help="New admin password")
     parser.add_argument("--analyst-password", default="Analyst@2024!", help="New analyst password")
     parser.add_argument("--db",               default=DB_PATH,          help="Path to SQLite DB")

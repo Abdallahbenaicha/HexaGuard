@@ -51,17 +51,17 @@ slides = prs.slides
 
 # ── Slide 3 — CONTACT (email + noms corriges) ────────────────────────────
 print("Slide 3 — Contact")
-s = find_shape(slides[2], "Equipe SecurAx")
+s = find_shape(slides[2], "Equipe HexaGuard")
 if not s:
     s = find_shape(slides[2], "Nom(s) du")
 if s:
     set_shape_text(s, [
         "Nom(s) du responsable(s) : Benaicha Abdallah  |  Djenidi Ilies",
         "Fonctions : Architecte General & Expert Securite  |  Dev IA/Full-Stack",
-        "Email : securaxdz@gmail.com",
+        "Email : hexaguarddz@gmail.com",
         "Numero de telephone : [A completer]",
         "Site web (optionnel) : [En cours de deploiement]",
-        "Reseaux sociaux : GitHub — SecurAx Project",
+        "Reseaux sociaux : GitHub — HexaGuard Project",
     ])
 
 # ── Slide 5 — EQUIPE (noms reels) ─────────────────────────────────────────
@@ -109,12 +109,12 @@ if s:
 
 # ── Slide 10 — VALEUR AJOUTEE (reinforce aspect innovant) ─────────────────
 print("Slide 10 — Valeur ajoutee")
-s = find_shape(slides[9], "Ce que SecurAx")
+s = find_shape(slides[9], "Ce que HexaGuard")
 if not s:
     s = find_shape(slides[9], "GAIN DE TEMPS")
 if s:
     set_shape_text(s, [
-        "Ce que SecurAx apporte — valeur reelle pour les clients :",
+        "Ce que HexaGuard apporte — valeur reelle pour les clients :",
         "",
         "GAIN DE TEMPS        : Audit complet en 5 min vs. 5 jours manuellement (-80%)",
         "ECONOMIES            : 10x moins cher que Nessus / Qualys / Rapid7",
@@ -142,7 +142,7 @@ if s:
         "  OPPORTUNITES: Marche algerien/africain sous-equipe, hausse cyberattaques +38%",
         "  MENACES     : Geants (Tenable, IBM), nouvelles startups IA securite mondiales",
         "",
-        "Differenciation cle — pourquoi SecurAx est unique :",
+        "Differenciation cle — pourquoi HexaGuard est unique :",
         "  (1) SOUVERAINETE NUMERIQUE : hebergement 100% algerien possible, pas de cloud etranger",
         "  (2) COUT ACCESSIBLE        : a partir de 29 $/mois vs. 3 000 $/an pour Nessus",
         "  (3) PLATEFORME UNIFIEE     : 7 scanners + ARIA IA dans 1 seul outil coherent",

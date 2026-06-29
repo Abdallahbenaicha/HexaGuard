@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, Mail, ArrowRight, AlertCircle, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import securaxLogo from '../assets/securax_logo.png';
+import hexaguardLogo from '../assets/hexaguard_logo.png';
 
 // ── Password strength ─────────────────────────────────────────────────────────
 // Password must match backend check_password_complexity():
@@ -100,12 +100,12 @@ const RegisterPage = () => {
 
             {/* Logo + title */}
             <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-                <img src={securaxLogo} alt="securAX Logo" className="mx-auto h-16 w-auto mb-4" />
+                <img src={hexaguardLogo} alt="HexaGuard Logo" className="mx-auto h-16 w-auto mb-4" />
                 <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                     Create Account
                 </h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    Register for securAX Security
+                    Register for HexaGuard Security
                 </p>
             </div>
 
@@ -281,7 +281,7 @@ const RegisterPage = () => {
                     </form>
 
                     <div className="mt-6 text-center">
-                        <p className="text-xs text-gray-500 font-inter">securAX Security Intelligence</p>
+                        <p className="text-xs text-gray-500 font-inter">HexaGuard Security Intelligence</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
                             Already have an account?{' '}
                             <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">

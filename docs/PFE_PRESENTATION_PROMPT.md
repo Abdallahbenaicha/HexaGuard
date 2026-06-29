@@ -1,4 +1,4 @@
-# SecurAx — PFE Presentation Prompt for Claude
+# HexaGuard — PFE Presentation Prompt for Claude
 
 Use the following prompt to have Claude generate a deep, thorough explanation of this project
 for your PFE jury, professor, or technical audience.
@@ -12,7 +12,7 @@ You are a senior cybersecurity engineer and university professor reviewing a Fin
 (PFE — Projet de Fin d'Études) for a Master 2 in Information Security at the University of
 Mohamed Boudiaf, M'sila, Algeria.
 
-The project is called **SecurAx** — an AI-powered cybersecurity intelligence platform.
+The project is called **HexaGuard** — an AI-powered cybersecurity intelligence platform.
 Please write an exhaustive, deeply technical presentation of this project. Cover every aspect
 listed below in full detail. This will be used in front of a jury panel, so be thorough,
 precise, and impressive. Use professional academic and technical language.
@@ -21,13 +21,13 @@ precise, and impressive. Use professional academic and technical language.
 
 ## PROJECT IDENTITY
 
-- Name: SecurAx (Cyber Brain)
+- Name: HexaGuard (Cyber Brain)
 - Version: 2.1
 - Type: Enterprise Security Intelligence Platform (SaaS)
 - Authors: PFE Master 2 — Information Security, University of Mohamed Boudiaf, M'sila, Algeria
 - Purpose: Multi-vector vulnerability scanning, analysis, and AI-powered security reporting
 - Deployment: React (Netlify) + Flask (Render.com) + Python scanning engines
-- GitHub: https://github.com/ilyas-djenidi/SecurAx
+- GitHub: https://github.com/ilyas-djenidi/HexaGuard
 
 ---
 
@@ -37,7 +37,7 @@ Explain why this project exists. Cover:
 - The global rise of cyberattacks and the shortage of security tools accessible to SMEs
 - The OWASP Top 10 2025 as the gold standard for web security
 - How traditional scanners (Nessus, Burp Suite) are expensive and complex
-- How SecurAx democratises professional-grade security scanning
+- How HexaGuard democratises professional-grade security scanning
 - The academic contribution: combining automated OWASP testing, SAST, network recon,
   Apache hardening, and AI analysis in a single unified platform
 - Benefits to developers, sysadmins, students, and security teams
@@ -401,7 +401,7 @@ List all AI touchpoints and explain the prompt engineering:
    the same report structure locally
 
 **Prompt Engineering technique used:**
-- Role injection: "You are SecurAx, a professional penetration tester..."
+- Role injection: "You are HexaGuard, a professional penetration tester..."
 - Context injection: scan findings (JSON, up to 20 findings) + target URL + scan type
 - Output format specification: "Format as professional Markdown. Include executive summary,
   top 5 prioritized fixes with code examples, compliance impact, security score."
@@ -416,36 +416,36 @@ Connect the project to academic theory:
 ### OWASP Top 10 2025
 The Open Web Application Security Project maintains the industry-standard ranking of the
 10 most critical web application security risks, updated in 2025 to reflect modern threats.
-SecurAx covers all 10 categories (A01–A10). Explain each briefly.
+HexaGuard covers all 10 categories (A01–A10). Explain each briefly.
 
 ### CWE (Common Weakness Enumeration)
 A hierarchical taxonomy of software weaknesses maintained by MITRE. Each finding maps to
 a specific CWE ID (e.g., CWE-89 SQL Injection, CWE-79 XSS, CWE-22 Path Traversal).
 
 ### CVSS v3.1 (Common Vulnerability Scoring System)
-A standardized 0–10 severity scoring framework. SecurAx assigns CVSS scores to each finding
+A standardized 0–10 severity scoring framework. HexaGuard assigns CVSS scores to each finding
 (e.g., SQL Injection = 9.8, XSS = 7.4). Explain the formula: AV × AC × PR × UI × S × C × I × A.
 
 ### SANS Top 25 Most Dangerous Software Errors
-CWE-89 = SANS #3, CWE-79 = SANS #2, CWE-78 = SANS #5, etc. SecurAx maps findings to
+CWE-89 = SANS #3, CWE-79 = SANS #2, CWE-78 = SANS #5, etc. HexaGuard maps findings to
 SANS positions alongside OWASP categories.
 
 ### Penetration Testing Methodology
-SecurAx follows the PTES (Penetration Testing Execution Standard) reconnaissance → scanning
+HexaGuard follows the PTES (Penetration Testing Execution Standard) reconnaissance → scanning
 → exploitation detection → reporting phases.
 
 ### Static Application Security Testing (SAST)
-White-box analysis of source code without execution. SecurAx implements pattern-based SAST
+White-box analysis of source code without execution. HexaGuard implements pattern-based SAST
 using regex matching against known vulnerability signatures. Compare to dynamic (DAST)
 testing which executes the application.
 
 ### Defense in Depth
-The principle that security should be layered. SecurAx reflects this by checking multiple
+The principle that security should be layered. HexaGuard reflects this by checking multiple
 layers: network (ports/services), infrastructure (Apache config), application (OWASP checks),
 and code (SAST) simultaneously.
 
 ### Threat Modeling (STRIDE)
-SecurAx findings can be categorized by STRIDE:
+HexaGuard findings can be categorized by STRIDE:
 - Spoofing → authentication failures (A07)
 - Tampering → injection, CSRF (A05, A01)
 - Repudiation → logging failures (A09)
@@ -516,7 +516,7 @@ Be honest about current limitations for academic credibility:
 
 ## 10. COMPARISON WITH EXISTING TOOLS
 
-| Feature | SecurAx | Burp Suite Community | OWASP ZAP | Nessus |
+| Feature | HexaGuard | Burp Suite Community | OWASP ZAP | Nessus |
 |---------|---------|---------------------|-----------|--------|
 | Price | Free + Pro | Free (limited) | Free | $$$$ |
 | Web DAST | ✓ Full OWASP | ✓ | ✓ | Partial |
@@ -543,7 +543,7 @@ academic defence.
 
 ```
 You are a software architect and UML expert. Generate the three UML diagrams below for
-the SecurAx project — an AI-powered cybersecurity intelligence platform (Flask + React + Python).
+the HexaGuard project — an AI-powered cybersecurity intelligence platform (Flask + React + Python).
 
 Output each diagram in valid PlantUML syntax inside a ```plantuml code block.
 After each diagram, write 2–3 sentences explaining what the diagram shows and why it matters
@@ -558,7 +558,7 @@ Actors:
 - Analyste Sécurité (Security Analyst): authenticated user who runs scans
 - Administrateur (Admin): manages users and platform
 - Gemini AI: external AI service
-- Système SecurAx: the platform itself
+- Système HexaGuard: the platform itself
 
 Use cases to include:
 - S'inscrire / Se connecter (Register / Login)
@@ -653,7 +653,7 @@ CodeAnalyzer:
 - _check_command_injection(code) -> list
 - _check_weak_crypto(code) -> list
 
-SecurAxAgent:
+HexaGuardAgent:
 - ai_active: bool
 - model: GenerativeModel
 - chat(message, context) -> str
@@ -685,8 +685,8 @@ Relationships:
 - OWASPChecker uses ExtendedChecks (mixin/dependency)
 - UrlScanner creates ReportGenerator (association)
 - Flask app.py uses UrlScanner, ApacheMisconfigDetector, CodeAnalyzer,
-  NetworkScanner, SecurAxAgent (dependency)
-- SecurAxAgent uses ReportGenerator (association)
+  NetworkScanner, HexaGuardAgent (dependency)
+- HexaGuardAgent uses ReportGenerator (association)
 
 ---
 
@@ -701,7 +701,7 @@ Participants:
 - UrlScanner (url_scanner.py)
 - OWASPChecker (owasp_checks.py)
 - ExtendedChecks (mixin methods)
-- SecurAxAgent / AI (ai_agent.py)
+- HexaGuardAgent / AI (ai_agent.py)
 - ReportGenerator (report_generator.py)
 - Target Website (the scanned URL)
 
@@ -728,8 +728,8 @@ Sequence of events:
 14. React (ResultsPanel) renders findings with SeverityBadge components
 15. User optionally clicks "Analyse avec IA"
 16. React calls POST /api/analyze_findings with findings list
-17. Flask calls SecurAxAgent.analyze_findings()
-18. SecurAxAgent calls Gemini API (or offline fallback) → returns Markdown report
+17. Flask calls HexaGuardAgent.analyze_findings()
+18. HexaGuardAgent calls Gemini API (or offline fallback) → returns Markdown report
 19. Flask returns {analysis: "## Executive Report..."} to React
 20. React displays AI analysis in the ChatBot / results panel
 

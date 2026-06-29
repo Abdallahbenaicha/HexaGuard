@@ -1,4 +1,4 @@
-"""Full functional audit of SecurAx — run from backend directory."""
+"""Full functional audit of HexaGuard — run from backend directory."""
 import requests, json, sys, re, time
 
 BASE = "http://127.0.0.1:5000"
@@ -156,7 +156,7 @@ r = sess.get(f"{BASE}/api/ai/status", timeout=5)
 chk(6, "GET /api/ai/status", r, (200,), lambda x: str(x.json())[:60])
 
 r = sess.post(f"{BASE}/api/ai/chat",
-              json={"message": "Bonjour ARIA, qu'est-ce que SecurAx?"},
+              json={"message": "Bonjour ARIA, qu'est-ce que HexaGuard?"},
               headers={"Content-Type": "application/json"}, timeout=15)
 chk(6, "POST /api/ai/chat (test message)", r, (200,),
     lambda x: f"reply_len={len(str(x.json().get('reply','')))} chars")

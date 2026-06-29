@@ -1,4 +1,4 @@
-"""SecurAx — request/response middleware (CSP nonce, security headers)."""
+"""HexaGuard — request/response middleware (CSP nonce, security headers)."""
 
 import os
 import secrets
