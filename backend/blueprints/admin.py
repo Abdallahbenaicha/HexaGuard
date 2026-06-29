@@ -14,6 +14,7 @@ from database import (
     get_all_users, get_audit_log, get_audit_stats, get_system_stats,
     get_top_vulnerabilities, get_user_by_id, hard_delete_user,
     log_event, update_user, create_user,
+    get_all_subscriptions, set_subscription, get_monthly_usage_report, PLANS,
 )
 from extensions import limiter
 from forms import check_password_complexity
@@ -356,3 +357,39 @@ def api_admin_ai_clear_all():
     log_event("ai_history_cleared", current_user.username, current_user.id,
               "admin", details=f"Cleared {count} AI conversation sessions")
     return jsonify({"message": f"Cleared {count} AI conversation session(s).", "count": count})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SUBSCRIPTION / PLAN MANAGEMENT
+# ════════════════════════════════════════════════════════════════════════════
+
+@admin_bp.route("/api/admin/subscriptions")
+@admin_required
+def api_admin_subscriptions():
+    """List all users with their plan, usage and quota."""
+    subs = get_all_subscriptions()
+    return jsonify({"subscriptions": subs, "plans": PLANS})
+
+
+@admin_bp.route("/api/admin/subscriptions/<int:uid>", methods=["PATCH"])
+@admin_required
+def api_admin_set_subscription(uid):
+    """Assign a plan to a user and reset their monthly counter."""
+    data       = request.get_json(silent=True) or {}
+    plan       = data.get("plan", "free")
+    notes      = data.get("notes", "")
+    expires_at = data.get("expires_at")
+    ok = set_subscription(uid, plan, notes=notes, expires_at=expires_at)
+    if not ok:
+        return jsonify({"error": f"Plan invalide. Plans disponibles: {list(PLANS)}"}), 400
+    log_event("subscription_changed", current_user.username, current_user.id,
+              category="admin", resource=f"user:{uid}",
+              details=f"plan={plan} expires={expires_at}")
+    return jsonify({"ok": True, "uid": uid, "plan": plan})
+
+
+@admin_bp.route("/api/admin/usage")
+@admin_required
+def api_admin_usage():
+    """Monthly scan usage report per user."""
+    return jsonify(get_monthly_usage_report())

@@ -16,6 +16,7 @@ from flask_login import current_user, login_required
 
 from database import (
     get_system_stats, log_event, store_report,
+    check_and_consume_quota, get_subscription, PLANS,
 )
 from extensions import csrf, limiter
 from forms import ScanForm
@@ -38,6 +39,37 @@ from flask_cors import cross_origin
 logger = logging.getLogger(__name__)
 
 scans_bp = Blueprint("scans", __name__)
+
+# Endpoints that consume a quota slot (all scan-creating POSTs)
+_QUOTA_PATHS = {
+    "/start-scan",
+    "/scan_url", "/scan_network", "/analyze_code", "/fix_config",
+    "/scan_server", "/scan_dast", "/scan_ssl", "/scan_dependencies",
+    "/scan_docker", "/scan_dns", "/scan_wordpress",
+    "/api/scan/async/web", "/api/scan/async/network",
+    "/api/scan/async/dast", "/api/scan/async/ssl", "/api/scan/async/server",
+}
+
+
+@scans_bp.before_request
+def enforce_quota():
+    """Block scan-creating POSTs when the user's monthly quota is exhausted."""
+    from flask_login import current_user as _cu
+    if request.method != "POST" or not _cu.is_authenticated:
+        return None
+    if not any(request.path.endswith(p) for p in _QUOTA_PATHS):
+        return None
+    allowed, used, max_scans = check_and_consume_quota(_cu.id)
+    if not allowed:
+        sub = get_subscription(_cu.id)
+        return jsonify({
+            "error": "Quota mensuel epuise. Passez a un plan superieur pour continuer.",
+            "plan":       sub.get("label", sub.get("plan")),
+            "scans_used": used,
+            "max_scans":  max_scans,
+            "upgrade":    True,
+        }), 402
+    return None
 
 
 # ── Internal helper ────────────────────────────────────────────────────────────

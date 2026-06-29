@@ -257,6 +257,17 @@ _SCHEMA_SQLITE = """
     );
     CREATE INDEX IF NOT EXISTS idx_scheduled_user   ON scheduled_scans (user_id);
     CREATE INDEX IF NOT EXISTS idx_scheduled_active ON scheduled_scans (is_active, next_run_at);
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        user_id      INTEGER PRIMARY KEY,
+        plan         TEXT    NOT NULL DEFAULT 'free',
+        scans_used   INTEGER NOT NULL DEFAULT 0,
+        cycle_start  TEXT    NOT NULL,
+        expires_at   TEXT,
+        notes        TEXT,
+        created_at   TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_subs_plan ON subscriptions (plan);
 """
 
 _SCHEMA_MYSQL = """
@@ -374,6 +385,16 @@ _SCHEMA_MYSQL = """
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     CREATE INDEX IF NOT EXISTS idx_sched_user   ON scheduled_scans (user_id);
     CREATE INDEX IF NOT EXISTS idx_sched_active ON scheduled_scans (is_active, next_run_at);
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        user_id      INT         PRIMARY KEY,
+        plan         VARCHAR(30) NOT NULL DEFAULT 'free',
+        scans_used   INT         NOT NULL DEFAULT 0,
+        cycle_start  VARCHAR(50) NOT NULL,
+        expires_at   VARCHAR(50),
+        notes        TEXT,
+        created_at   VARCHAR(50) NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 """
 
 
@@ -408,13 +429,14 @@ def init_db():
     for migration in [
         "ALTER TABLE users ADD COLUMN api_token TEXT",
         "ALTER TABLE users ADD COLUMN api_token_created TEXT",
-        # Scanner permission system: NULL = unrestricted (admin/legacy), JSON array = whitelist
         "ALTER TABLE users ADD COLUMN allowed_scanners TEXT DEFAULT NULL",
+        # Public shareable report links
+        "ALTER TABLE scan_reports ADD COLUMN share_token TEXT",
     ]:
         try:
             db.execute(migration)
             db.commit()
-        except sqlite3.OperationalError:
+        except (sqlite3.OperationalError, Exception):
             pass  # column already exists
 
     _bootstrap_admin()
@@ -1127,3 +1149,183 @@ def delete_scheduled_scan(sched_id: int, user_id: int) -> bool:
         (sched_id, user_id),
     )
     return (cur.rowcount if hasattr(cur, "rowcount") else 1) > 0
+
+
+# ── Subscription / Plan Management ───────────────────────────────────────────
+
+PLANS: dict = {
+    "free":     {"label": "Gratuit",  "max_scans_month": 1,    "price_dzd": 0},
+    "starter":  {"label": "Starter",  "max_scans_month": 5,    "price_dzd": 5000},
+    "pro":      {"label": "Pro",      "max_scans_month": 20,   "price_dzd": 12000},
+    "business": {"label": "Business", "max_scans_month": 999,  "price_dzd": 25000},
+    "agency":   {"label": "Agency",   "max_scans_month": 9999, "price_dzd": 40000},
+}
+
+
+def _cycle_start() -> str:
+    """ISO string for the first second of the current calendar month (UTC)."""
+    now = datetime.now(timezone.utc)
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def _ensure_subscription(user_id: int) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        _exec(
+            "INSERT OR IGNORE INTO subscriptions"
+            " (user_id, plan, scans_used, cycle_start, created_at)"
+            " VALUES (?, 'free', 0, ?, ?)",
+            (user_id, _cycle_start(), now),
+        )
+    except Exception:
+        pass
+
+
+def get_subscription(user_id: int) -> dict:
+    _ensure_subscription(user_id)
+    row = _get_db().execute(
+        "SELECT * FROM subscriptions WHERE user_id=?", (user_id,)
+    ).fetchone()
+    d = dict(row)
+    info = PLANS.get(d["plan"], PLANS["free"])
+    d["max_scans_month"] = info["max_scans_month"]
+    d["price_dzd"]       = info["price_dzd"]
+    d["label"]           = info["label"]
+    d["remaining"]       = max(0, info["max_scans_month"] - d["scans_used"])
+    return d
+
+
+def set_subscription(user_id: int, plan: str, notes: str = "",
+                     expires_at: str | None = None) -> bool:
+    if plan not in PLANS:
+        return False
+    _ensure_subscription(user_id)
+    _exec(
+        "UPDATE subscriptions"
+        " SET plan=?, scans_used=0, cycle_start=?, notes=?, expires_at=?"
+        " WHERE user_id=?",
+        (plan, _cycle_start(), notes or None, expires_at, user_id),
+    )
+    return True
+
+
+def check_and_consume_quota(user_id: int) -> tuple[bool, int, int]:
+    """
+    Atomically check quota and consume one scan slot.
+    Returns (allowed, scans_used_after, max_per_month).
+    Resets counter automatically on new billing cycle.
+    Admin users (role='admin') are always allowed.
+    """
+    # Admins are unrestricted
+    row = _get_db().execute("SELECT role FROM users WHERE id=?", (user_id,)).fetchone()
+    if row and dict(row).get("role", row[0] if row else "") == "admin":
+        return True, 0, 9999
+
+    _ensure_subscription(user_id)
+    sub = _get_db().execute(
+        "SELECT plan, scans_used, cycle_start FROM subscriptions WHERE user_id=?",
+        (user_id,),
+    ).fetchone()
+    if not sub:
+        return True, 0, 999
+
+    sub_d       = dict(sub)
+    plan_name   = sub_d["plan"]
+    scans_used  = sub_d["scans_used"]
+    cycle_start = sub_d["cycle_start"]
+    info       = PLANS.get(plan_name, PLANS["free"])
+    max_scans  = info["max_scans_month"]
+
+    # Reset if new billing cycle
+    current = _cycle_start()
+    if cycle_start < current:
+        _exec(
+            "UPDATE subscriptions SET scans_used=0, cycle_start=? WHERE user_id=?",
+            (current, user_id),
+        )
+        scans_used = 0
+
+    if scans_used >= max_scans:
+        return False, scans_used, max_scans
+
+    new_used = scans_used + 1
+    _exec(
+        "UPDATE subscriptions SET scans_used=? WHERE user_id=?",
+        (new_used, user_id),
+    )
+    return True, new_used, max_scans
+
+
+def get_all_subscriptions() -> list[dict]:
+    rows = _get_db().execute(
+        "SELECT u.id, u.username, u.email, u.role, u.is_active,"
+        "  COALESCE(s.plan,'free') AS plan,"
+        "  COALESCE(s.scans_used,0) AS scans_used,"
+        "  s.cycle_start, s.expires_at, s.notes"
+        " FROM users u"
+        " LEFT JOIN subscriptions s ON s.user_id=u.id"
+        " ORDER BY u.id"
+    ).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        info = PLANS.get(d["plan"], PLANS["free"])
+        d["max_scans_month"] = info["max_scans_month"]
+        d["price_dzd"]       = info["price_dzd"]
+        d["label"]           = info["label"]
+        d["remaining"]       = max(0, info["max_scans_month"] - d["scans_used"])
+        result.append(d)
+    return result
+
+
+def get_monthly_usage_report() -> dict:
+    cycle = _cycle_start()
+    rows = _get_db().execute(
+        "SELECT u.id, u.username,"
+        "  COALESCE(s.plan,'free') AS plan,"
+        "  COALESCE(s.scans_used,0) AS quota_used,"
+        "  COUNT(r.id) AS actual_scans"
+        " FROM users u"
+        " LEFT JOIN scan_reports r ON r.user_id=u.id AND r.stored_at >= ?"
+        " LEFT JOIN subscriptions s ON s.user_id=u.id"
+        " WHERE u.is_active=1"
+        " GROUP BY u.id ORDER BY actual_scans DESC",
+        (cycle,),
+    ).fetchall()
+    return {"cycle_start": cycle, "users": [dict(r) for r in rows]}
+
+
+# ── Shareable Report Links ────────────────────────────────────────────────────
+
+def get_or_create_share_token(report_token: str) -> str | None:
+    row = _get_db().execute(
+        "SELECT share_token FROM scan_reports WHERE token=?", (report_token,)
+    ).fetchone()
+    if not row:
+        return None
+    existing = dict(row).get("share_token")
+    if existing:
+        return existing
+    share_token = uuid.uuid4().hex
+    try:
+        _exec(
+            "UPDATE scan_reports SET share_token=? WHERE token=?",
+            (share_token, report_token),
+        )
+        return share_token
+    except Exception:
+        return None
+
+
+def get_report_by_share_token(share_token: str) -> dict | None:
+    try:
+        row = _get_db().execute(
+            "SELECT * FROM scan_reports WHERE share_token=?", (share_token,)
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["result"] = json.loads(d["result_json"])
+        return d
+    except Exception:
+        return None

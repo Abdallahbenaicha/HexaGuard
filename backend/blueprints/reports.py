@@ -20,7 +20,8 @@ from flask_login import current_user, login_required
 from database import (
     delete_report, get_all_dashboard_stats, get_all_reports,
     get_dashboard_stats, get_report, get_user_reports, log_event,
-    store_report,
+    store_report, get_or_create_share_token, get_report_by_share_token,
+    get_subscription,
 )
 from extensions import limiter
 from forms import ScanForm
@@ -933,3 +934,69 @@ def api_delete_report(token: str):
         log_event("report_deleted", current_user.username, current_user.id,
                   category="scan", resource=token, status="success")
     return jsonify({"ok": ok, "message": msg}), (200 if ok else 500)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  PUBLIC REPORT SHARING  (no authentication required)
+# ════════════════════════════════════════════════════════════════════════════
+
+@reports_bp.route("/api/reports/<token>/share", methods=["POST"])
+@login_required
+def api_generate_share_link(token):
+    """Generate (or return existing) a public share token for a report."""
+    if not _UUID_RE.match(token):
+        return jsonify({"error": "Invalid token."}), 400
+    data = get_report(token)
+    if not data:
+        return jsonify({"error": "Report not found."}), 404
+    if data.get("user_id") != current_user.id and current_user.role != "admin":
+        return jsonify({"error": "Access denied."}), 403
+    share_token = get_or_create_share_token(token)
+    if not share_token:
+        return jsonify({"error": "Could not generate share link."}), 500
+    share_url = f"/public/report/{share_token}"
+    return jsonify({"share_token": share_token, "share_url": share_url})
+
+
+@reports_bp.route("/public/report/<share_token>")
+def public_report(share_token):
+    """Public read-only report view — no login required. Used for prospect demos."""
+    data = get_report_by_share_token(share_token)
+    if not data:
+        return jsonify({"error": "Report not found or link expired."}), 404
+    result = data.get("result", {})
+    vulns  = result.get("vulnerabilities", [])
+    return jsonify({
+        "scan_type":   data.get("scan_type"),
+        "target":      data.get("target"),
+        "risk_score":  data.get("risk_score"),
+        "vuln_count":  data.get("vuln_count"),
+        "critical":    data.get("critical_count"),
+        "high":        data.get("high_count"),
+        "medium":      data.get("medium_count"),
+        "low":         data.get("low_count"),
+        "scanned_at":  data.get("stored_at"),
+        "findings":    vulns[:50],
+        "powered_by":  "SecurAX — securax.dz",
+    })
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SUBSCRIPTION STATUS  (user-facing — "my plan")
+# ════════════════════════════════════════════════════════════════════════════
+
+@reports_bp.route("/api/subscription")
+@login_required
+def api_my_subscription():
+    """Return the current user's plan, usage and quota."""
+    sub = get_subscription(current_user.id)
+    return jsonify({
+        "plan":            sub.get("plan"),
+        "label":           sub.get("label"),
+        "scans_used":      sub.get("scans_used"),
+        "max_scans_month": sub.get("max_scans_month"),
+        "remaining":       sub.get("remaining"),
+        "cycle_start":     sub.get("cycle_start"),
+        "expires_at":      sub.get("expires_at"),
+        "price_dzd":       sub.get("price_dzd"),
+    })
