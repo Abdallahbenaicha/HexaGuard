@@ -124,6 +124,34 @@ def health():
     return jsonify({"status": status, "service": "hexaguard"}), 200
 
 
+@scans_bp.route("/health/netcheck", methods=["GET"])
+@csrf.exempt
+@cross_origin(origins="*", supports_credentials=False)
+def health_netcheck():
+    """TEMP diagnostic — checks outbound connectivity + proxy env state. Remove after debugging."""
+    import os as _os
+    import requests as _requests
+
+    proxy_vars = {k: v for k, v in _os.environ.items() if "proxy" in k.lower()}
+
+    result = {"proxy_env_vars": proxy_vars}
+    try:
+        r = _requests.get("https://owasp.org/", timeout=10)
+        result["owasp_direct"] = {"ok": True, "status": r.status_code}
+    except Exception as exc:
+        result["owasp_direct"] = {"ok": False, "error": str(exc)}
+
+    try:
+        sess = _requests.Session()
+        sess.trust_env = False
+        r = sess.get("https://owasp.org/", timeout=10)
+        result["owasp_no_trust_env"] = {"ok": True, "status": r.status_code}
+    except Exception as exc:
+        result["owasp_no_trust_env"] = {"ok": False, "error": str(exc)}
+
+    return jsonify(result), 200
+
+
 @scans_bp.route("/api/stats")
 @login_required
 def platform_stats():
