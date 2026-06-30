@@ -107,7 +107,7 @@ const LoginPage = () => {
             if (serverStatus === 'waking' || serverStatus === 'checking') {
                 setError('Server is still waking up — this can take up to 50 seconds on the free tier. Please wait…');
             } else {
-                setError('Cannot reach the server. Check that the backend is deployed and ALLOWED_ORIGINS is set correctly on Render.');
+                setError('Cannot reach the server. Check that the backend is deployed and ALLOWED_ORIGINS is set correctly.');
             }
         } else {
             setError('Cannot reach server — make sure Flask is running on port 5000');
