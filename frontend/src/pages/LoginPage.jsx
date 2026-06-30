@@ -70,8 +70,8 @@ const LoginPage = () => {
         if (alive) {
             setServerStatus('online');
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-        } else if (attempt < 8) {
-            // Render free tier can take up to ~50s to wake — retry every 7s
+        } else if (attempt < 13) {
+            // Render free tier can take up to ~90s to wake — retry every 7s
             setServerStatus('waking');
             retryTimerRef.current = setTimeout(() => checkHealth(attempt + 1), 7000);
         } else {

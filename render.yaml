@@ -23,8 +23,7 @@ services:
         generateValue: true
 
       - key: ALLOWED_ORIGINS
-        # After first deploy, replace with the exact frontend URL from Render dashboard
-        value: https://hexaguard-frontend.onrender.com
+        value: https://hexa-gaurd.vercel.app,https://hexaguard-frontend.onrender.com
 
       - key: DB_PATH
         # Add a Persistent Disk (Render dashboard → Disks, mount at /var/data).
