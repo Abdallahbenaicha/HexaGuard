@@ -45,6 +45,7 @@ _EOL_VERSIONS: set[str] = {
 }
 
 _SESSION = requests.Session()
+_SESSION.trust_env = False
 _SESSION.headers.update(_HEADERS)
 
 

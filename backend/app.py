@@ -16,6 +16,13 @@ from middleware import register_middleware
 
 load_dotenv()
 
+# Some hosting platforms inject HTTP(S)_PROXY into the container env for
+# egress monitoring — that breaks the scanners, which must reach arbitrary
+# targets directly. Strip it so `requests` (trust_env=True by default)
+# never routes through it.
+for _var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
+    os.environ.pop(_var, None)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",

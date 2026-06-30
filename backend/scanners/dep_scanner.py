@@ -62,6 +62,7 @@ _API_TO    = 30
 
 def _make_session() -> requests.Session:
     sess    = requests.Session()
+    sess.trust_env = False
     adapter = HTTPAdapter(max_retries=Retry(
         total=3,
         backoff_factor=0.5,

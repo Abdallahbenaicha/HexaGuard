@@ -50,6 +50,7 @@ _NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 def _make_session() -> requests.Session:
     sess    = requests.Session()
+    sess.trust_env = False
     adapter = HTTPAdapter(max_retries=Retry(
         total=3,
         backoff_factor=0.5,

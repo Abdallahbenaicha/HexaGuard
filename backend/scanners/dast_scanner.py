@@ -190,6 +190,7 @@ def _dedup_key(v: dict) -> str:
 
 def _make_session(retries: int = 2, backoff: float = 0.4) -> requests.Session:
     sess    = requests.Session()
+    sess.trust_env = False
     adapter = HTTPAdapter(max_retries=Retry(
         total=retries,
         backoff_factor=backoff,

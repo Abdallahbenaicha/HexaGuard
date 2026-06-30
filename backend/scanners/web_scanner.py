@@ -221,6 +221,9 @@ _TECH_SIGS: dict[str, list[tuple[str, str]]] = {
 
 def _make_session() -> requests.Session:
     sess = requests.Session()
+    # Ignore any ambient HTTP_PROXY/HTTPS_PROXY env vars the host platform
+    # may inject — this scanner must always reach targets directly.
+    sess.trust_env = False
     retry = Retry(
         total=2,
         backoff_factor=0.4,
