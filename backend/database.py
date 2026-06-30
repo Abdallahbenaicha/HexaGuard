@@ -1107,6 +1107,16 @@ def get_user_jobs_from_db(user_id: int, limit: int = 20) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def delete_job(job_id: str, user_id: int) -> None:
+    """Delete a single job row (only if it belongs to user_id)."""
+    _exec("DELETE FROM scan_jobs WHERE job_id=? AND user_id=?", (job_id, user_id))
+
+
+def delete_user_error_jobs(user_id: int) -> None:
+    """Delete all error-status jobs for a user."""
+    _exec("DELETE FROM scan_jobs WHERE user_id=? AND status='error'", (user_id,))
+
+
 def purge_old_jobs(ttl_minutes: int = 60) -> int:
     """Delete completed/errored jobs older than ttl_minutes. Returns count deleted."""
     cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(minutes=ttl_minutes)).isoformat()

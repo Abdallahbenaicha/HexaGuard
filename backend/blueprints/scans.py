@@ -908,3 +908,21 @@ def list_scan_jobs():
         {k: v for k, v in j.items() if k != "result"}
         for j in jobs
     ])
+
+
+@scans_bp.route("/api/scan/job/<job_id>/dismiss", methods=["DELETE"])
+@require_permission("run_scan")
+@csrf.exempt
+def dismiss_scan_job(job_id):
+    ok = job_manager.dismiss_job(job_id, current_user.id)
+    if not ok:
+        return jsonify({"error": "Cannot dismiss a running or queued job."}), 400
+    return jsonify({"ok": True})
+
+
+@scans_bp.route("/api/scan/jobs/errors", methods=["DELETE"])
+@require_permission("run_scan")
+@csrf.exempt
+def dismiss_all_error_jobs():
+    count = job_manager.dismiss_all_errors(current_user.id)
+    return jsonify({"ok": True, "removed": count})

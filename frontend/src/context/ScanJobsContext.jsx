@@ -65,10 +65,21 @@ export const ScanJobsProvider = ({ children }) => {
         return data;
     }, []);
 
+    const dismissJob = useCallback(async (jobId) => {
+        await axios.delete(`/api/scan/job/${jobId}/dismiss`);
+        setJobs(prev => prev.filter(j => j.job_id !== jobId));
+    }, []);
+
+    const clearErrors = useCallback(async () => {
+        await axios.delete('/api/scan/jobs/errors');
+        setJobs(prev => prev.filter(j => j.status !== 'error'));
+    }, []);
+
     const activeCount = jobs.filter(j => j.status === 'queued' || j.status === 'running').length;
+    const errorCount  = jobs.filter(j => j.status === 'error').length;
 
     return (
-        <ScanJobsContext.Provider value={{ jobs, activeCount, startJob, pollJob, fetchJobs }}>
+        <ScanJobsContext.Provider value={{ jobs, activeCount, errorCount, startJob, pollJob, fetchJobs, dismissJob, clearErrors }}>
             {children}
         </ScanJobsContext.Provider>
     );

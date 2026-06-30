@@ -98,6 +98,41 @@ def get_user_jobs(user_id: int) -> list[dict]:
     return merged[:20]
 
 
+def dismiss_job(job_id: str, user_id: int) -> bool:
+    """Remove a completed/error job from memory and DB. Returns True if removed."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if job and job["user_id"] == user_id and job["status"] in ("done", "error"):
+            del _jobs[job_id]
+        elif not job:
+            pass  # might only be in DB
+        else:
+            return False  # running/queued — can't dismiss
+    try:
+        db.delete_job(job_id, user_id)
+    except Exception as exc:
+        logger.warning("job dismiss DB delete failed: %s", exc)
+    return True
+
+
+def dismiss_all_errors(user_id: int) -> int:
+    """Remove all error jobs for a user. Returns count removed."""
+    removed = 0
+    with _lock:
+        to_del = [
+            jid for jid, j in _jobs.items()
+            if j["user_id"] == user_id and j["status"] == "error"
+        ]
+        for jid in to_del:
+            del _jobs[jid]
+            removed += 1
+    try:
+        db.delete_user_error_jobs(user_id)
+    except Exception as exc:
+        logger.warning("dismiss_all_errors DB failed: %s", exc)
+    return removed
+
+
 def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
     """Launch fn(*args, **kwargs) in a daemon thread and track its lifecycle."""
 
