@@ -99,17 +99,17 @@ def dashboard():
 @limiter.limit("30/minute")
 def view_report(token: str):
     if not _UUID_RE.match(token):
-        return jsonify({"error": "رمز التقرير غير صالح."}), 400
+        return jsonify({"error": "Invalid report token."}), 400
 
     data = get_report(token)
     if not data:
-        return jsonify({"error": "التقرير غير موجود أو انتهت صلاحيته."}), 404
+        return jsonify({"error": "Report not found or has expired."}), 404
 
     if data.get("user_id") != current_user.id and current_user.role != "admin":
         log_event("idor_attempt", current_user.username, current_user.id,
                   category="security", resource=f"/report/{token}",
                   ip_address=request.remote_addr, status="blocked")
-        return jsonify({"error": "هذا التقرير لا يخصّك."}), 403
+        return jsonify({"error": "Access denied."}), 403
 
     return render_template(
         "report.html",
@@ -131,17 +131,17 @@ def view_report(token: str):
 @limiter.limit("10/minute")
 def download_fixed(token: str):
     if not _UUID_RE.match(token):
-        return jsonify({"error": "رمز التقرير غير صالح."}), 400
+        return jsonify({"error": "Invalid report token."}), 400
 
     data = get_report(token)
     if not data:
-        return jsonify({"error": "التقرير غير موجود."}), 404
+        return jsonify({"error": "Report not found."}), 404
     if data.get("user_id") != current_user.id and current_user.role != "admin":
-        return jsonify({"error": "هذا التقرير لا يخصّك."}), 403
+        return jsonify({"error": "Access denied."}), 403
 
     original = data.get("original_content")
     if not original:
-        return jsonify({"error": "لا يوجد ملف إعدادات مخزّن لهذا الفحص."}), 400
+        return jsonify({"error": "No configuration file stored for this scan."}), 400
 
     vulns         = data["result"].get("vulnerabilities", [])
     fixed_content, change_log = generate_fixed_config(original, vulns)
@@ -310,10 +310,11 @@ def download_report_pdf():
 
         story = []
 
-        title_s = _ps("ts", fontSize=22, fontName="Helvetica-Bold",
-                      textColor=C_NAVY, alignment=TA_CENTER)
-        sub_s   = _ps("sub", fontSize=13, textColor=rl_colors.HexColor("#555555"),
-                      alignment=TA_CENTER, spaceAfter=10)
+        title_s = _ps("ts", fontSize=22, fontName="Helvetica-Bold", leading=28,
+                      textColor=C_NAVY, alignment=TA_CENTER, spaceAfter=4)
+        sub_s   = _ps("sub", fontSize=13, leading=17,
+                      textColor=rl_colors.HexColor("#555555"),
+                      alignment=TA_CENTER, spaceAfter=12)
         story.append(Spacer(1, 0.25 * cm))
         story.append(Paragraph("HEXAGUARD Security Platform", title_s))
         story.append(Paragraph("Vulnerability Assessment Report", sub_s))

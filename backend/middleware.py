@@ -62,31 +62,31 @@ def register_middleware(app) -> None:
     @app.errorhandler(400)
     def bad_request(e):
         from flask import jsonify
-        return jsonify({"error": "طلب غير صالح."}), 400
+        return jsonify({"error": "Bad request."}), 400
 
     @app.errorhandler(403)
     def forbidden(e):
         from flask import jsonify
-        return jsonify({"error": "وصول مرفوض."}), 403
+        return jsonify({"error": "Access denied."}), 403
 
     @app.errorhandler(404)
     def not_found(e):
         from flask import jsonify
-        return jsonify({"error": "المورد غير موجود."}), 404
+        return jsonify({"error": "Resource not found."}), 404
 
     @app.errorhandler(413)
     def file_too_large(e):
         from flask import jsonify
-        return jsonify({"error": "حجم الملف كبير جداً. الحد الأقصى 25MB."}), 413
+        return jsonify({"error": "File too large. Maximum size is 25 MB."}), 413
 
     @app.errorhandler(429)
     def rate_limit_exceeded(e):
         from flask import jsonify
-        return jsonify({"error": "تجاوزت الحد المسموح من الطلبات. حاول لاحقاً."}), 429
+        return jsonify({"error": "Too many requests — please wait a moment and try again."}), 429
 
     @app.errorhandler(Exception)
     def handle_unexpected(e):
         import logging
         from flask import jsonify
-        logging.getLogger(__name__).exception("خطأ غير متوقع")
-        return jsonify({"error": "خطأ داخلي في الخادم."}), 500
+        logging.getLogger(__name__).exception("Unexpected server error")
+        return jsonify({"error": "Internal server error."}), 500

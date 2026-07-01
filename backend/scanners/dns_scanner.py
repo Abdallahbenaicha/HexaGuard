@@ -307,10 +307,18 @@ def _check_zone_transfer(domain: str) -> tuple[list, dict]:
                 resp = sock.recv(512)
                 sock.close()
                 attempted = True
-                # AXFR response with answers (ANCOUNT > 0) means transfer succeeded
-                if len(resp) > 6 and resp[6:8] != b"\x00\x00":
-                    transfer_possible = True
-                    break
+                # TCP DNS response: first 2 bytes are the TCP length prefix.
+                # Actual DNS message starts at byte 2:
+                #   TxID(2) Flags(2) QDCOUNT(2) ANCOUNT(2) ...
+                # RCODE is the lower 4 bits of the 4th byte of the DNS message.
+                # ANCOUNT > 0 AND RCODE == 0 means transfer was allowed.
+                if len(resp) > 11:
+                    dns_msg = resp[2:]
+                    rcode = dns_msg[3] & 0x0F
+                    ancount = int.from_bytes(dns_msg[6:8], "big")
+                    if rcode == 0 and ancount > 0:
+                        transfer_possible = True
+                        break
             except Exception:
                 pass
     except Exception:

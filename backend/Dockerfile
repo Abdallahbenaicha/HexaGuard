@@ -4,8 +4,8 @@
 # ─────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-# nmap: lets the network scanner work for real (PythonAnywhere blocked this too)
-RUN apt-get update && apt-get install -y --no-install-recommends nmap \
+# nmap: network scanner | nikto: web server DAST checks
+RUN apt-get update && apt-get install -y --no-install-recommends nmap nikto \
     && rm -rf /var/lib/apt/lists/*
 
 # Spaces run containers as a non-root user (uid 1000) — match that here

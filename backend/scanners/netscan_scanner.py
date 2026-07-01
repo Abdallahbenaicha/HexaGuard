@@ -502,7 +502,7 @@ def run_nmap_scan(target: str, deep: bool = False, internal: bool = False) -> di
     # ── Step 2: Run Nmap ──────────────────────────────────────────────────────
     arguments = ""
     if deep:
-        disc_args = "-sV -O --open -T4 -p 1-65535"
+        disc_args = "-sT -sV --open -T4 -p 1-65535"
         logger.info("nmap phase-1 (discovery) | target=%s", target)
         try:
             nm.scan(hosts=target, arguments=disc_args)
@@ -530,7 +530,7 @@ def run_nmap_scan(target: str, deep: bool = False, internal: bool = False) -> di
 
         if targeted_scripts:
             nse        = ",".join(targeted_scripts)
-            script_args = f"--script={nse} -sV --open -T4"
+            script_args = f"--script={nse} -sT -sV --open -T4"
             logger.info("nmap phase-2 (NSE: %d scripts | groups=%s) | target=%s",
                         len(targeted_scripts), sorted(open_groups), target)
             try:
@@ -542,14 +542,14 @@ def run_nmap_scan(target: str, deep: bool = False, internal: bool = False) -> di
             arguments = disc_args + " (no open ports for NSE)"
 
     elif internal:
-        arguments = "-sV --open -T3 --top-ports 2000"
+        arguments = "-sT -sV --open -T3 --top-ports 2000"
         logger.info("nmap (internal) | target=%s", target)
         try:
             nm.scan(hosts=target, arguments=arguments)
         except nmap.PortScannerError as exc:
             raise RuntimeError(f"Nmap scan failed: {exc}") from exc
     else:
-        arguments = "-sV --open -T4 --top-ports 1000"
+        arguments = "-sT -sV --open -T4 --top-ports 1000"
         logger.info("nmap | target=%s", target)
         try:
             nm.scan(hosts=target, arguments=arguments)

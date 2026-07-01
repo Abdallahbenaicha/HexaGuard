@@ -6,6 +6,7 @@ import {
     Activity, ArrowLeft, Globe, Shield,
     AlertTriangle, Terminal, ChevronRight, Download, Layers
 } from 'lucide-react';
+import { REPORT_ENDPOINTS, reportDownloadUrl } from '../utils/reportExport';
 import { useScanJobs } from '../context/ScanJobsContext';
 
 const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|localhost$)/i;
@@ -332,7 +333,7 @@ const WebScanPage = () => {
                                 <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex justify-end">
                                     {results?.report_token && (
                                         <a
-                                            href={`/download_report?token=${results.report_token}&lang=en`}
+                                            href={reportDownloadUrl(REPORT_ENDPOINTS.pdf, results.report_token, { lang: 'en' })}
                                             className="px-4 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                                         >
                                             <Download className="w-4 h-4" /> Download PDF

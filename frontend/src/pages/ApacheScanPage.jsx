@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
     Activity, ArrowLeft, Shield, AlertTriangle, Terminal,
     ChevronRight, Download, FileSearch, UploadCloud, FileText,
@@ -190,8 +190,10 @@ function FindingCard({ finding, index, isFixed, onToggleFix }) {
 }
 
 const ApacheScanPage = () => {
+    const location = useLocation();
+    const defaultMode = location.pathname.includes('server-ext') ? 'full' : 'file';
     const [target, setTarget]                 = useState('');
-    const [scanMode, setScanMode]             = useState('file');
+    const [scanMode, setScanMode]             = useState(defaultMode);
     const [loading, setLoading]               = useState(false);
     const [results, setResults]               = useState(null);
     const [error, setError]                   = useState(null);
