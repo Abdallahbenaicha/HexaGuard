@@ -1,0 +1,354 @@
+"""HexaGuard — shared utilities and decorators used across blueprints."""
+
+import io
+import ipaddress
+import logging
+import os
+import re
+import socket
+import threading
+import time
+import zipfile
+from functools import wraps
+
+from flask import jsonify, request
+from flask_login import current_user, login_required
+
+from database import get_locked_target, log_event
+
+logger = logging.getLogger(__name__)
+
+# ── Simple in-memory API response cache ───────────────────────────────────────
+
+_cache_store: dict[str, tuple[object, float]] = {}
+_cache_lock = threading.Lock()
+
+
+def cache_response(ttl: int = 30):
+    """Cache a GET endpoint's JSON response for `ttl` seconds per user.
+
+    Only caches 200 responses.  Key is (user_id, path, query_string).
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if request.method != "GET":
+                return f(*args, **kwargs)
+            uid = getattr(current_user, "id", "anon")
+            key = f"{uid}:{request.path}:{request.query_string.decode()}"
+            now = time.monotonic()
+            with _cache_lock:
+                hit = _cache_store.get(key)
+                if hit and (now - hit[1]) < ttl:
+                    return hit[0]
+            result = f(*args, **kwargs)
+            # Only cache successful JSON responses
+            try:
+                status = result[1] if isinstance(result, tuple) else 200
+                if status == 200:
+                    with _cache_lock:
+                        _cache_store[key] = (result, now)
+            except Exception:
+                pass
+            return result
+        return wrapper
+    return decorator
+
+
+def invalidate_cache_for(user_id: int) -> None:
+    """Clear all cached responses for a given user."""
+    prefix = f"{user_id}:"
+    with _cache_lock:
+        stale = [k for k in _cache_store if k.startswith(prefix)]
+        for k in stale:
+            del _cache_store[k]
+
+# ── Regex ──────────────────────────────────────────────────────────────────────
+_UUID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+# ── Upload validation ──────────────────────────────────────────────────────────
+_BLOCKED_EXTENSIONS = {
+    ".exe", ".bat", ".cmd", ".sh", ".ps1", ".vbs", ".js", ".dll",
+    ".so", ".dylib", ".bin", ".msi", ".com", ".scr", ".pif",
+}
+_MAX_ZIP_UNCOMPRESSED = 50 * 1024 * 1024  # 50 MB uncompressed cap (zip bomb guard)
+
+
+def validate_upload(file_storage, allowed_extensions: set) -> tuple:
+    """Return (ok, error_message). Validates extension, size, and zip-bomb."""
+    if not file_storage or not file_storage.filename:
+        return False, "لم يتم رفع ملف."
+
+    name = file_storage.filename.lower()
+    ext  = os.path.splitext(name)[1]
+
+    if ext in _BLOCKED_EXTENSIONS:
+        return False, f"نوع الملف '{ext}' محظور لأسباب أمنية."
+    if ext not in allowed_extensions:
+        return False, f"الامتداد '{ext}' غير مسموح. المسموح: {', '.join(sorted(allowed_extensions))}"
+
+    file_storage.seek(0, 2)
+    size = file_storage.tell()
+    file_storage.seek(0)
+    if size > 10 * 1024 * 1024:
+        return False, "حجم الملف يتجاوز الحد المسموح (10 MB)."
+
+    if ext == ".zip":
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_storage.read()), "r") as zf:
+                total = sum(i.file_size for i in zf.infolist())
+                if total > _MAX_ZIP_UNCOMPRESSED:
+                    return False, "الملف المضغوط يحتوي على بيانات كبيرة جداً (zip bomb محتمل)."
+            file_storage.seek(0)
+        except zipfile.BadZipFile:
+            return False, "الملف ليس ملف ZIP صالحاً."
+
+    return True, ""
+
+
+# ── Decorators ─────────────────────────────────────────────────────────────────
+
+def admin_required(f):
+    @wraps(f)
+    @login_required
+    def wrapper(*args, **kwargs):
+        if current_user.role != "admin":
+            return jsonify({"error": "Admin access required."}), 403
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def require_permission(permission: str):
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapper(*args, **kwargs):
+            # Admin always has all permissions
+            if current_user.role == "admin":
+                return f(*args, **kwargs)
+            if not current_user.has_permission(permission):
+                logger.warning(
+                    "access denied | user=%s | permission=%s | path=%s",
+                    current_user.username, permission, request.path,
+                )
+                log_event(
+                    "access_denied", current_user.username, current_user.id,
+                    category="security", resource=request.path,
+                    ip_address=request.remote_addr, status="denied",
+                    details=f"Missing permission: {permission}",
+                )
+                return jsonify({"error": "صلاحية غير كافية."}), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# ── Scanner permission guard ───────────────────────────────────────────────────
+
+# Canonical slug → human label (used in error messages)
+SCANNER_LABELS: dict[str, str] = {
+    "web":       "Web Application Scan",
+    "ssl":       "SSL/TLS Audit",
+    "network":   "Network Recon",
+    "dast":      "Dynamic Analysis (DAST)",
+    "code":      "Code Audit (SAST)",
+    "config":    "Config Audit",
+    "server":    "Server Audit",
+    "deps":      "Dependency Check",
+    "docker":    "Docker Security",
+    "dns":       "DNS & Email Security",
+    "wordpress": "WordPress Audit",
+}
+
+
+def require_scanner(slug: str):
+    """Enforce scanner-level access control.
+
+    Admin: always allowed.
+    User with allowed_scanners=None (legacy/unrestricted): allowed.
+    User with allowed_scanners=[...]: only if slug is in the list.
+    """
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if current_user.role == "admin":
+                return f(*args, **kwargs)
+            scanners = getattr(current_user, "allowed_scanners", None)
+            if scanners is not None and slug not in scanners:
+                label = SCANNER_LABELS.get(slug, slug)
+                log_event(
+                    "scanner_forbidden", current_user.username, current_user.id,
+                    category="security", resource=slug, status="denied",
+                    ip_address=request.remote_addr,
+                    details=f"Scanner '{slug}' not in user's subscription",
+                )
+                return jsonify({
+                    "error": f"ليس لديك صلاحية استخدام «{label}». تواصل مع المدير لتفعيل هذا الفاحص.",
+                    "scanner_forbidden": True,
+                    "scanner_slug": slug,
+                }), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# ── SSRF Protection ───────────────────────────────────────────────────────────
+
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),     # loopback
+    ipaddress.ip_network("10.0.0.0/8"),      # RFC-1918
+    ipaddress.ip_network("172.16.0.0/12"),   # RFC-1918
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC-1918
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local (AWS metadata)
+    ipaddress.ip_network("100.64.0.0/10"),   # shared address space
+    ipaddress.ip_network("::1/128"),         # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),        # IPv6 ULA
+    ipaddress.ip_network("fe80::/10"),       # IPv6 link-local
+]
+
+_BLOCKED_HOSTNAMES = {
+    "localhost", "metadata.google.internal",
+    "169.254.169.254",  # AWS/GCP/Azure metadata endpoint
+}
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in _PRIVATE_NETWORKS)
+    except ValueError:
+        return False
+
+
+def check_ssrf(raw_target: str) -> tuple[bool, str]:
+    """Return (is_safe, error_msg).
+
+    Blocks scan targets that resolve to private / link-local / metadata IPs
+    to prevent Server-Side Request Forgery attacks against internal infrastructure.
+    """
+    stripped = re.sub(r"^https?://", "", raw_target.strip())
+    host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
+
+    if not host:
+        return False, "Empty target."
+
+    # Block known dangerous hostnames directly
+    if host in _BLOCKED_HOSTNAMES:
+        return False, f"Target '{host}' is blocked for security reasons."
+
+    # Block if target is already a private IP literal
+    if _is_private_ip(host):
+        return False, f"Scanning private/internal IP addresses is not allowed."
+
+    # Resolve hostname and check the resolved IP(s)
+    try:
+        resolved = socket.getaddrinfo(host, None)
+        for item in resolved:
+            ip_str = item[4][0]
+            if _is_private_ip(ip_str):
+                logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
+                return False, f"Target resolves to a private/internal IP address — not allowed."
+    except socket.gaierror:
+        pass  # DNS failure — let the scanner handle it
+
+    return True, ""
+
+
+# Hostnames/IPs that must ALWAYS be blocked even for network scanners
+_ALWAYS_BLOCKED = {
+    "localhost", "127.0.0.1", "0.0.0.0",
+    "169.254.169.254",       # AWS/GCP/Azure metadata
+    "metadata.google.internal",
+    "::1",
+}
+
+_LOOPBACK_NETS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def check_ssrf_network(raw_target: str) -> tuple[bool, str]:
+    """Lighter SSRF check for the network (nmap) scanner.
+
+    Allows private RFC-1918 ranges so users can scan their own internal
+    infrastructure. Still blocks loopback and cloud-metadata endpoints which
+    are never a legitimate scan target.
+    """
+    stripped = re.sub(r"^https?://", "", raw_target.strip())
+    host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
+
+    if not host:
+        return False, "Empty target."
+
+    if host in _ALWAYS_BLOCKED:
+        return False, f"Target '{host}' is blocked for security reasons."
+
+    try:
+        addr = ipaddress.ip_address(host)
+        if any(addr in net for net in _LOOPBACK_NETS):
+            return False, "Loopback and link-local targets are not allowed."
+    except ValueError:
+        pass  # hostname — no IP-level check needed here
+
+    return True, ""
+
+
+# ── Target lock helpers ────────────────────────────────────────────────────────
+
+def _normalize_target(raw: str) -> str:
+    """Strip protocol / path / port → bare lowercase hostname or IP."""
+    t = re.sub(r'^https?://', '', raw.strip())
+    t = t.split('/')[0].split('?')[0].split(':')[0]
+    return t.lower().strip()
+
+
+def _check_target_lock(raw_target: str, *, network_scan: bool = False):
+    """Enforce SSRF protection and admin-assigned target restriction.
+
+    Returns (True, None) if allowed, (False, error_response) if blocked.
+    network_scan=True uses the lighter SSRF check that allows RFC-1918 addresses.
+    """
+    # ── SSRF guard (applies to everyone including admin) ──────────────────
+    ssrf_fn = check_ssrf_network if network_scan else check_ssrf
+    safe, ssrf_err = ssrf_fn(raw_target)
+    if not safe:
+        log_event(
+            "ssrf_blocked", getattr(current_user, "username", "?"),
+            getattr(current_user, "id", 0),
+            category="security", resource=raw_target, status="denied",
+            ip_address=request.remote_addr, details=ssrf_err,
+        )
+        return False, (jsonify({"error": ssrf_err, "ssrf_blocked": True}), 403)
+
+    if current_user.role == "admin":
+        return True, None
+
+    locked = get_locked_target(current_user.id)
+    if locked is None:
+        return True, None
+
+    normalized = _normalize_target(raw_target)
+    if locked == normalized:
+        return True, None
+
+    log_event(
+        "target_violation", current_user.username, current_user.id,
+        category="security", resource=normalized, status="denied",
+        details=f"Blocked: tried {normalized!r}, allowed target is {locked!r}",
+        ip_address=request.remote_addr,
+    )
+    return False, (
+        jsonify({
+            "error": (
+                f"Access denied. Your account is restricted to target '{locked}'. "
+                f"Contact your administrator to change the authorised target."
+            ),
+            "allowed_target": locked,
+            "forbidden": True,
+        }),
+        403,
+    )

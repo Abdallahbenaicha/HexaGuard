@@ -1,0 +1,1 @@
+# HexaGuard blueprints package

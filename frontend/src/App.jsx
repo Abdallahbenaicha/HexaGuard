@@ -1,0 +1,239 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { AuthProvider, useAuth, ToastContainer } from './context/AuthContext';
+import { LangProvider } from './context/LangContext';
+import { ScanJobsProvider } from './context/ScanJobsContext';
+
+// Layout & Components
+import Layout from './components/Layout';
+import CommandPalette from './components/CommandPalette';
+import GlobalScanProgress from './components/GlobalScanProgress';
+import OnboardingTour from './components/OnboardingTour';
+import SkipToContent from './components/SkipToContent';
+
+// Public Pages
+import LoginPage    from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+
+// Authenticated Pages
+import DashboardPage    from './pages/DashboardPage';
+import WebScanPage      from './pages/WebScanPage';
+import ApacheScanPage   from './pages/ApacheScanPage';
+import CodeScanPage     from './pages/CodeScanPage';
+import NetworkScanPage  from './pages/NetworkScanPage';
+import DastScanPage     from './pages/DastScanPage';
+import DependencyScanPage from './pages/DependencyScanPage';
+import SslScanPage      from './pages/SslScanPage';
+import ProfilePage      from './pages/ProfilePage';
+import ReportPage       from './pages/ReportPage';
+
+// Admin Pages
+import AdminUsersPage     from './pages/AdminUsersPage';
+import AdminScansPage     from './pages/AdminScansPage';
+import AuditLogPage       from './pages/AuditLogPage';
+import ChatPage           from './pages/ChatPage';
+import LandingPage        from './pages/LandingPage';
+import ScheduledScansPage from './pages/ScheduledScansPage';
+import HelpPage           from './pages/HelpPage';
+import DockerScanPage     from './pages/DockerScanPage';
+import DnsScanPage        from './pages/DnsScanPage';
+import WordPressScanPage  from './pages/WordPressScanPage';
+import ScannerHubPage    from './pages/ScannerHubPage';
+import ScannerGuard      from './components/ScannerGuard';
+
+
+// ── Error Boundary ─────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, message: '' };
+    }
+    static getDerivedStateFromError(err) {
+        return { hasError: true, message: err?.message || 'Unknown error' };
+    }
+    componentDidCatch(err, info) {
+        console.error('[ErrorBoundary]', err, info);
+    }
+    render() {
+        if (!this.state.hasError) return this.props.children;
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-8">
+                <div className="max-w-md text-center space-y-6">
+                    <div className="text-6xl font-orbitron font-black text-red-500">ERR</div>
+                    <h2 className="text-white text-xl font-orbitron">Something went wrong</h2>
+                    <p className="text-gray-500 font-inter text-sm">{this.state.message}</p>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={() => { this.setState({ hasError: false }); window.history.back(); }}
+                            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl transition-colors"
+                        >
+                            ← Go Back
+                        </button>
+                        <button
+                            onClick={() => { this.setState({ hasError: false }); window.location.href = '/dashboard'; }}
+                            className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl transition-colors"
+                        >
+                            Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+}
+
+
+// ── 404 Page ────────────────────────────────────────────────────────────────
+const NotFoundPage = () => (
+    <div className="min-h-screen bg-black flex items-center justify-center p-8">
+        <div className="max-w-md text-center space-y-6">
+            <div className="text-8xl font-orbitron font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500">
+                404
+            </div>
+            <h2 className="text-white text-xl font-orbitron tracking-widest uppercase">Page Not Found</h2>
+            <p className="text-gray-500 font-inter text-sm">
+                The route you requested does not exist.
+            </p>
+            <Link
+                to="/dashboard"
+                className="inline-block px-6 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 text-white font-orbitron text-xs tracking-widest uppercase rounded-xl hover:from-cyan-500 hover:to-purple-500 transition-all"
+            >
+                Return to Dashboard
+            </Link>
+        </div>
+    </div>
+);
+
+
+// ── Protected Route ────────────────────────────────────────────────────────
+const ProtectedRoute = ({ element, adminOnly = false }) => {
+    const { user, loading } = useAuth();
+    if (loading) return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+            <div className="flex gap-1">
+                {[0,1,2,3,4].map(i => (
+                    <div
+                        key={i}
+                        className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
+                        style={{ animationDelay: `${i * 0.12}s` }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+    if (!user)                                   return <Navigate to="/login"     replace />;
+    if (adminOnly && user.role !== 'admin')      return <Navigate to="/dashboard" replace />;
+    return <Layout>{element}</Layout>;
+};
+
+
+// ── Smart Root Redirect ────────────────────────────────────────────────────
+const RootRedirect = () => {
+    const { user, loading } = useAuth();
+    if (loading) return null;
+    return <Navigate to={user ? '/dashboard' : '/landing'} replace />;
+};
+
+// ── App Root ───────────────────────────────────────────────────────────────
+function AppInner() {
+    React.useEffect(() => {
+        const backend = import.meta.env.VITE_API_BASE_URL || '';
+        const ping = () => fetch(`${backend}/health`).catch(() => {});
+        ping();
+        const interval = setInterval(ping, 10 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-50 transition-colors duration-300">
+            <SkipToContent />
+            <ToastContainer />
+            <CommandPalette />
+            <GlobalScanProgress />
+            <OnboardingTour />
+            <Routes>
+                {/* Public */}
+                <Route path="/"         element={<RootRedirect />} />
+                <Route path="/landing"  element={<LandingPage />} />
+                <Route path="/login"    element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+
+                {/* Scanner Hub — discovery page */}
+                <Route path="/scan"              element={<ProtectedRoute element={<ScannerHubPage />} />} />
+
+                {/* Scan routes — guarded by ScannerGuard (checks allowed_scanners) */}
+                <Route path="/scan/web"          element={<ProtectedRoute element={<ScannerGuard slug="web"    element={<WebScanPage />} />} />} />
+                <Route path="/web-scan"          element={<Navigate to="/scan/web"      replace />} />
+
+                <Route path="/scan/apache"       element={<ProtectedRoute element={<ScannerGuard slug="config" element={<ApacheScanPage />} />} />} />
+                <Route path="/apache-scan"       element={<Navigate to="/scan/apache"   replace />} />
+
+                <Route path="/scan/code"         element={<ProtectedRoute element={<ScannerGuard slug="code"   element={<CodeScanPage />} />} />} />
+                <Route path="/code-scan"         element={<Navigate to="/scan/code"     replace />} />
+
+                <Route path="/scan/network"      element={<ProtectedRoute element={<ScannerGuard slug="network" element={<NetworkScanPage />} />} />} />
+                <Route path="/network-scan"      element={<Navigate to="/scan/network"  replace />} />
+
+                <Route path="/scan/dast"         element={<ProtectedRoute element={<ScannerGuard slug="dast"   element={<DastScanPage />} />} />} />
+                <Route path="/dast-scan"         element={<Navigate to="/scan/dast"     replace />} />
+
+                <Route path="/scan/dependencies" element={<ProtectedRoute element={<ScannerGuard slug="deps"   element={<DependencyScanPage />} />} />} />
+                <Route path="/dependency-scan"   element={<Navigate to="/scan/dependencies" replace />} />
+
+                <Route path="/scan/ssl"          element={<ProtectedRoute element={<ScannerGuard slug="ssl"    element={<SslScanPage />} />} />} />
+                <Route path="/ssl-scan"          element={<Navigate to="/scan/ssl"          replace />} />
+
+                {/* Route aliases */}
+                <Route path="/scan/network-ext"  element={<ProtectedRoute element={<ScannerGuard slug="network" element={<NetworkScanPage />} />} />} />
+                <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ScannerGuard slug="server"  element={<ApacheScanPage />} />} />} />
+
+                {/* Profile */}
+                <Route path="/profile"           element={<ProtectedRoute element={<ProfilePage />} />} />
+
+                {/* Reports & Dashboard */}
+                <Route path="/reports"           element={<ProtectedRoute element={<ReportPage />} />} />
+                <Route path="/reports/:token"    element={<ProtectedRoute element={<ReportPage />} />} />
+                <Route path="/dashboard"         element={<ProtectedRoute element={<DashboardPage />} />} />
+
+                {/* Admin */}
+                <Route path="/admin"             element={<Navigate to="/dashboard" replace />} />
+                <Route path="/admin/users"       element={<ProtectedRoute element={<AdminUsersPage />}     adminOnly />} />
+                <Route path="/admin/scans"       element={<ProtectedRoute element={<AdminScansPage />}     adminOnly />} />
+                <Route path="/audit"             element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
+
+                {/* Scheduled Scans & Help */}
+                <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />
+                <Route path="/help"              element={<ProtectedRoute element={<HelpPage />} />} />
+
+                {/* Extra scanners — permission-guarded */}
+                <Route path="/scan/docker"       element={<ProtectedRoute element={<ScannerGuard slug="docker"    element={<DockerScanPage />} />} />} />
+                <Route path="/scan/dns"          element={<ProtectedRoute element={<ScannerGuard slug="dns"       element={<DnsScanPage />} />} />} />
+                <Route path="/scan/wordpress"    element={<ProtectedRoute element={<ScannerGuard slug="wordpress" element={<WordPressScanPage />} />} />} />
+
+                {/* AI Chat */}
+                <Route path="/chat"              element={<ProtectedRoute element={<ChatPage />} />} />
+
+                {/* 404 */}
+                <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+        </div>
+    );
+}
+
+function App() {
+    return (
+        <BrowserRouter>
+            <ErrorBoundary>
+                <LangProvider>
+                    <AuthProvider>
+                        <ScanJobsProvider>
+                            <AppInner />
+                        </ScanJobsProvider>
+                    </AuthProvider>
+                </LangProvider>
+            </ErrorBoundary>
+        </BrowserRouter>
+    );
+}
+
+export default App;

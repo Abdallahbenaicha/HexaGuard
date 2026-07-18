@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+env/
+.venv/
+
+# Large data files
+*.tar.gz
+*.zip
+*.gz
+*.bz2
+nvd_data/
+datasets/raw/
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.next/
+
+# Large generated/binary files
+*.node
+HexaGuard_Rapport_Complet_V4_500Pages.md
+HexaGuard_Rapport_Complet_V4_Massive.pdf
+HexaGuard_Monetization_Plan.html
+create_plan_pdf.py
+.hf_push/
+
+# Reports (generated at runtime)
+report/vulnerability_report.md
+report/findings_summary.csv
+
+# External PDF/MD documents (generated outside codebase — not part of source)
+SecurAx_*.pdf
+SecurAx_*.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
