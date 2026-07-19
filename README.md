@@ -498,7 +498,7 @@ MIT License — Copyright © 2026 HexaGuard Team
 
 | Channel | Details |
 |---------|---------|
-| **Security Issues** | [innovation.team.dz@gmail.com](mailto:innovation.team.dz@gmail.com) *(private disclosure)* |
+| **Security Issues** | [abdallahbenaichatech@gmail.com](mailto:abdallahbenaichatech@gmail.com) *(private disclosure)* |
 | **Bug Reports** | [GitHub Issues](https://github.com/Abdallahbenaicha/HexaGuard/issues) |
 | **General Questions** | [GitHub Discussions](https://github.com/Abdallahbenaicha/HexaGuard/discussions) |
 
