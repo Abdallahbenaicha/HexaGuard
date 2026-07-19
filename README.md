@@ -102,7 +102,7 @@ ARIA is not a chatbot bolted onto a scanner. It is an **autonomous five-stage an
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTPS REST API
 ┌──────────────────────────▼──────────────────────────────────┐
-│                Backend  (Render / PythonAnywhere)            │
+│                Backend  (Render / huggingface.io)            │
 │             Flask 3.1 · Gunicorn · Python 3.11+             │
 │                                                             │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
@@ -305,9 +305,9 @@ ALLOWED_ORIGINS=https://your-frontend.vercel.app
 GEMINI_API_KEY=<your-gemini-key>
 ```
 
-### Option B — Vercel + PythonAnywhere
+### Option B — Vercel + huggingface 
 
-**Backend (PythonAnywhere):**
+**Backend (huggingface):**
 ```bash
 cd /home/<user>/HexaGuard
 git pull origin main
@@ -387,7 +387,7 @@ HexaGuard practices what it preaches. The platform itself is hardened according 
 
 ### Responsible Disclosure
 
-**Report vulnerabilities privately:** [innovation.team.dz@gmail.com](mailto:innovation.team.dz@gmail.com)
+**Report vulnerabilities privately:** [abdallahbenaichatech@gmail.com](mailto:abdallahbenaichatech@gmail.com)
 
 Please include a description of the vulnerability, steps to reproduce, and affected endpoint. We target a **72-hour initial response** and a **14-day patch timeline** for critical findings.
 
