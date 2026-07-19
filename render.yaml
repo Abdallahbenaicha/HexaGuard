@@ -4,7 +4,7 @@ services:
     name: hexaguard-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: apt-get update -y && apt-get install -y nmap && pip install -r requirements.txt
 
     # gunicorn.conf.py sets: workers=1, threads=4, timeout=600, bind=0.0.0.0:$PORT
     # Single worker is intentional — SQLite allows only one writer at a time.
@@ -23,7 +23,7 @@ services:
         generateValue: true
 
       - key: ALLOWED_ORIGINS
-        value: https://hexa-gaurd.vercel.app,https://hexaguard-frontend.onrender.com
+        value: https://hexa-gaurd.vercel.app,https://hexaguard-frontend.onrender.com,https://abdallahbenaicha-hexaguard.hf.space
 
       - key: DB_PATH
         # Add a Persistent Disk (Render dashboard → Disks, mount at /var/data).
