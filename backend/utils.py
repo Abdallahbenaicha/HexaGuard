@@ -277,20 +277,37 @@ def check_ssrf_network(raw_target: str) -> tuple[bool, str]:
     Allows private RFC-1918 ranges so users can scan their own internal
     infrastructure. Still blocks loopback and cloud-metadata endpoints which
     are never a legitimate scan target.
+
+    In development mode (FLASK_ENV=development), loopback is also allowed
+    so developers can test against 127.0.0.1 locally.
     """
+    import os as _os
+    _is_dev = _os.environ.get("FLASK_ENV", "production") == "development"
+
+    # Cloud metadata endpoints are ALWAYS blocked regardless of environment
+    _METADATA_BLOCKED = {"169.254.169.254", "metadata.google.internal"}
+
     stripped = re.sub(r"^https?://", "", raw_target.strip())
     host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
 
     if not host:
         return False, "Empty target."
 
-    if host in _ALWAYS_BLOCKED:
+    if host in _METADATA_BLOCKED:
+        return False, f"Target '{host}' is blocked for security reasons."
+
+    # In production, also block loopback
+    if not _is_dev and host in _ALWAYS_BLOCKED:
         return False, f"Target '{host}' is blocked for security reasons."
 
     try:
         addr = ipaddress.ip_address(host)
-        if any(addr in net for net in _LOOPBACK_NETS):
-            return False, "Loopback and link-local targets are not allowed."
+        # Always block cloud metadata link-local
+        if any(addr in net for net in [ipaddress.ip_network("169.254.0.0/16")]):
+            return False, "Link-local metadata targets are not allowed."
+        # In production, block loopback too
+        if not _is_dev and any(addr in net for net in _LOOPBACK_NETS):
+            return False, "Loopback targets are not allowed in production."
     except ValueError:
         pass  # hostname — no IP-level check needed here
 

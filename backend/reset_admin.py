@@ -73,7 +73,7 @@ def main():
         else:
             ok = reset_password(username, password, conn)
             status = "OK" if ok else "NOT FOUND"
-            print(f"[{'✓' if ok else '!'}] Reset password for '{username}': {status}")
+            print(f"[{'OK' if ok else '!'}] Reset password for '{username}': {status}")
 
     print()
     print("=" * 50)

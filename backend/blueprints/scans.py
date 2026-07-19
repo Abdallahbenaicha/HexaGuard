@@ -375,7 +375,7 @@ def scan_url_bridge():
 @scans_bp.route("/scan_network", methods=["POST"])
 @require_scanner("network")
 @require_permission("run_scan")
-@limiter.limit("3/minute")
+@limiter.limit(lambda: "1000/minute" if os.environ.get("RATELIMIT_ENABLED", "true").lower() == "false" else "3/minute")
 @csrf.exempt
 def scan_network_bridge():
     data          = request.get_json(silent=True) or {}

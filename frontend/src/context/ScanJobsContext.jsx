@@ -5,18 +5,21 @@ import { showToast } from './AuthContext';
 
 const ScanJobsContext = createContext(null);
 
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 5000; // 5s instead of 3s
 
 export const ScanJobsProvider = ({ children }) => {
     const { user } = useAuth();
     const [jobs, setJobs] = useState([]);
-    const notifiedRef = useRef(new Set());
-    const timerRef   = useRef(null);
+    const notifiedRef  = useRef(new Set());
+    const timerRef     = useRef(null);
+    const failCountRef = useRef(0); // consecutive failures
 
     const fetchJobs = useCallback(async () => {
-        if (!user) return;
+        // Don't poll if no user or tab is hidden
+        if (!user || document.hidden) return;
         try {
             const { data } = await axios.get('/api/scan/jobs');
+            failCountRef.current = 0; // reset on success
             setJobs(Array.isArray(data) ? data : []);
 
             // Fire toast + browser notification for newly-done jobs
@@ -36,19 +39,32 @@ export const ScanJobsProvider = ({ children }) => {
                     showToast(`Scan failed: ${job.scan_type} → ${job.message}`, 'error');
                 }
             }
-        } catch {
-            /* network hiccup — skip silently */
+        } catch (err) {
+            const status = err?.response?.status;
+            // Stop polling silently on 401 (session ended) or 429 (rate limited)
+            if (status === 401 || status === 429) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+                return;
+            }
+            // Exponential backoff: stop polling after 5 consecutive failures
+            failCountRef.current += 1;
+            if (failCountRef.current >= 5) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
         }
     }, [user]);
 
     useEffect(() => {
-        if (!user) { setJobs([]); return; }
+        if (!user) { setJobs([]); clearInterval(timerRef.current); return; }
 
         // Request browser notification permission once
         if (Notification?.permission === 'default') {
             Notification.requestPermission().catch(() => {});
         }
 
+        failCountRef.current = 0;
         fetchJobs();
         timerRef.current = setInterval(fetchJobs, POLL_INTERVAL_MS);
         return () => clearInterval(timerRef.current);

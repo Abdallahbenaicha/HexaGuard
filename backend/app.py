@@ -47,11 +47,12 @@ def create_app() -> Flask:
         WTF_CSRF_ENABLED=True,
         WTF_CSRF_TIME_LIMIT=3600,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="None" if _IS_PRODUCTION else "Lax",
-        SESSION_COOKIE_SECURE=_IS_PRODUCTION,
+        SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "None" if _IS_PRODUCTION else "Lax"),
+        SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "true" if _IS_PRODUCTION else "false").lower() == "true",
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
         PERMANENT_SESSION_LIFETIME=1800,
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL", "memory://"),
+        RATELIMIT_ENABLED=os.environ.get("RATELIMIT_ENABLED", "true").lower() != "false",
     )
 
     init_extensions(app)

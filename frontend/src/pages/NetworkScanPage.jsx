@@ -19,13 +19,26 @@ const NetworkScanPage = () => {
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [ariaAnalysis, setAriaAnalysis] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
+    const abortControllerRef = React.useRef(null);
+
+    const handleStopScan = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setLoading(false);
+        setError('Scan cancelled by user.');
+    };
 
     const scanModes = [
         { id: 'full',      label: 'Deep Infiltration',   desc: 'Comprehensive scan (Ports + Services + OS)',  icon: Server },
         { id: 'ports',     label: 'Port Discovery',       desc: 'Identify all active entry points',            icon: Activity },
-        { id: 'quick',     label: 'Surveillance Mode',    desc: 'Rapid scan of common top 100 ports',          icon: Terminal },
-        { id: 'discover',  label: 'Discover All Devices', desc: 'Ping-sweep subnet — list every connected device (e.g. 192.168.1.0/24)', icon: Wifi }
+        { id: 'quick',     label: 'Surveillance Mode',    desc: 'Rapid scan of top 100 ports (fastest)',       icon: Terminal },
+        { id: 'discover',  label: 'Discover All Devices', desc: 'Ping-sweep subnet — e.g. 192.168.1.0/24',    icon: Wifi }
     ];
+
+    const isPrivateIP = (t) => /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.)/.test(t);
+    const showInternalBadge = isPrivateIP(target.trim());
 
     const handleExecuteScan = async () => {
         if (!target.trim() || !permissionGranted) return;
@@ -46,19 +59,26 @@ const NetworkScanPage = () => {
         setError(null);
         setAriaAnalysis('');
 
+        abortControllerRef.current = new AbortController();
+
         try {
             const { data } = await axios.post(
                 '/scan_network',
                 { target: scanTarget, mode: scanMode === 'discover' ? 'quick' : scanMode },
-                { withCredentials: true, timeout: 480000 }
+                { withCredentials: true, timeout: 480000, signal: abortControllerRef.current.signal }
             );
-            if (data.findings?.length > 0) setResults(data);
-            else setError('No services or vulnerabilities discovered on target.');
+            // Show results if we have findings OR if nmap found live hosts/open ports
+            const hasFindings = data.findings?.length > 0;
+            const hasHosts    = data.recon?.hosts_up > 0 || data.recon?.open_port_list?.length > 0;
+            if (hasFindings || hasHosts) setResults(data);
+            else setError('No services or vulnerabilities discovered on target. Try: scanme.nmap.org or your router IP (192.168.1.1)');
         } catch (e) {
-            if (e.response?.status === 502) setError('Backend is offline or crashing. Check Flask logs.');
-            else if (e.code === 'ECONNABORTED') setError('Scan Timeout: Target took too long to respond.');
+            if (axios.isCancel(e) || e.name === 'CanceledError') { /* user cancelled */ }
+            else if (e.response?.status === 502) setError('Backend is offline or crashing. Check Flask logs.');
+            else if (e.code === 'ECONNABORTED') setError('Scan Timeout — try "Surveillance Mode" for faster results.');
             else setError(`Error: ${e.response?.data?.error || e.message}`);
         } finally {
+            abortControllerRef.current = null;
             setLoading(false);
         }
     };
@@ -103,14 +123,26 @@ const NetworkScanPage = () => {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
 
                         <div className="space-y-1.5 mb-6">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Target Hostname / IP</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Target Hostname / IP</label>
+                                {showInternalBadge && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30">
+                                        🔒 Internal Network
+                                    </span>
+                                )}
+                            </div>
                             <input
                                 value={target}
                                 onChange={e => setTarget(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleExecuteScan()}
-                                placeholder="e.g. 192.168.1.1 or target.example.com"
+                                placeholder="e.g. 192.168.1.1 or scanme.nmap.org"
                                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow"
                             />
+                            {showInternalBadge && (
+                                <p className="text-[11px] text-blue-500 dark:text-blue-400 mt-1">
+                                    💡 IP داخلي — سيُفحص كشبكة LAN تلقائياً
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-3 mb-6">
@@ -166,24 +198,35 @@ const NetworkScanPage = () => {
                             )}
                         </div>
 
-                        <button
-                            onClick={handleExecuteScan}
-                            disabled={loading || !target.trim() || !permissionGranted}
-                            className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                                loading || !target.trim() || !permissionGranted
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                                    : 'bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/20'
-                            }`}
-                        >
-                            {loading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Scanning...
-                                </>
-                            ) : (
-                                <>Start Reconnaissance <ChevronRight className="w-4 h-4" /></>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleExecuteScan}
+                                disabled={loading || !target.trim() || !permissionGranted}
+                                className={`flex-1 py-3.5 px-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                                    loading || !target.trim() || !permissionGranted
+                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                        : 'bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/20'
+                                }`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Scanning...
+                                    </>
+                                ) : (
+                                    <>Start Reconnaissance <ChevronRight className="w-4 h-4" /></>
+                                )}
+                            </button>
+                            {loading && (
+                                <button
+                                    onClick={handleStopScan}
+                                    className="px-4 py-3.5 rounded-xl text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-md shadow-red-500/20 flex items-center gap-1"
+                                    title="Cancel scan"
+                                >
+                                    ✕ Stop
+                                </button>
                             )}
-                        </button>
+                        </div>
                     </div>
                 </div>
 

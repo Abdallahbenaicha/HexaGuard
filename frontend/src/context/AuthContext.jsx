@@ -3,8 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 // ── Toast system (no external library) ────────────────────────────────────────
+const _shownToasts = new Map(); // message → timestamp, for dedup
+
 export const showToast = (message, type = 'error') => {
-    window.dispatchEvent(new CustomEvent('hexaguard-toast', { detail: { message, type, id: Date.now() + Math.random() } }));
+    // Deduplicate: don't show same message more than once every 5 seconds
+    const now = Date.now();
+    const lastShown = _shownToasts.get(message);
+    if (lastShown && now - lastShown < 5000) return;
+    _shownToasts.set(message, now);
+    window.dispatchEvent(new CustomEvent('hexaguard-toast', { detail: { message, type, id: now + Math.random() } }));
 };
 
 export const ToastContainer = () => {
@@ -13,20 +20,22 @@ export const ToastContainer = () => {
     useEffect(() => {
         const handle = (e) => {
             const t = e.detail;
-            setToasts(prev => [...prev.slice(-4), t]);
-            setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 4000);
+            setToasts(prev => [...prev.slice(-3), t]); // max 3 toasts at once
+            setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 5000);
         };
         window.addEventListener('hexaguard-toast', handle);
         return () => window.removeEventListener('hexaguard-toast', handle);
     }, []);
 
+    const dismiss = (id) => setToasts(prev => prev.filter(x => x.id !== id));
+
     if (!toasts.length) return null;
     return (
-        <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
             {toasts.map(t => (
                 <div
                     key={t.id}
-                    className={`px-4 py-3 rounded-xl text-sm font-medium shadow-lg border max-w-sm backdrop-blur-sm animate-in slide-in-from-right-2 duration-300 ${
+                    className={`flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium shadow-lg border max-w-sm backdrop-blur-sm animate-in slide-in-from-right-2 duration-300 ${
                         t.type === 'warning'
                             ? 'bg-orange-50 dark:bg-orange-900/80 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300'
                             : t.type === 'success'
@@ -34,7 +43,14 @@ export const ToastContainer = () => {
                             : 'bg-red-50 dark:bg-red-900/80 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'
                     }`}
                 >
-                    {t.message}
+                    <span className="flex-1">{t.message}</span>
+                    <button
+                        onClick={() => dismiss(t.id)}
+                        className="flex-shrink-0 text-current opacity-60 hover:opacity-100 transition-opacity text-base leading-none ml-1"
+                        aria-label="Dismiss"
+                    >
+                        ✕
+                    </button>
                 </div>
             ))}
         </div>
@@ -74,6 +90,7 @@ const _authRef = { logout: null, navigate: null };
 
 // Set up the global interceptor once (idempotent via module flag)
 let _interceptorInstalled = false;
+let _lastLogoutTime = 0; // prevent logout loop
 function _installInterceptor() {
     if (_interceptorInstalled) return;
     _interceptorInstalled = true;
@@ -86,16 +103,21 @@ function _installInterceptor() {
             const status  = err.response?.status;
             const url     = err.config?.url || '';
             const isAuth  = AUTH_URLS.some(u => url.includes(u));
+            const now     = Date.now();
 
             if (status === 401 && !isAuth) {
-                showToast('Session expired — please log in again', 'warning');
-                if (_authRef.logout) await _authRef.logout();
-                if (_authRef.navigate) _authRef.navigate('/login');
+                // Prevent logout loop — only trigger once every 10 seconds
+                if (now - _lastLogoutTime > 10000) {
+                    _lastLogoutTime = now;
+                    showToast('Session expired — please log in again', 'warning');
+                    if (_authRef.logout) await _authRef.logout();
+                    if (_authRef.navigate) _authRef.navigate('/login');
+                }
             } else if (status === 403 && !isAuth) {
                 showToast("You don't have permission for this action", 'error');
             } else if (status === 429) {
                 const retryAfter = err.response?.headers?.['retry-after'];
-                const wait = retryAfter ? ` — please wait ${retryAfter}s` : ' — please wait';
+                const wait = retryAfter ? ` — wait ${retryAfter}s` : '';
                 showToast(`Too many requests${wait}`, 'warning');
             } else if (!err.response && !isAuth) {
                 showToast('Connection error — check your network', 'error');
