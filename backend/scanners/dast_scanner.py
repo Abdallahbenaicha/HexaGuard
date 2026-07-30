@@ -457,7 +457,7 @@ class _ZAPClient:
     def version(self) -> str:
         return self._get("/JSON/core/view/version/").get("version", "?")
 
-    def new_context(self, name: str = "hexaguard") -> str:
+    def new_context(self, name: str = "securax") -> str:
         return self._get("/JSON/context/action/newContext/", {"contextName": name}).get("contextId", "1")
 
     def include_in_context(self, ctx_id: str, pattern: str) -> None:
@@ -534,7 +534,7 @@ class _ZAPClient:
     ) -> list[dict]:
         self.clear_alerts()   # purge any results from previous scans
         host   = urlparse(url).hostname or url
-        ctx_id = self.new_context("hexaguard_scan")
+        ctx_id = self.new_context("securax_scan")
         self.include_in_context(ctx_id, f".*{re.escape(host)}.*")
 
         try:

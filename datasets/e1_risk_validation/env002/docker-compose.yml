@@ -1,0 +1,13 @@
+version: "3.8"
+# env002 — OWASP Juice Shop
+services:
+  juiceshop:
+    image: bkimminich/juice-shop:latest
+    container_name: securax-env002-juiceshop
+    ports:
+      - "3000:3000"
+    networks:
+      - securax-research
+networks:
+  securax-research:
+    driver: bridge

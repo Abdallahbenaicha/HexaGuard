@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Lock, User, ArrowRight, AlertCircle, ShieldAlert, Moon, Sun, KeyRound, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import hexaguardLogo from '../assets/hexaguard_logo.png';
+import securaxLogo from '../assets/securax_logo.png';
 
 // ── Silent backend health probe ────────────────────────────────────────────────
 // Uses native fetch (not axios) so no toasts fire during wake-up retries.
@@ -197,9 +197,9 @@ const LoginPage = () => {
 
             {/* Logo + title */}
             <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-                <img src={hexaguardLogo} alt="HexaGuard Logo" className="mx-auto h-16 w-auto mb-4" />
+                <img src={securaxLogo} alt="SecuraX Logo" className="mx-auto h-16 w-auto mb-4" />
                 <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    HexaGuard Security
+                    SecuraX Security
                 </h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                     Sign in to your enterprise account
@@ -331,7 +331,7 @@ const LoginPage = () => {
                     </form>
 
                     <div className="mt-6 text-center">
-                        <p className="text-xs text-gray-500 font-inter">HexaGuard Security Intelligence</p>
+                        <p className="text-xs text-gray-500 font-inter">SecuraX Security Intelligence</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
                             Don't have an account?{' '}
                             <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">

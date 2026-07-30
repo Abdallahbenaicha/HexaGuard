@@ -1,5 +1,5 @@
 ---
-title: HexaGuard Backend
+title: SecuraX Backend
 emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
@@ -8,7 +8,7 @@ app_port: 7860
 pinned: false
 ---
 
-# HexaGuard Backend (Flask API)
+# SecuraX Backend (Flask API)
 
 Security scanning API — see project root for full documentation.
 

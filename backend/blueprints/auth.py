@@ -1,4 +1,4 @@
-"""HexaGuard — authentication blueprint.
+"""SecuraX — authentication blueprint.
 
 Handles both Flask HTML routes (Jinja2 templates) and the JSON API consumed
 by the React frontend. All auth logic lives here; the app factory only
@@ -115,7 +115,7 @@ def setup_totp():
         secret = pyotp.random_base32()
         session["totp_setup_secret"] = secret
         uri = pyotp.totp.TOTP(secret).provisioning_uri(
-            name=current_user.username, issuer_name="HexaGuard Security"
+            name=current_user.username, issuer_name="SecuraX Security"
         )
         img    = qrcode.make(uri)
         buf    = io.BytesIO()
@@ -297,7 +297,7 @@ def api_totp_setup():
     secret = pyotp.random_base32()
     session["totp_setup_secret"] = secret
     uri = pyotp.TOTP(secret).provisioning_uri(
-        name=current_user.username, issuer_name="HexaGuard Security"
+        name=current_user.username, issuer_name="SecuraX Security"
     )
     img = qrcode.make(uri)
     buf = io.BytesIO()

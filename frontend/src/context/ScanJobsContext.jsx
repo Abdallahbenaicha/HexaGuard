@@ -28,7 +28,7 @@ export const ScanJobsProvider = ({ children }) => {
                     notifiedRef.current.add(job.job_id);
                     showToast(`Scan complete: ${job.scan_type} → ${job.target}`, 'success');
                     if (Notification?.permission === 'granted') {
-                        new Notification('HexaGuard — Scan Complete', {
+                        new Notification('SecuraX — Scan Complete', {
                             body: `${job.scan_type.toUpperCase()} scan of ${job.target} finished.`,
                             icon: '/favicon.ico',
                         });

@@ -1,0 +1,81 @@
+cff-version: 1.2.0
+message: >-
+  If you use SecuraX in your research, please cite it using the metadata
+  in this file. See also: https://citation-file-format.github.io/
+
+title: "SecuraX: A Unified Cybersecurity Scanning and Research Platform"
+
+version: 2.0.0
+date-released: "2026-07-30"
+
+abstract: >-
+  SecuraX is an open-source, self-hosted cybersecurity research platform that
+  orchestrates 11 scanner engines (DAST, SAST, Network, SSL/TLS, DNS, Docker,
+  WordPress, Dependencies) through a unified Flask REST API and React dashboard.
+  The platform implements a multi-dimensional risk scoring engine extending
+  CVSS v3.1 with temporal adjustment (CISA KEV integration, known-exploit flags)
+  and environmental adjustment (asset criticality, PII exposure, internet-facing
+  context). SecuraX is designed for reproducible security research: every scan
+  result is stored with full provenance, and the risk engine is versioned so that
+  experiments can be reproduced with a specific engine version. The platform
+  supports GDPR Art. 32/33, PCI-DSS Req. 6.3.3, ISO 27001 A.14.2, OWASP Top 10
+  (2021), and MITRE ATT&CK compliance mapping.
+
+license: MIT
+
+repository-code: "https://github.com/Abdallahbenaicha/SecuraX"
+
+url: "https://securax.vercel.app"
+
+keywords:
+  - cybersecurity
+  - vulnerability management
+  - security scanning
+  - CVSS
+  - DAST
+  - SAST
+  - penetration testing
+  - risk scoring
+  - MITRE ATT&CK
+  - OWASP
+  - open source security
+  - security research platform
+
+authors:
+  - given-names: Abdallah
+    family-names: Benaicha
+    affiliation: SecuraX Research Team
+    country: DZ
+
+contact:
+  - email: innovation.team.dz@gmail.com
+    name: SecuraX Research Team
+
+references:
+  - type: standard
+    title: "Common Vulnerability Scoring System v3.1: Specification Document"
+    authors:
+      - name: "FIRST.Org, Inc."
+    url: "https://www.first.org/cvss/specification-document"
+    year: 2019
+
+  - type: standard
+    title: "Guide for Conducting Risk Assessments (NIST SP 800-30 Rev. 1)"
+    authors:
+      - name: "National Institute of Standards and Technology"
+    doi: "10.6028/NIST.SP.800-30r1"
+    year: 2012
+
+  - type: standard
+    title: "OWASP Risk Rating Methodology"
+    authors:
+      - name: "OWASP Foundation"
+    url: "https://owasp.org/www-community/OWASP_Risk_Rating_Methodology"
+    year: 2021
+
+  - type: standard
+    title: "MITRE ATT&CK Framework"
+    authors:
+      - name: "The MITRE Corporation"
+    url: "https://attack.mitre.org"
+    year: 2021

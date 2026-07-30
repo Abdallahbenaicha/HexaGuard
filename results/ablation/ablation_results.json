@@ -1,0 +1,324 @@
+{
+  "engine_version": "3.0.0",
+  "timestamp_utc": "2026-07-30T05:26:23.686689+00:00",
+  "components": {
+    "full_engine": {
+      "name": "Full Engine (All Components)",
+      "description": "Baseline: all components enabled (reference configuration)",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 4,
+          "fn": 1,
+          "precision": 0.4286,
+          "recall": 0.75,
+          "f1": 0.5455
+        },
+        "medium": {
+          "tp": 7,
+          "fp": 6,
+          "fn": 4,
+          "precision": 0.5385,
+          "recall": 0.6364,
+          "f1": 0.5833
+        },
+        "high": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 6,
+          "precision": 1.0,
+          "recall": 0.7273,
+          "f1": 0.8421
+        },
+        "critical": {
+          "tp": 13,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "macro": {
+          "precision": 0.5934,
+          "recall": 0.6227,
+          "f1": 0.5942
+        }
+      },
+      "delta_macro_f1": 0.0,
+      "contribution": 0.0
+    },
+    "no_asset_criticality": {
+      "name": "Without Asset Criticality",
+      "description": "criticality forced to 0.75 (medium \u2014 neutral multiplier)",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 4,
+          "fn": 1,
+          "precision": 0.4286,
+          "recall": 0.75,
+          "f1": 0.5455
+        },
+        "medium": {
+          "tp": 7,
+          "fp": 6,
+          "fn": 4,
+          "precision": 0.5385,
+          "recall": 0.6364,
+          "f1": 0.5833
+        },
+        "high": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 6,
+          "precision": 1.0,
+          "recall": 0.7273,
+          "f1": 0.8421
+        },
+        "critical": {
+          "tp": 13,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "macro": {
+          "precision": 0.5934,
+          "recall": 0.6227,
+          "f1": 0.5942
+        }
+      },
+      "delta_macro_f1": 0.0,
+      "contribution": 0.0
+    },
+    "no_exploitability": {
+      "name": "Without Exploitability",
+      "description": "exploit_known=False, cve_ids=[] for all findings",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 4,
+          "fn": 1,
+          "precision": 0.4286,
+          "recall": 0.75,
+          "f1": 0.5455
+        },
+        "medium": {
+          "tp": 7,
+          "fp": 8,
+          "fn": 4,
+          "precision": 0.4667,
+          "recall": 0.6364,
+          "f1": 0.5385
+        },
+        "high": {
+          "tp": 14,
+          "fp": 5,
+          "fn": 8,
+          "precision": 0.7368,
+          "recall": 0.6364,
+          "f1": 0.6829
+        },
+        "critical": {
+          "tp": 8,
+          "fp": 0,
+          "fn": 5,
+          "precision": 1.0,
+          "recall": 0.6154,
+          "f1": 0.7619
+        },
+        "macro": {
+          "precision": 0.5264,
+          "recall": 0.5276,
+          "f1": 0.5058
+        }
+      },
+      "delta_macro_f1": -0.0884,
+      "contribution": 0.0884
+    },
+    "no_exposure": {
+      "name": "Without Exposure Factor",
+      "description": "internet_facing=False for all (treats all as internal)",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 8,
+          "fn": 1,
+          "precision": 0.2727,
+          "recall": 0.75,
+          "f1": 0.4
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 14,
+          "fn": 8,
+          "precision": 0.1765,
+          "recall": 0.2727,
+          "f1": 0.2143
+        },
+        "high": {
+          "tp": 8,
+          "fp": 0,
+          "fn": 14,
+          "precision": 1.0,
+          "recall": 0.3636,
+          "f1": 0.5333
+        },
+        "critical": {
+          "tp": 13,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "macro": {
+          "precision": 0.4898,
+          "recall": 0.4773,
+          "f1": 0.4295
+        }
+      },
+      "delta_macro_f1": -0.1647,
+      "contribution": 0.1647
+    },
+    "no_compliance": {
+      "name": "Without Compliance Penalties",
+      "description": "has_pii=False, has_payment=False (GDPR/PCI-DSS removed)",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 5,
+          "fn": 1,
+          "precision": 0.375,
+          "recall": 0.75,
+          "f1": 0.5
+        },
+        "medium": {
+          "tp": 6,
+          "fp": 8,
+          "fn": 5,
+          "precision": 0.4286,
+          "recall": 0.5455,
+          "f1": 0.48
+        },
+        "high": {
+          "tp": 14,
+          "fp": 0,
+          "fn": 8,
+          "precision": 1.0,
+          "recall": 0.6364,
+          "f1": 0.7778
+        },
+        "critical": {
+          "tp": 13,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "macro": {
+          "precision": 0.5607,
+          "recall": 0.5864,
+          "f1": 0.5516
+        }
+      },
+      "delta_macro_f1": -0.0426,
+      "contribution": 0.0426
+    },
+    "no_threat_context": {
+      "name": "Without Threat Context",
+      "description": "exploit_known=False, cve_ids=[], internet_facing=False (minimal context)",
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 8,
+          "fn": 1,
+          "precision": 0.2727,
+          "recall": 0.75,
+          "f1": 0.4
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 16,
+          "fn": 8,
+          "precision": 0.1579,
+          "recall": 0.2727,
+          "f1": 0.2
+        },
+        "high": {
+          "tp": 6,
+          "fp": 13,
+          "fn": 16,
+          "precision": 0.3158,
+          "recall": 0.2727,
+          "f1": 0.2927
+        },
+        "critical": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 13,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "macro": {
+          "precision": 0.1493,
+          "recall": 0.2591,
+          "f1": 0.1785
+        }
+      },
+      "delta_macro_f1": -0.4157,
+      "contribution": 0.4157
+    }
+  }
+}

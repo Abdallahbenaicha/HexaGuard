@@ -1,0 +1,60 @@
+version: "3.8"
+
+# ============================================================
+# SecuraX Research Environment — env001
+# Target: DVWA (Damn Vulnerable Web Application)
+# Purpose: E1 Risk Score Validation experiment
+#
+# Usage:
+#   docker-compose up -d
+#   # Wait ~30s for MySQL to initialize
+#   # Access at: http://localhost:8080/dvwa/
+#   # Default credentials: admin / password
+#   # Setup: http://localhost:8080/dvwa/setup.php → "Create / Reset Database"
+# ============================================================
+
+services:
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: securax-env001-dvwa
+    ports:
+      - "8080:80"
+    environment:
+      - DB_SERVER=mysql
+      - DB_DATABASE=dvwa
+      - DB_USER=dvwa
+      - DB_PASSWORD=p@ssw0rd
+    depends_on:
+      - mysql
+    networks:
+      - securax-research
+
+  mysql:
+    image: mysql:5.7
+    container_name: securax-env001-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: dvwa
+      MYSQL_USER: dvwa
+      MYSQL_PASSWORD: p@ssw0rd
+    volumes:
+      - dvwa-db:/var/lib/mysql
+    networks:
+      - securax-research
+
+volumes:
+  dvwa-db:
+
+networks:
+  securax-research:
+    driver: bridge
+
+# ============================================================
+# SecuraX Scan Configuration
+# Run after docker-compose up:
+#
+# python research/run_experiment.py \
+#   --experiment e1 \
+#   --environment env001 \
+#   --target http://localhost:8080/dvwa/
+# ============================================================

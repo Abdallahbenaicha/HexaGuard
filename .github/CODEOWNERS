@@ -1,0 +1,36 @@
+# CODEOWNERS
+# This file defines code ownership for the SecuraX repository.
+# Owners are automatically requested as reviewers on pull requests
+# that touch their owned files.
+#
+# Syntax: <pattern> <owner> [<owner2> ...]
+# Owners can be GitHub usernames or team names.
+
+# Default owner for everything not matched below
+* @Abdallahbenaicha
+
+# ── Critical security paths ──────────────────────────────────────────────────
+# These files implement authentication, authorisation, and security controls.
+# Every change requires review.
+/backend/blueprints/auth.py            @Abdallahbenaicha
+/backend/models.py                     @Abdallahbenaicha
+/backend/middleware.py                 @Abdallahbenaicha
+/backend/extensions.py                 @Abdallahbenaicha
+/SECURITY.md                           @Abdallahbenaicha
+
+# ── Risk engine ───────────────────────────────────────────────────────────────
+# Changes to the scoring algorithm require a benchmark run and justification.
+/backend/risk_engine.py                @Abdallahbenaicha
+
+# ── Scanner output schema ─────────────────────────────────────────────────────
+# The schema is the reproducibility contract — changes must be backward-compatible.
+/backend/scanners/schema.py            @Abdallahbenaicha
+
+# ── Research documentation ───────────────────────────────────────────────────
+/docs/RISK_ENGINE.md                   @Abdallahbenaicha
+/docs/RESEARCH_ROADMAP.md              @Abdallahbenaicha
+/docs/DATASETS.md                      @Abdallahbenaicha
+/CITATION.cff                          @Abdallahbenaicha
+
+# ── CI/CD ────────────────────────────────────────────────────────────────────
+/.github/workflows/                    @Abdallahbenaicha

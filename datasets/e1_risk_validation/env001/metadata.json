@@ -1,0 +1,38 @@
+{
+  "environment_id": "env001",
+  "name": "DVWA — Damn Vulnerable Web Application",
+  "version": "1.0.0",
+  "data_type": "synthetic",
+  "data_type_note": "Synthetic data constructed from documented DVWA vulnerability catalogue. Real deployment planned for dataset v1.1.0.",
+  "source_application": "DVWA",
+  "source_url": "https://github.com/digininja/DVWA",
+  "source_license": "GNU General Public License v3.0",
+  "collection_date": "2026-07-30",
+  "collector": "Abdallah Benaicha",
+  "scanner_versions": {
+    "securax_risk_engine": "3.0.0",
+    "web_scanner": "2.1.0",
+    "dast_scanner": "2.1.0",
+    "sast_scanner": "2.1.0"
+  },
+  "target": {
+    "url": "http://localhost/dvwa",
+    "tech_stack": ["PHP 7.x", "MySQL 5.7", "Apache 2.4"],
+    "deployment": "Docker (see docker-compose.yml)",
+    "internet_facing": true,
+    "has_pii": true,
+    "has_payment": false,
+    "asset_criticality": "medium"
+  },
+  "finding_count": 10,
+  "risk_distribution": {
+    "critical": 3,
+    "high": 4,
+    "medium": 2,
+    "low": 1,
+    "minimal": 0
+  },
+  "experiment": "E1",
+  "research_question": "RQ1",
+  "notes": "DVWA is the canonical reference implementation for intentionally vulnerable web applications. All 10 findings correspond to documented DVWA security challenges."
+}

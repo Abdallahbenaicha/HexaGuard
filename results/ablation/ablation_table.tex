@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+\centering
+\caption{Ablation Study: Contribution of Each Risk Engine Component}
+\label{tab:ablation}
+\begin{tabular}{lcc}
+\hline
+\textbf{Configuration} & \textbf{Macro-F1} & \textbf{$\Delta$ F1} \\
+\hline
+Full Engine (All Components) & 0.5942 & --- \\
+Without Asset Criticality & 0.5942 & +0.0000 \\
+Without Exploitability & 0.5058 & -0.0884 \\
+Without Exposure Factor & 0.4295 & -0.1647 \\
+Without Compliance Penalties & 0.5516 & -0.0426 \\
+Without Threat Context & 0.1785 & -0.4157 \\
+\hline
+\multicolumn{3}{l}{\small $\Delta$ = difference from full engine (negative = component helps)} \\
+\end{tabular}
+\end{table}

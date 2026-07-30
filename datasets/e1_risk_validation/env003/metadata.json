@@ -1,0 +1,37 @@
+{
+  "environment_id": "env003",
+  "name": "WebGoat — OWASP Java EE Training Application",
+  "version": "1.0.0",
+  "data_type": "synthetic",
+  "data_type_note": "Synthetic data based on WebGoat 2023.8 vulnerability lessons.",
+  "source_application": "WebGoat",
+  "source_url": "https://github.com/WebGoat/WebGoat",
+  "source_license": "GNU GPL v2.0",
+  "collection_date": "2026-07-30",
+  "collector": "Abdallah Benaicha",
+  "scanner_versions": {
+    "securax_risk_engine": "3.0.0",
+    "sast_scanner": "2.1.0",
+    "web_scanner": "2.1.0"
+  },
+  "target": {
+    "url": "http://localhost:8888/WebGoat",
+    "tech_stack": ["Java 17", "Spring Boot", "Hibernate", "H2 Database"],
+    "deployment": "Docker (see docker-compose.yml)",
+    "internet_facing": false,
+    "has_pii": true,
+    "has_payment": false,
+    "asset_criticality": "medium"
+  },
+  "finding_count": 10,
+  "risk_distribution": {
+    "critical": 1,
+    "high": 5,
+    "medium": 3,
+    "low": 1,
+    "minimal": 0
+  },
+  "experiment": "E1",
+  "research_question": "RQ1",
+  "notes": "WebGoat focuses on Java-specific vulnerabilities and authentication flaws. Internal deployment (no internet_facing) tests the environmental adjustment of the risk engine."
+}

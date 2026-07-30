@@ -1,6 +1,6 @@
 # report_generator.py
 """
-Professional report generation for HexaGuard Security scans.
+Professional report generation for SecuraX Security scans.
 Used by export endpoints, API responses, and scan bridges.
 """
 
@@ -337,7 +337,7 @@ def generate_markdown_report(data: dict, lang: str = "en") -> str:
     labels = SEV_LABELS_AR if lang == "ar" else SEV_LABELS_EN
 
     if lang == "ar":
-        title = "# HexaGuard — تقرير الفحص الأمني"
+        title = "# SecuraX — تقرير الفحص الأمني"
         meta_hdr = "## بيانات الفحص"
         exec_hdr = "## الملخص التنفيذي"
         risk_hdr = "## تقييم المخاطر"
@@ -345,9 +345,9 @@ def generate_markdown_report(data: dict, lang: str = "en") -> str:
         find_hdr = "## النتائج التفصيلية"
         rec_hdr = "## التوصيات"
         chain_hdr = "## سلاسل الهجوم المحتملة"
-        footer = f"*تقرير سري — HexaGuard Security Platform — {token}*"
+        footer = f"*تقرير سري — SecuraX Security Platform — {token}*"
     else:
-        title = "# HexaGuard — Security Assessment Report"
+        title = "# SecuraX — Security Assessment Report"
         meta_hdr = "## Scan Metadata"
         exec_hdr = "## Executive Summary"
         risk_hdr = "## Risk Assessment"
@@ -355,7 +355,7 @@ def generate_markdown_report(data: dict, lang: str = "en") -> str:
         find_hdr = "## Detailed Findings"
         rec_hdr = "## Recommendations"
         chain_hdr = "## Potential Attack Chains"
-        footer = f"*Confidential — HexaGuard Security Platform — {token}*"
+        footer = f"*Confidential — SecuraX Security Platform — {token}*"
 
     lines = [
         title,

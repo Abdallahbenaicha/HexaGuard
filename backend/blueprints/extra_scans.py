@@ -1,4 +1,4 @@
-"""HexaGuard — Extra Scanners Blueprint.
+"""SecuraX — Extra Scanners Blueprint.
 
 Provides three new scan endpoints:
   POST /scan_docker      — Dockerfile / docker-compose.yml security analysis

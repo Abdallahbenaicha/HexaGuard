@@ -1,0 +1,7 @@
+class,SecuraX,Baseline-CVSS,Baseline-RULE,Baseline-PRIORITY,Baseline-RANDOM
+minimal,0.0,0.0,0.0,0.0,0.0
+low,0.75,1.0,1.0,1.0,0.0
+medium,0.6364,1.0,0.5455,1.0,0.1818
+high,0.7273,1.0,1.0,1.0,0.1818
+critical,1.0,1.0,1.0,1.0,0.1538
+macro,0.6227,0.8,0.7091,0.8,0.1035

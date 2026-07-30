@@ -1,0 +1,38 @@
+{
+  "environment_id": "env005",
+  "name": "PortSwigger Web Security Academy — API Vulnerabilities",
+  "version": "1.0.0",
+  "data_type": "synthetic",
+  "data_type_note": "Synthetic data based on PortSwigger Web Security Academy lab scenarios for API security.",
+  "source_application": "PortSwigger Web Security Academy",
+  "source_url": "https://portswigger.net/web-security/api-testing",
+  "source_license": "Educational use",
+  "collection_date": "2026-07-30",
+  "collector": "Abdallah Benaicha",
+  "scanner_versions": {
+    "securax_risk_engine": "3.0.0",
+    "dast_scanner": "2.1.0",
+    "web_scanner": "2.1.0"
+  },
+  "target": {
+    "url": "http://localhost:8989",
+    "tech_stack": ["REST API", "JSON", "JWT", "GraphQL"],
+    "deployment": "Custom Docker (see docker-compose.yml)",
+    "internet_facing": true,
+    "has_pii": true,
+    "has_payment": true,
+    "asset_criticality": "critical",
+    "asset_type": "api_service"
+  },
+  "finding_count": 10,
+  "risk_distribution": {
+    "critical": 3,
+    "high": 4,
+    "medium": 2,
+    "low": 1,
+    "minimal": 0
+  },
+  "experiment": "E1",
+  "research_question": "RQ1",
+  "notes": "API-focused environment covering OWASP API Security Top 10. High criticality asset (public API with PII+payment). Tests API-specific scanner checks."
+}

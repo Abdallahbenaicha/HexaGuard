@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quick environment check for HexaGuard."""
+"""Quick environment check for SecuraX."""
 import sys
 import subprocess
 
@@ -34,13 +34,13 @@ def check_flask():
 def check_database():
     """Check if database exists."""
     import os
-    if os.path.exists('hexaguard.db'):
-        size = os.path.getsize('hexaguard.db')
+    if os.path.exists('securax.db'):
+        size = os.path.getsize('securax.db')
         return "✅ EXISTS", f"Size: {size/1024:.2f} KB"
     return "⚠️ MISSING", "Database will be created on first run"
 
 def main():
-    print("\n🔍 HexaGuard Environment Check\n" + "="*50)
+    print("\n🔍 SecuraX Environment Check\n" + "="*50)
     
     checks = [
         ("System nmap", check_nmap),

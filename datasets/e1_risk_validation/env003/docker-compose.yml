@@ -1,0 +1,17 @@
+version: "3.8"
+# env003 — WebGoat
+services:
+  webgoat:
+    image: webgoat/webgoat:2023.8
+    container_name: securax-env003-webgoat
+    ports:
+      - "8888:8080"
+      - "9090:9090"
+    environment:
+      - WEBGOAT_PORT=8080
+      - WEBWOLF_PORT=9090
+    networks:
+      - securax-research
+networks:
+  securax-research:
+    driver: bridge

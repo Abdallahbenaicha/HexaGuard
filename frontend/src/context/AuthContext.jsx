@@ -11,7 +11,7 @@ export const showToast = (message, type = 'error') => {
     const lastShown = _shownToasts.get(message);
     if (lastShown && now - lastShown < 5000) return;
     _shownToasts.set(message, now);
-    window.dispatchEvent(new CustomEvent('hexaguard-toast', { detail: { message, type, id: now + Math.random() } }));
+    window.dispatchEvent(new CustomEvent('securax-toast', { detail: { message, type, id: now + Math.random() } }));
 };
 
 export const ToastContainer = () => {
@@ -23,8 +23,8 @@ export const ToastContainer = () => {
             setToasts(prev => [...prev.slice(-3), t]); // max 3 toasts at once
             setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 5000);
         };
-        window.addEventListener('hexaguard-toast', handle);
-        return () => window.removeEventListener('hexaguard-toast', handle);
+        window.addEventListener('securax-toast', handle);
+        return () => window.removeEventListener('securax-toast', handle);
     }, []);
 
     const dismiss = (id) => setToasts(prev => prev.filter(x => x.id !== id));

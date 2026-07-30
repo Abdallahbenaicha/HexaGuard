@@ -1,38 +1,14 @@
-name: CI
-
-on:
-  push:
-  pull_request:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flask flask-wtf flask-login flask-limiter flask-cors \
-                      bcrypt pyotp requests python-dotenv \
-                      google-genai pytest
-
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
-
-      - name: Security static check (Bandit)
-        run: |
-          pip install bandit
-          bandit -r . -x .venv,tests,archive_non_runtime -ll
+# !! THIS FILE IS NOT EXECUTED BY GITHUB ACTIONS !!
+#
+# GitHub Actions only reads workflow files from:
+#   /<repo-root>/.github/workflows/
+#
+# This file was previously located here (backend/.github/workflows/ci.yml)
+# which is why CI was silently broken — no tests ever ran on any push or PR.
+#
+# The workflow has been moved to the correct location:
+#   /.github/workflows/ci.yml          (backend tests, Docker build)
+#   /.github/workflows/frontend-ci.yml (frontend lint + build)
+#
+# DO NOT add workflow files in this directory.
+# Reference: https://docs.github.com/en/actions/writing-workflows/quickstart

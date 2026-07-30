@@ -1,0 +1,269 @@
+% ============================================================
+% SecuraX — Unified Research Bibliography
+% ============================================================
+% Format: BibTeX (compatible with IEEE, ACM, Springer templates)
+% Last updated: 2026-07-30
+%
+% Usage in LaTeX:
+%   \bibliographystyle{IEEEtran}
+%   \bibliography{papers/references}
+% ============================================================
+
+
+% ── The SecuraX Platform ──────────────────────────────────────────────────────
+
+@misc{securax2026,
+  author    = {Benaicha, Abdallah},
+  title     = {{SecuraX}: A Multi-Dimensional Vulnerability Risk Prioritization Platform},
+  year      = {2026},
+  publisher = {GitHub},
+  url       = {https://github.com/Abdallahbenaicha/HexaGuard},
+  note      = {PFE Master thesis project}
+}
+
+@dataset{securax_benchmark_v1,
+  author    = {Benaicha, Abdallah},
+  title     = {{SecuraX} Vulnerability Risk Prioritization Benchmark Dataset v1.0.0},
+  year      = {2026},
+  publisher = {GitHub},
+  url       = {https://github.com/Abdallahbenaicha/HexaGuard/tree/main/datasets},
+  note      = {Synthetic benchmark dataset for multi-dimensional risk scoring evaluation}
+}
+
+
+% ── CVSS / Risk Scoring ───────────────────────────────────────────────────────
+
+@techreport{cvss31spec,
+  author      = {{FIRST.Org}},
+  title       = {Common Vulnerability Scoring System v3.1: Specification Document},
+  institution = {Forum of Incident Response and Security Teams},
+  year        = {2019},
+  url         = {https://www.first.org/cvss/specification-document}
+}
+
+@techreport{epss,
+  author      = {Spring, Jonathan and Hatleback, Eric and Householder, Allen and Manion, Art and Shick, Deana},
+  title       = {Prioritizing Vulnerability Response: A Stakeholder-Specific Vulnerability Categorization ({SSVC})},
+  institution = {Carnegie Mellon University, Software Engineering Institute},
+  year        = {2021},
+  url         = {https://www.first.org/epss/}
+}
+
+@inproceedings{jacobs2021epss,
+  author    = {Jacobs, Jay and Romanosky, Sasha and Adjerid, Idris and Baker, Wade},
+  title     = {Improving Vulnerability Remediation Through Better Exploit Prediction},
+  booktitle = {Proceedings of the Workshop on Economics of Information Security (WEIS)},
+  year      = {2019},
+  url       = {https://weis2019.econinfosec.org/}
+}
+
+
+% ── NIST Standards ────────────────────────────────────────────────────────────
+
+@techreport{nist800-30,
+  author      = {{NIST}},
+  title       = {Guide for Conducting Risk Assessments},
+  institution = {National Institute of Standards and Technology},
+  number      = {SP 800-30 Rev. 1},
+  year        = {2012},
+  doi         = {10.6028/NIST.SP.800-30r1}
+}
+
+@techreport{nist800-37,
+  author      = {{NIST}},
+  title       = {Risk Management Framework for Information Systems and Organizations},
+  institution = {National Institute of Standards and Technology},
+  number      = {SP 800-37 Rev. 2},
+  year        = {2018},
+  doi         = {10.6028/NIST.SP.800-37r2}
+}
+
+@techreport{nist800-115,
+  author      = {{NIST}},
+  title       = {Technical Guide to Information Security Testing and Assessment},
+  institution = {National Institute of Standards and Technology},
+  number      = {SP 800-115},
+  year        = {2008},
+  url         = {https://doi.org/10.6028/NIST.SP.800-115}
+}
+
+@misc{cisa_kev,
+  author = {{CISA}},
+  title  = {Known Exploited Vulnerabilities Catalog},
+  year   = {2021},
+  note   = {Updated daily},
+  url    = {https://www.cisa.gov/known-exploited-vulnerabilities-catalog}
+}
+
+
+% ── OWASP ─────────────────────────────────────────────────────────────────────
+
+@misc{owasp_top10_2021,
+  author = {{OWASP Foundation}},
+  title  = {{OWASP} Top Ten 2021},
+  year   = {2021},
+  url    = {https://owasp.org/www-project-top-ten/}
+}
+
+@misc{owasp_api_top10_2023,
+  author = {{OWASP Foundation}},
+  title  = {{OWASP API} Security Top 10 2023},
+  year   = {2023},
+  url    = {https://owasp.org/API-Security/}
+}
+
+@misc{owasp_rrm,
+  author = {{OWASP Foundation}},
+  title  = {{OWASP} Risk Rating Methodology},
+  year   = {2021},
+  url    = {https://owasp.org/www-community/OWASP_Risk_Rating_Methodology}
+}
+
+@misc{owasp_asvs,
+  author = {{OWASP Foundation}},
+  title  = {{OWASP} Application Security Verification Standard 4.0},
+  year   = {2021},
+  url    = {https://owasp.org/www-project-application-security-verification-standard/}
+}
+
+
+% ── ISO/IEC Standards ─────────────────────────────────────────────────────────
+
+@standard{iso27005,
+  author      = {{ISO/IEC}},
+  title       = {Information security, cybersecurity and privacy protection — Guidance on managing information security risks},
+  number      = {ISO/IEC 27005:2022},
+  institution = {International Organization for Standardization},
+  year        = {2022}
+}
+
+@standard{iso27001,
+  author      = {{ISO/IEC}},
+  title       = {Information security management systems — Requirements},
+  number      = {ISO/IEC 27001:2022},
+  institution = {International Organization for Standardization},
+  year        = {2022}
+}
+
+
+% ── FAIR / Risk Frameworks ────────────────────────────────────────────────────
+
+@misc{fair2009,
+  author = {{The Open Group}},
+  title  = {An Introduction to Factor Analysis of Information Risk ({FAIR})},
+  year   = {2009},
+  url    = {https://www.opengroup.org/security/risk-management/fair.htm}
+}
+
+
+% ── Machine Learning / Evaluation ────────────────────────────────────────────
+
+@article{sokolova2009,
+  author  = {Sokolova, Marina and Lapalme, Guy},
+  title   = {A Systematic Analysis of Performance Measures for Classification Tasks},
+  journal = {Information Processing \& Management},
+  volume  = {45},
+  number  = {4},
+  pages   = {427--437},
+  year    = {2009},
+  doi     = {10.1016/j.ipm.2009.03.002}
+}
+
+@article{sklearn2011,
+  author  = {Pedregosa, Fabian and others},
+  title   = {Scikit-learn: Machine Learning in {Python}},
+  journal = {Journal of Machine Learning Research},
+  volume  = {12},
+  pages   = {2825--2830},
+  year    = {2011},
+  url     = {https://jmlr.csail.mit.edu/papers/v12/pedregosa11a.html}
+}
+
+@article{meyes2019ablation,
+  author  = {Meyes, Richard and Lu, Melanie and de Puiseau, Constantin Waubert and Meisen, Tobias},
+  title   = {Ablation Studies in Artificial Neural Networks},
+  journal = {arXiv preprint arXiv:1901.08644},
+  year    = {2019},
+  url     = {https://arxiv.org/abs/1901.08644}
+}
+
+
+% ── Vulnerability Datasets ────────────────────────────────────────────────────
+
+@misc{dvwa,
+  author = {Ryan Dewhurst and others},
+  title  = {{DVWA}: Damn Vulnerable Web Application},
+  year   = {2009},
+  url    = {https://github.com/digininja/DVWA},
+  note   = {GNU GPL v3.0}
+}
+
+@misc{juiceshop,
+  author = {Bjoern Kimminich and others},
+  title  = {{OWASP} Juice Shop},
+  year   = {2014},
+  url    = {https://owasp.org/www-project-juice-shop/},
+  note   = {MIT License}
+}
+
+@misc{webgoat,
+  author = {{OWASP Foundation}},
+  title  = {{WebGoat}: A deliberately insecure {Web} Application},
+  year   = {2003},
+  url    = {https://github.com/WebGoat/WebGoat},
+  note   = {GNU GPL v2.0}
+}
+
+@misc{metasploitable2,
+  author = {{Rapid7}},
+  title  = {Metasploitable 2 Exploitability Guide},
+  year   = {2012},
+  url    = {https://docs.rapid7.com/metasploit/metasploitable-2/}
+}
+
+
+% ── Compliance / Regulation ───────────────────────────────────────────────────
+
+@misc{gdpr2016,
+  author = {{European Parliament}},
+  title  = {General Data Protection Regulation ({GDPR})},
+  year   = {2016},
+  note   = {Regulation (EU) 2016/679},
+  url    = {https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679}
+}
+
+@misc{pcidss,
+  author = {{PCI Security Standards Council}},
+  title  = {{PCI DSS} v4.0: Payment Card Industry Data Security Standard},
+  year   = {2022},
+  url    = {https://www.pcisecuritystandards.org/document_library/}
+}
+
+
+% ── Threat Modeling ───────────────────────────────────────────────────────────
+
+@book{shostack2014,
+  author    = {Shostack, Adam},
+  title     = {Threat Modeling: Designing for Security},
+  publisher = {John Wiley \& Sons},
+  year      = {2014},
+  isbn      = {978-1-118-80999-0}
+}
+
+@misc{mitre_attack,
+  author = {{MITRE Corporation}},
+  title  = {{ATT\&CK}® Enterprise Matrix},
+  year   = {2015},
+  url    = {https://attack.mitre.org/}
+}
+
+
+% ── Dataset Quality ───────────────────────────────────────────────────────────
+
+@inproceedings{croft2023data,
+  author    = {Croft, Roland and Babar, M. Ali and Kholoosi, M. Mehdi},
+  title     = {Data Quality for Software Vulnerability Datasets},
+  booktitle = {Proceedings of the 45th IEEE/ACM International Conference on Software Engineering (ICSE)},
+  year      = {2023},
+  doi       = {10.1109/ICSE48619.2023.00022}
+}

@@ -1,0 +1,117 @@
+name: SecuraX CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend: lint + test + security ───────────────────────────────────────
+  backend:
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov ruff bandit
+
+      - name: Lint with ruff
+        run: ruff check . --output-format=github
+
+      - name: Run test suite with coverage
+        env:
+          SECRET_KEY: ci-test-secret-key-minimum-32-chars-long
+        run: |
+          pytest tests/ -v \
+            --tb=short \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=60 \
+            -m "not benchmark"
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+          retention-days: 30
+
+      - name: Security static analysis (Bandit)
+        run: |
+          bandit -r . \
+            -x venv,tests,archive_non_runtime,dev_tools \
+            -ll \
+            --format json \
+            -o bandit-report.json || true
+          bandit -r . \
+            -x venv,tests,archive_non_runtime,dev_tools \
+            -ll
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-py${{ matrix.python-version }}
+          path: backend/bandit-report.json
+          retention-days: 30
+
+  # ── Docker build verification ─────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+            --build-arg VCS_REF=${{ github.sha }} \
+            -t securax-backend:${{ github.sha }} \
+            ./backend
+
+      - name: Smoke test container
+        run: |
+          docker run --rm \
+            -e SECRET_KEY=ci-test-secret-key-minimum-32-chars \
+            -e FLASK_ENV=production \
+            --entrypoint python \
+            securax-backend:${{ github.sha }} \
+            -c "from app import create_app; app = create_app(); print('OK')"

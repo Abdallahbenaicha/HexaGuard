@@ -74,7 +74,7 @@
         /* Stats counters */
         _initStats();
 
-        console.info('[HexaGuard] Platform initialised ✓');
+        console.info('[SecuraX] Platform initialised ✓');
     }
 
     /* Run after DOM is ready */

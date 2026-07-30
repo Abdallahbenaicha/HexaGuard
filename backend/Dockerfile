@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-#  HexaGuard Backend — Hugging Face Spaces (Docker SDK)
+#  SecuraX Backend — Hugging Face Spaces (Docker SDK)
 #  Free tier, no credit card, no outbound network whitelist.
 # ─────────────────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm
@@ -16,7 +16,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends nikto \
     || echo "WARNING: nikto not available in apt — DAST scanning will be limited"
 
 # Spaces run containers as a non-root user (uid 1000) — match that here
-# so the app can write hexaguard.db and other runtime files.
+# so the app can write securax.db and other runtime files.
 RUN useradd -m -u 1000 user
 USER user
 ENV PATH="/home/user/.local/bin:$PATH"

@@ -1,5 +1,5 @@
 """
-HexaGuard Security Platform — Application factory.
+SecuraX Security Platform — Application factory.
 
 All routes live in blueprints/. This file only wires extensions,
 middleware, blueprints, and the user-loader together.
@@ -65,7 +65,7 @@ def create_app() -> Flask:
     def load_user(user_id: str):
         return load_user_from_db(user_id)
 
-    _FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://hexa-gaurd.vercel.app")
+    _FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://securax.vercel.app")
 
     @login_manager.unauthorized_handler
     def handle_unauthorized():
@@ -84,7 +84,7 @@ def create_app() -> Flask:
 
     @app.route("/health")
     def health():
-        return jsonify({"status": "ok", "service": "HexaGuard API"}), 200
+        return jsonify({"status": "ok", "service": "SecuraX API"}), 200
 
     # ── Blueprints ───────────────────────────────────────────────────────────
     from blueprints.auth                import auth_bp

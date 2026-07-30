@@ -1,0 +1,95 @@
+[tool.ruff]
+# Line length aligned with the existing codebase style
+line-length = 100
+
+# Rule selection:
+#   E  = pycodestyle errors
+#   F  = Pyflakes (undefined names, unused imports)
+#   W  = pycodestyle warnings
+#   B  = flake8-bugbear (likely bugs and design issues)
+#   I  = isort (import order)
+select = ["E", "F", "W", "B", "I"]
+
+# Paths to exclude from linting
+exclude = [
+    "venv",
+    ".venv",
+    "archive_non_runtime",
+    "dev_tools",
+    "__pycache__",
+    "migrations",
+]
+
+# Ignore rules that conflict with existing code style or are too noisy
+# for a research codebase with intentional patterns
+ignore = [
+    "E501",   # Line too long \u2014 ruff format handles this; we lint, not format, in CI
+    "B008",   # Do not perform function calls in default arguments \u2014 Flask patterns use this
+    "B904",   # Use raise ... from ... \u2014 many existing except blocks omit this
+    "F401",   # Module imported but unused \u2014 some __init__.py files re-export symbols
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Custom markers
+# Usage:
+#   pytest -m "not benchmark"   \u2192 skip slow research benchmarks (default in CI)
+#   pytest -m benchmark         \u2192 run only benchmark tests (for research validation)
+markers = [
+    "benchmark: mark test as a research benchmark (slow, produces benchmark_results.json). Run with: pytest -m benchmark",
+    "slow: mark test as slow (network-dependent or long-running)",
+    "integration: mark test as an integration test requiring a running Flask app",
+]
+
+# Default options applied to every pytest run
+addopts = [
+    "--tb=short",       # concise tracebacks \u2014 full tracebacks are rarely needed in CI
+    "-q",               # quiet output in CI; use -v locally for verbose
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "venv/*",
+    ".venv/*",
+    "archive_non_runtime/*",
+    "dev_tools/*",
+    "tests/*",
+    "seed_demo_db.py",
+    "reset_admin.py",
+    "audit_script.py",
+    "generate_*.py",
+    "create_plan_pdf.py",
+    "migrations/*",
+]
+
+[tool.coverage.report]
+# Lines that are excluded from coverage measurement
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "\\.\\.\\.",
+]
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+# Paths to exclude from Bandit security scanning
+exclude_dirs = [
+    "venv",
+    ".venv",
+    "tests",
+    "archive_non_runtime",
+    "dev_tools",
+]
+# Minimum severity level to report (LOW, MEDIUM, HIGH)
+# We set MEDIUM to avoid noise from test utilities and seed scripts
+severity = "MEDIUM"

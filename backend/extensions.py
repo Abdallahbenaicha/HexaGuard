@@ -1,5 +1,5 @@
 """
-HexaGuard — shared Flask extensions.
+SecuraX — shared Flask extensions.
 All extension objects live here and are bound to the app via init_extensions().
 Blueprints import from here so they never touch the app object directly.
 """
@@ -22,9 +22,8 @@ limiter       = Limiter(
 
 _DEFAULT_ORIGINS = (
     # Production frontends
-    "https://hexa-gaurd.vercel.app,"
-    "https://hexaguard.vercel.app,"
-    "https://abdallahbenaicha-hexaguard.hf.space,"
+    "https://securax.vercel.app,"
+    "https://abdallahbenaicha-securax.hf.space,"
     # Local development
     "http://localhost:3000,"
     "http://localhost:3001,"
@@ -33,6 +32,7 @@ _DEFAULT_ORIGINS = (
     "http://127.0.0.1:3001,"
     "http://127.0.0.1:5173"
 )
+
 # Also add any extra origins from the environment variable
 _ENV_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "")
 ALLOWED_ORIGINS = list({

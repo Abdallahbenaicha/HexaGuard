@@ -71,7 +71,7 @@ def _make_session() -> requests.Session:
     ))
     sess.mount("https://", adapter)
     sess.mount("http://",  adapter)
-    sess.headers["User-Agent"] = "HexaGuard-DepScanner/3.0"
+    sess.headers["User-Agent"] = "SecuraX-DepScanner/3.0"
     return sess
 
 
@@ -652,7 +652,7 @@ def run_dep_scan(file_path: str) -> dict:
         file_path: Path to requirements.txt, package.json, Pipfile, or pyproject.toml
 
     Returns:
-        Standard HexaGuard scan result dict
+        Standard SecuraX scan result dict
     """
     path = Path(file_path)
     if not path.exists():

@@ -1,0 +1,40 @@
+version: "3.8"
+# env005 — Custom vulnerable API server (PortSwigger scenarios)
+# A lightweight Flask API with intentional vulnerabilities for SecuraX scanning
+services:
+  vulnerable-api:
+    image: python:3.11-slim
+    container_name: securax-env005-api
+    ports:
+      - "8989:8989"
+    command: >
+      sh -c "pip install flask flask-jwt-extended -q &&
+             python -c \"
+from flask import Flask, request, jsonify
+app = Flask(__name__)
+
+@app.route('/api/v1/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    # BOLA: no authorization check
+    return jsonify({'id': user_id, 'email': f'user{user_id}@example.com', 'pii': 'sensitive'})
+
+@app.route('/api/v1/products', methods=['POST'])
+def create_product():
+    # Mass assignment: all JSON fields accepted
+    data = request.json
+    return jsonify({'created': data})
+
+@app.route('/api/admin/users', methods=['GET'])
+def admin_users():
+    # BFLA: no role check
+    return jsonify({'users': ['admin', 'user1', 'user2']})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8989)
+\""
+    networks:
+      - securax-research
+
+networks:
+  securax-research:
+    driver: bridge

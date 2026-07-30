@@ -1,48 +1,120 @@
-# Python
+# ═══════════════════════════════════════════════════════════════
+# SecuraX .gitignore — Clean Research Repository
+# Generated: 2026-07-30
+# ═══════════════════════════════════════════════════════════════
+
+# ── Python ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
-.env
+*.pyd
+.Python
+
+# ── Virtual environments ───────────────────────────────────────
 venv/
 env/
 .venv/
+backend/venv/
+.env
 
-# Large data files
-*.tar.gz
-*.zip
-*.gz
-*.bz2
-nvd_data/
-datasets/raw/
+# ── SQLite databases (runtime data — NEVER commit) ─────────────
+# These may contain scan results, vulnerability data, credentials.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
-# Node
+# ── Secrets & credentials ──────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ── Build artifacts ────────────────────────────────────────────
+*.egg-info/
+build/
+dist/
+*.egg
+pip-wheel-metadata/
+pip-log.txt
+
+# ── Test artifacts ─────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# ── Linter/formatter caches ────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.pytype/
+
+# ── Node / Frontend ────────────────────────────────────────────
 node_modules/
 frontend/node_modules/
 dist/
 frontend/dist/
 .next/
-
-# Large generated/binary files
 *.node
-HexaGuard_Rapport_Complet_V4_500Pages.md
-HexaGuard_Rapport_Complet_V4_Massive.pdf
-HexaGuard_Monetization_Plan.html
-create_plan_pdf.py
-.hf_push/
 
-# Reports (generated at runtime)
-report/vulnerability_report.md
-report/findings_summary.csv
-
-# External PDF/MD documents (generated outside codebase — not part of source)
-SecurAx_*.pdf
-SecurAx_*.md
-
-# OS files
+# ── OS files ───────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+ehthumbs.db
 
-# IDE
+# ── IDE & Editor ───────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+.claude/
+
+# ── Large data & binary files ──────────────────────────────────
+*.tar.gz
+*.zip
+*.gz
+nvd_data/
+datasets/raw/
+
+# ── Personal reports & generated documents (moved to _personal_archive) ─
+HexaGuard_*.pdf
+HexaGuard_*.md
+HexaGuard_*.html
+SecurAx_*.pdf
+SecurAx_*.md
+SecurAX_*.pdf
+SecuraX_Project_Summary.*
+*_Rapport_*.pdf
+*_Rapport_*.md
+*_500Pages*
+*_Massive*
+generate_*_report.py
+generate_*_pdf.py
+create_plan_pdf.py
+push.bat
+
+# ── HuggingFace push mirror ────────────────────────────────────
+.hf_push/
+
+# ── Research results (auto-generated — reproducible via Makefile) ──
+# Uncomment to exclude results from git (keep for reproducibility now)
+# results/
+
+# ── Papers figures (auto-generated via generate_figures.py) ────
+# papers/figures/*.png — kept for convenience
+
+# ── Temporary scripts ──────────────────────────────────────────
+bench_diag.py
+diagnose_engine.py
+
+# ── Migrations & compiled assets ───────────────────────────────
+*.pyc
+
+# ── Render / deployment artifacts ─────────────────────────────
+.render-buildpacks.json

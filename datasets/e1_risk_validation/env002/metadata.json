@@ -1,0 +1,37 @@
+{
+  "environment_id": "env002",
+  "name": "OWASP Juice Shop",
+  "version": "1.0.0",
+  "data_type": "synthetic",
+  "data_type_note": "Synthetic data based on documented Juice Shop vulnerability catalogue.",
+  "source_application": "OWASP Juice Shop",
+  "source_url": "https://owasp.org/www-project-juice-shop/",
+  "source_license": "MIT License",
+  "collection_date": "2026-07-30",
+  "collector": "Abdallah Benaicha",
+  "scanner_versions": {
+    "securax_risk_engine": "3.0.0",
+    "web_scanner": "2.1.0",
+    "dast_scanner": "2.1.0"
+  },
+  "target": {
+    "url": "http://localhost:3000",
+    "tech_stack": ["Node.js", "Angular", "SQLite", "Express.js"],
+    "deployment": "Docker (see docker-compose.yml)",
+    "internet_facing": true,
+    "has_pii": true,
+    "has_payment": true,
+    "asset_criticality": "high"
+  },
+  "finding_count": 10,
+  "risk_distribution": {
+    "critical": 2,
+    "high": 5,
+    "medium": 2,
+    "low": 1,
+    "minimal": 0
+  },
+  "experiment": "E1",
+  "research_question": "RQ1",
+  "notes": "Juice Shop includes payment functionality (PCI-DSS relevance) and PII processing (GDPR relevance)."
+}

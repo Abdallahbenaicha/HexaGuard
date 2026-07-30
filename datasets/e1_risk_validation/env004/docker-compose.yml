@@ -1,0 +1,21 @@
+version: "3.8"
+# env004 — Metasploitable 2 (approximated with tleemcjr/metasploitable2)
+services:
+  metasploitable:
+    image: tleemcjr/metasploitable2:latest
+    container_name: securax-env004-meta
+    ports:
+      - "2121:21"    # FTP (vsftpd 2.3.4 backdoor)
+      - "2222:22"    # SSH (weak OpenSSH)
+      - "8888:80"    # Apache 2.2
+      - "3306:3306"  # MySQL (no auth)
+      - "5432:5432"  # PostgreSQL (default creds)
+      - "5900:5900"  # VNC (no auth)
+      - "8180:8180"  # Tomcat 5.5
+    stdin_open: true
+    tty: true
+    networks:
+      - securax-research
+networks:
+  securax-research:
+    driver: bridge
