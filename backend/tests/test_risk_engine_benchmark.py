@@ -1,16 +1,19 @@
 """
-SecuraX Risk Engine \u2014 Research Benchmark Suite
+SecuraX Risk Engine -- Research Benchmark Suite
 ================================================
 This module validates that calculate_risk_v2() produces objectively better
 risk classification than a naive CVSS-only baseline on a ground-truth dataset.
 
-Research hypothesis:
-  H\u2080: The multi-dimensional engine (temporal + environmental + KEV adjustments)
-       does NOT improve risk classification accuracy over a naive CVSS severity
-       lookup (critical\u21929.5, high\u21927.5, medium\u21925.0, low\u21922.0).
+Research Hypotheses
+-------------------
+Null hypothesis (H0):
+    The multi-dimensional engine (temporal + environmental + KEV adjustments)
+    does NOT improve risk classification accuracy over a naive CVSS severity
+    lookup mapping critical->9.5, high->7.5, medium->5.0, low->2.0.
 
-  H\u2081: The multi-dimensional engine produces higher F1-score across all risk
-       tiers compared to the naive baseline.
+Alternative hypothesis (H1):
+    The multi-dimensional engine produces higher macro-F1 across all risk
+    tiers compared to the naive CVSS-only baseline.
 
 Running the benchmark:
     pytest tests/test_risk_engine_benchmark.py -v -m benchmark
@@ -22,11 +25,11 @@ Output:
 
 Dataset:
     50 synthetic scan results with ground-truth risk levels assigned by
-    expert elicitation (see _GROUND_TRUTH_DATASET below).  Each entry
+    expert elicitation (see _GROUND_TRUTH_DATASET below). Each entry
     documents the rationale for its expected risk level.
 
-    WARNING: This is a synthetic dataset.  Results on real-world scan data
-    may differ.  A real-world evaluation is planned for v4.0 (see
+    WARNING: This is a synthetic dataset. Results on real-world scan data
+    may differ. A real-world evaluation is planned for v4.0 (see
     docs/RESEARCH_ROADMAP.md).
 """
 
