@@ -392,14 +392,15 @@ class TestRiskEngineBenchmark:
 
     def test_engine_beats_naive_baseline_on_macro_f1(self):
         """
-        H\u2081: Engine macro-F1 > Naive baseline macro-F1 on the ground-truth dataset.
-        If this test fails, the multi-dimensional engine does not justify its
-        complexity and should be revised.
+        Alternative hypothesis (H1):
+        Engine macro-F1 must exceed naive baseline macro-F1 on the ground-truth
+        dataset. If this test fails, the multi-dimensional engine does not
+        justify its complexity and should be revised.
         """
         ground_truth = [e["expected"] for e in _GROUND_TRUTH_DATASET]
         engine_preds = [self._run_engine(e) for e in _GROUND_TRUTH_DATASET]
         naive_preds  = [
-            _naive_baseline(e["scan_input"], **e.get("kwargs", {}))
+            _naive_baseline(e["scan_input"], **dict(e.get("kwargs", {})))
             for e in _GROUND_TRUTH_DATASET
         ]
 
@@ -449,7 +450,8 @@ class TestRiskEngineBenchmark:
         """Engine must correctly classify all critical ground-truth cases."""
         critical_cases = [e for e in _GROUND_TRUTH_DATASET if e["expected"] == "critical"]
         for entry in critical_cases:
-            bd = calculate_risk_v2(entry["scan_input"], **entry.get("kwargs", {}))
+            kw = dict(entry.get("kwargs", {}))
+            bd = calculate_risk_v2(entry["scan_input"], **kw)
             assert bd.risk_level == "critical", (
                 f"Expected 'critical' for: {entry['rationale']}\n"
                 f"Got: '{bd.risk_level}' (final_score={bd.final_score})"
@@ -459,7 +461,8 @@ class TestRiskEngineBenchmark:
         """Engine must never classify a minimal/low case as critical (false positive)."""
         safe_cases = [e for e in _GROUND_TRUTH_DATASET if e["expected"] in ("minimal", "low")]
         for entry in safe_cases:
-            bd = calculate_risk_v2(entry["scan_input"], **entry.get("kwargs", {}))
+            kw = dict(entry.get("kwargs", {}))
+            bd = calculate_risk_v2(entry["scan_input"], **kw)
             assert bd.risk_level != "critical", (
                 f"False positive: classified 'critical' for '{entry['rationale']}' "
                 f"(expected '{entry['expected']}')"
