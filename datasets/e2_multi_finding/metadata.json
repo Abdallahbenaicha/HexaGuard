@@ -1,0 +1,37 @@
+{
+  "dataset_id": "e2_multi_finding",
+  "version": "1.0.0",
+  "experiment": "E2",
+  "description": "Multi-finding aggregation benchmark for SecuraX risk engine evaluation. Each scenario contains 3-12 correlated vulnerability findings. Ground truth is scenario-level (not per-finding). Pre-registration: docs/research/E2_HYPOTHESIS.md",
+  "creation_date": "2026-07-31",
+  "engine_version_at_creation": "3.1.0",
+  "ground_truth_method": "expert_elicitation",
+  "ground_truth_policy": "Ground truth was assigned BEFORE running any engine against scenarios. Ground truth does not change when the engine changes.",
+  "scenario_count": 20,
+  "class_distribution": {
+    "minimal": 4,
+    "low": 4,
+    "medium": 5,
+    "high": 5,
+    "critical": 2
+  },
+  "finding_counts_per_scenario": {
+    "min": 3,
+    "max": 12,
+    "mean": 6.0
+  },
+  "environments": [
+    "DVWA (multi-finding)", "JuiceShop (multi-finding)", "WebGoat (multi-finding)",
+    "Metasploitable (multi-finding)", "Mixed enterprise simulation"
+  ],
+  "scenario_types": {
+    "accumulation": "Multiple medium findings collectively elevating risk tier",
+    "attack_chain": "Co-present findings enabling multi-step exploitation",
+    "kev_amplified": "Known-exploit finding combined with internet exposure",
+    "isolated_critical": "Single overwhelming critical among low-severity noise",
+    "compliance_compound": "PII + payment + internet exposure compounding"
+  },
+  "license": "CC BY 4.0",
+  "citation": "See CITATION.cff at repository root",
+  "provenance": "Synthetic scenarios constructed from documented CVE exploitation patterns and MITRE ATT&CK technique combinations. Not from live scans."
+}

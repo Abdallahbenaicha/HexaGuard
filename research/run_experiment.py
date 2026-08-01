@@ -78,12 +78,20 @@ RISK_LEVELS = ["minimal", "low", "medium", "high", "critical"]
 
 EXPERIMENTS = {
     "e1": {
-        "name":        "E1 — Risk Score Validation",
-        "description": "Validates SecuraX multi-dimensional engine vs baselines on ground-truth dataset",
+        "name":        "E1 -- Risk Score Validation (single-finding)",
+        "description": "Validates SecuraX multi-dimensional engine vs baselines on single-finding ground-truth dataset. Note: E1 favors Baseline-CVSS by design — see docs/research/E2_HYPOTHESIS.md",
         "datasets_dir": ROOT / "datasets" / "e1_risk_validation",
         "environments": ["env001", "env002", "env003", "env004", "env005"],
-    }
+        "loader": "e1",
+    },
+    "e2": {
+        "name":        "E2 -- Multi-Finding Aggregation Benchmark (pre-registered)",
+        "description": "Tests SecuraX accumulation/chain-detection components on 20 multi-finding scenarios. Pre-registration: docs/research/E2_HYPOTHESIS.md",
+        "datasets_dir": ROOT / "datasets" / "e2_multi_finding",
+        "loader": "e2",
+    },
 }
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,81 +99,75 @@ EXPERIMENTS = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_experiment_data(experiment_id: str) -> list[dict]:
-    """
-    Load all ground truth entries from all environments of an experiment.
+    """Dispatch to the appropriate loader based on experiment config."""
+    exp = EXPERIMENTS.get(experiment_id)
+    if not exp:
+        raise ValueError(f"Unknown experiment '{experiment_id}'. Available: {list(EXPERIMENTS)}")
+    loader = exp.get("loader", "e1")
+    if loader == "e2":
+        return load_e2_data(experiment_id)
+    return load_e1_data(experiment_id)
 
+
+def load_e1_data(experiment_id: str) -> list[dict]:
+    """
+    E1 loader: per-environment directories with individual findings.
     Each entry is normalised to:
       {
         "id":                  str,
         "environment_id":      str,
-        "scan_input":          dict,        ← SecuraX-compatible
-        "kwargs":              dict,        ← internet_facing, has_pii, etc.
+        "scan_input":          dict,
+        "kwargs":              dict,
         "expected_risk_level": str,
         "rationale":           str,
         "source_tier":         str,
       }
     """
-    exp = EXPERIMENTS.get(experiment_id)
-    if not exp:
-        raise ValueError(f"Unknown experiment '{experiment_id}'. Available: {list(EXPERIMENTS)}")
-
+    exp = EXPERIMENTS[experiment_id]
     datasets_dir = exp["datasets_dir"]
     entries = []
 
-    for env_id in exp["environments"]:
+    for env_id in exp.get("environments", []):
         gt_file = datasets_dir / env_id / "ground_truth.json"
         meta_file = datasets_dir / env_id / "metadata.json"
 
         if not gt_file.exists():
-            print(f"[WARN] Missing ground truth: {gt_file} — skipping {env_id}")
+            print(f"[WARN] Missing ground truth: {gt_file} -- skipping {env_id}")
             continue
 
         gt_data = json.loads(gt_file.read_text(encoding="utf-8"))
         meta_data = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
-
         target_meta = meta_data.get("target", {})
 
         for finding in gt_data.get("findings", []):
-            # Determine exploit_known from ground truth:
-            # A finding is considered exploit_known if:
-            #   - it has CVE IDs (catalogued), OR
-            #   - the expected_risk_level is critical/high AND internet_facing
-            #   - explicit exploit_known field in ground truth
             has_cves = bool(finding.get("cve_ids"))
             explicit_exploit = finding.get("exploit_known", False)
             expected_tier    = finding.get("expected_risk_level", "medium")
             is_internet      = finding.get("internet_facing", target_meta.get("internet_facing", False))
-            # Infer exploit_known from ground truth context (research heuristic)
             inferred_exploit = (
-                explicit_exploit or
-                has_cves or
+                explicit_exploit or has_cves or
                 (expected_tier == "critical" and is_internet)
             )
 
-            # Build a SecuraX-compatible scan_input from the finding
-            # Pass all context cues the engine needs (check, title, cve_ids)
             scan_input = {
                 "scan_type": finding.get("scan_type", "web"),
                 "vulnerabilities": [{
                     "severity":    finding.get("severity", "medium"),
                     "check":       finding.get("check", "unknown"),
                     "title":       finding.get("vulnerability", ""),
-                    "description": finding.get("rationale", ""),   # context-rich desc
+                    "description": finding.get("rationale", ""),
                     "cve_ids":     finding.get("cve_ids", []),
                 }],
             }
 
-            # Build kwargs for SecuraX engine
-            # Note: calculate_risk_v2 uses 'criticality' (float 0-1), not 'asset_criticality' (str)
-            # Map: critical=1.0, high=0.9, medium=0.75, low=0.5, minimal=0.3
             _crit_map = {"critical": 1.0, "high": 0.9, "medium": 0.75, "low": 0.5, "minimal": 0.3}
             asset_crit_str = target_meta.get("asset_criticality", "medium")
             criticality_float = _crit_map.get(asset_crit_str.lower(), 0.75)
 
             kwargs = {
                 "internet_facing": is_internet,
-                "has_pii":         finding.get("has_pii",     target_meta.get("has_pii",     False)),
-                "has_payment":     finding.get("has_payment",  target_meta.get("has_payment", False)),
+                "has_pii":         finding.get("has_pii",    target_meta.get("has_pii",    False)),
+                "has_payment":     finding.get("has_payment", target_meta.get("has_payment", False)),
                 "exploit_known":   inferred_exploit,
                 "criticality":     criticality_float,
             }
@@ -180,8 +182,79 @@ def load_experiment_data(experiment_id: str) -> list[dict]:
                 "source_tier":         finding.get("source_tier", "unknown"),
             })
 
-    print(f"[INFO] Loaded {len(entries)} ground truth entries from {len(exp['environments'])} environments")
+    envs = exp.get("environments", [])
+    print(f"[INFO] E1: Loaded {len(entries)} ground truth entries from {len(envs)} environments")
     return entries
+
+
+def load_e2_data(experiment_id: str) -> list[dict]:
+    """
+    E2 loader: flat ground_truth.json with multi-finding scenarios.
+
+    Each scenario contains a complete scan_input (multiple findings) and
+    a single scenario-level expected risk label. Tests accumulation,
+    attack-chain detection, and contextual amplification together.
+
+    Pre-registration: docs/research/E2_HYPOTHESIS.md
+    Ground truth committed BEFORE any engine was run against these scenarios.
+    """
+    exp = EXPERIMENTS[experiment_id]
+    datasets_dir = exp["datasets_dir"]
+    gt_file = datasets_dir / "ground_truth.json"
+
+    if not gt_file.exists():
+        raise FileNotFoundError(
+            f"E2 ground truth not found: {gt_file}\n"
+            "Expected: datasets/e2_multi_finding/ground_truth.json"
+        )
+
+    scenarios = json.loads(gt_file.read_text(encoding="utf-8"))
+    _crit_map = {"critical": 1.0, "high": 0.9, "medium": 0.75, "low": 0.5, "minimal": 0.3}
+
+    entries = []
+    for s in scenarios:
+        ctx = s["scan_input"]["context"]
+        findings = s["scan_input"]["findings"]
+
+        has_exploit = any(f.get("exploit_known") or f.get("kev_match") for f in findings)
+        vulnerabilities = [
+            {
+                "severity":    f.get("severity", "medium"),
+                "check":       f.get("vuln_type", "unknown"),
+                "title":       f.get("vuln_type", ""),
+                "description": s.get("rationale", ""),
+                "cve_ids":     [f["cve_id"]] if f.get("cve_id") else [],
+            }
+            for f in findings
+        ]
+
+        scan_input = {"scan_type": "web", "vulnerabilities": vulnerabilities}
+        asset_crit_str = ctx.get("asset_criticality", "medium")
+        criticality_float = _crit_map.get(asset_crit_str.lower(), 0.75)
+
+        kwargs = {
+            "internet_facing": ctx.get("internet_facing", False),
+            "has_pii":         ctx.get("has_pii", False),
+            "has_payment":     ctx.get("has_payment", False),
+            "exploit_known":   has_exploit,
+            "criticality":     criticality_float,
+        }
+
+        entries.append({
+            "id":                  s["scenario_id"],
+            "environment_id":      s.get("scenario_type", "multi_finding"),
+            "scan_input":          scan_input,
+            "kwargs":              kwargs,
+            "expected_risk_level": s["expected"],
+            "rationale":           s.get("rationale", ""),
+            "source_tier":         s.get("scenario_type", "multi_finding"),
+        })
+
+    print(f"[INFO] E2: Loaded {len(entries)} multi-finding scenarios")
+    return entries
+
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

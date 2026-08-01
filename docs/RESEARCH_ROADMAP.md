@@ -1,215 +1,217 @@
 # SecuraX — Research Roadmap
 
-> **Version**: 2.0.0 | **Last updated**: 2026-07-30
+> **Version**: 3.0.0 | **Last updated**: 2026-07-31  
+> **Engine**: v3.1.0 | **Dataset**: v1.0.0
 
-## Purpose
+## Overview
 
-This document defines the **open research questions** that SecuraX is designed
-to answer, the **experiments** that will answer them, and the **publication
-targets** for each research contribution.
+This document defines the open research questions SecuraX addresses, the
+experiments designed to answer them, and the publication targets for each
+contribution. Every feature must connect to at least one question here.
 
-Every feature in SecuraX must connect to at least one question in this document.
-If it does not, it should not be built.
+> [!IMPORTANT]
+> **E1 result caveat**: On single-finding classification (E1), Baseline-CVSS
+> (macro-F1 = 0.800) outperforms SecuraX (0.594). This is an experimental-design
+> mismatch: E1 measures single-finding classification while SecuraX's distinguishing
+> components (multi-finding aggregation, attack-chain amplification, KEV decay)
+> operate only on multi-finding inputs. See `docs/research/E2_HYPOTHESIS.md`
+> for the pre-registered experiment that directly tests the engine's design claim.
 
 ---
 
 ## Open Research Questions
 
-### RQ1 — Risk Score Calibration
-> *Is the multi-dimensional SecuraX risk score a better predictor of actual
-> vulnerability impact than a naive CVSS-only severity lookup?*
+### RQ1 — Multi-Finding Context Aggregation
+> *Does SecuraX's context-aggregation mechanism (geometric-decay + attack-chain
+> detection) produce higher macro-F1 than a naive CVSS lookup when inputs contain
+> ≥3 correlated findings?*
 
-**Hypothesis**: Adding temporal factors (KEV, known-exploit) and environmental
-context (internet-facing, PII, criticality) measurably improves classification
-accuracy compared to a naive baseline.
+**Hypothesis**: The accumulation and contextual amplification mechanisms outperform
+severity-lookup baselines in realistic multi-finding scenarios.
 
-**Measurement**: Precision, recall, and F1-score per risk tier on a labelled
-dataset of real-world vulnerability scan results (ground truth = confirmed
-exploitation within 90 days or CVE severity as assessed by NVD).
+**Current status**: E1 (single-finding) complete — E1 favors Baseline-CVSS.
+E2 (multi-finding) pre-registered; implementation in progress.
 
-**Current status**: A synthetic benchmark exists (`tests/test_risk_engine_benchmark.py`).
-A real-world dataset is needed for external validation.
-
-**Planned experiment**: E1 (see below).
+**Key result so far**: Ablation shows Threat Context is the primary driver
+(Δ = −0.416 when removed); accumulation effects are not testable in E1.
 
 ---
 
 ### RQ2 — False Positive Rate by Scanner Type
-> *What is the empirical false positive rate for each of the 11 scanner engines
-> integrated in SecuraX?*
+> *What is the empirical FPR for each of the 11 integrated scanner engines?*
 
-**Hypothesis**: DAST scanners (active exploitation) have lower false positive
-rates than SAST (static heuristics) and passive web scanners.
+**Hypothesis**: DAST (active exploitation) has lower FPR than SAST (static
+heuristics) and passive web scanners.
 
-**Measurement**: Manual triage of findings on a set of intentionally vulnerable
-applications (DVWA, JuiceShop, WebGoat, Metasploitable).
+**Measurement**: Manual triage on DVWA, JuiceShop, WebGoat, Metasploitable.
 
-**Planned experiment**: E2.
+**Current status**: 🔴 Not started | Experiment ID: E-FPR
 
 ---
 
 ### RQ3 — Attack Chain Detection Accuracy
-> *Does the rule-based attack chain detector in `risk_engine.py` identify
+> *Does the rule-based attack-chain detector in `risk_engine.py` identify
 > realistic multi-step attack paths with acceptable precision?*
 
-**Hypothesis**: The keyword-matching approach detects the most common attack
-chains (XSS+missing-CSP, SQLi, RCE+internet) with >80% precision on a
-labelled dataset.
+**Hypothesis**: Keyword-matching approach detects common chains (XSS+no-CSP,
+SQLi, RCE+internet) with >80% precision on labelled data.
 
-**Measurement**: Apply the detector to findings from known CVE exploitation
-scenarios; compare detected chains to documented attack paths.
-
-**Planned experiment**: E3.
+**Current status**: 🟡 Detector implemented; evaluation dataset not created.
+Experiment ID: E-ATK
 
 ---
 
 ### RQ4 — Remediation Guidance Quality
-> *Does the ARIA-generated remediation guidance reduce time-to-fix compared
-> to reading raw scanner output?*
+> *Does ARIA-generated remediation guidance reduce developer time-to-fix?*
 
-**Hypothesis**: ARIA-generated copy-pasteable remediation code reduces
-developer time-to-fix by >30% compared to raw scanner output + manual research.
-
-**Measurement**: User study with two groups of developers fixing DVWA
-vulnerabilities — one with raw scan output, one with ARIA guidance.
-
-**Planned experiment**: E4 (requires IRB approval for human subjects study).
+**Status**: 🔴 Not started | Requires IRB approval for human subjects study.
 
 ---
 
-### RQ5 — Compliance Assessment Completeness
-> *How completely does SecuraX map vulnerability findings to GDPR Art. 32/33,
-> PCI-DSS Req. 6.3, and ISO 27001 A.14.2 requirements?*
+### RQ5 — Compliance Coverage Completeness
+> *How completely does SecuraX map findings to GDPR Art. 32/33, PCI-DSS Req. 6.3,
+> and ISO 27001 A.14.2?*
 
-**Hypothesis**: The current ARIA compliance mapping covers >70% of the
-control requirements that are directly testable through automated scanning.
-
-**Measurement**: Map each compliance control to a set of scanner checks;
-compute coverage ratio.
-
-**Planned experiment**: E5.
+**Status**: 🟡 ARIA produces compliance text; coverage ratio not measured.
 
 ---
 
-## Planned Experiments
+## Experiment Registry
 
-### E1 — Risk Score Validation (answers RQ1)
+### E1 — Single-Finding Risk Classification (COMPLETE)
+
+**Status**: ✅ Complete  
+**Answers**: Partial RQ1 (single-finding only)  
+**Dataset**: `datasets/e1_risk_validation/` — 50 findings, 5 environments  
+**Results**: `results/e1_risk_validation/metrics_summary.json`
+
+**Key results (engine v3.0.0, seed=42)**:
+
+| Method | Macro-F1 | Notes |
+|--------|---------|-------|
+| Baseline-CVSS | **0.800** | Favored by E1 design |
+| Baseline-PRIORITY | 0.800 | Tied with CVSS |
+| Baseline-RULE | 0.664 | |
+| **SecuraX** | **0.594** | See E1 design mismatch note |
+| Baseline-RANDOM | 0.132 | Statistical floor |
+
+**Ablation results (E1)**:
+
+| Component Removed | Macro-F1 | Δ |
+|---|---|---|
+| Full engine | 0.594 | ref |
+| Without Compliance | 0.552 | −0.043 |
+| Without Exploitability | 0.506 | −0.088 |
+| Without Exposure | 0.430 | −0.165 |
+| **Without Threat Context** | **0.178** | **−0.416** |
+
+**Interpretation**: Threat Context is the primary driver. The engine's low
+performance on E1 is explained by the single-finding evaluation design, not
+by the contextual components being unhelpful.
+
+**Reproduce**:
+```bash
+python research/run_experiment.py --experiment e1 --seed 42
+```
+
+---
+
+### E2 — Multi-Finding Aggregation Benchmark (COMPLETE)
+
+**Status**: ✅ Complete (pre-registered 2026-07-31, run 2026-08-01)
+**Answers**: RQ1 (core claim)
+**Pre-registration**: `docs/research/E2_HYPOTHESIS.md` (committed before run)
+**Dataset**: `datasets/e2_multi_finding/` (20 scenarios, 3-12 findings each)
+**Results**: `results/e2_risk_validation/metrics_summary.json`
+
+**Key results (engine v3.0.0, seed=42):**
+
+| Method | Macro-F1 | Notes |
+|--------|---------|-------|
+| **SecuraX** | **0.5167** | H1 confirmed — beats all baselines |
+| Baseline-CVSS | 0.3391 | Baseline cannot aggregate |
+| Baseline-RULE | 0.3391 | Tied — no accumulation logic |
+| Baseline-PRIORITY | 0.3391 | Tied — no accumulation logic |
+| Baseline-RANDOM | 0.0900 | Statistical floor |
+
+**H1 confirmed**: SecuraX macro-F1 (0.5167) > Baseline-CVSS (0.3391),
+a difference of +0.178 (52.5% relative improvement). All baselines
+tie at 0.3391 because they cannot aggregate multi-finding context.
+
+**Per-class SecuraX F1**: minimal=0.0 (engine over-escalates minimal),
+low=0.75, medium=0.667, high=0.50, critical=0.667.
+
+**Key weakness**: The engine over-escalates "minimal" scenarios (0 TP, 2 FN).
+This is a calibration issue in the accumulation floor — documented as
+a known limitation for v3.1.0 weight revision.
+
+**Reproduce**:
+```bash
+python research/run_experiment.py --experiment e2 --seed 42
+```
+
+
+---
+
+### E-FPR — False Positive Rate Study (PLANNED)
 
 **Status**: 🔴 Not started  
-**Blocker**: Real-world labelled dataset
-
-**Protocol**:
-1. Run SecuraX against 100+ real-world targets (with authorisation)
-2. Wait 90 days; record confirmed exploitations / CVE updates
-3. Compare SecuraX risk level to: (a) naive CVSS baseline, (b) EPSS score
-4. Compute F1 per risk tier; report macro-F1
-5. Run `tests/test_risk_engine_benchmark.py` on real dataset
-6. Document results in `datasets/e1_risk_validation/`
-
-**Expected output**: A paper section with precision/recall tables comparing
-three scoring approaches.
+**Answers**: RQ2  
+**Dataset**: `datasets/fpr_study/` (planned)  
+**Blocker**: Docker deployment of DVWA, JuiceShop, WebGoat, Metasploitable
 
 ---
 
-### E2 — False Positive Study (answers RQ2)
+### E-ATK — Attack Chain Detection Accuracy (PLANNED)
 
 **Status**: 🔴 Not started  
-**Blocker**: Intentionally vulnerable lab environment
-
-**Protocol**:
-1. Deploy DVWA, JuiceShop, WebGoat, Metasploitable in Docker
-2. Run all 11 SecuraX scanner engines against each target
-3. Manually triage every finding: True Positive / False Positive / Informational
-4. Compute FPR per scanner, per severity, per check type
-5. Document environment and scanner versions in `datasets/e2_fpr_study/`
-
-**Expected output**: A FPR table per scanner engine; recommendations for
-threshold tuning.
+**Answers**: RQ3  
+**Dataset**: `datasets/attack_chains/` (planned)
 
 ---
 
-### E3 — Attack Chain Detection (answers RQ3)
+## Dataset Registry
 
-**Status**: 🟡 Partially implemented (detector exists, no evaluation)
+| Dataset | Experiment | Status | Path |
+|---------|-----------|--------|------|
+| Synthetic benchmark v1.0.0 | E1 | ✅ | `datasets/e1_risk_validation/` |
+| Multi-finding scenarios v1.0.0 | E2 | 🟡 In progress | `datasets/e2_multi_finding/` |
+| FPR study | E-FPR | 🔴 Planned | `datasets/fpr_study/` |
+| Attack chain scenarios | E-ATK | 🔴 Planned | `datasets/attack_chains/` |
 
-**Protocol**:
-1. Collect documented CVE exploitation chains from MITRE ATT&CK and NVD
-2. Synthesise scan results that match each chain's preconditions
-3. Apply `_detect_attack_chains()` to each synthetic result
-4. Compute precision (detected chains that are real) and recall (real chains detected)
-5. Document in `datasets/e3_attack_chains/`
-
----
-
-### E4 — Remediation UX Study (answers RQ4)
-
-**Status**: 🔴 Not started  
-**Blocker**: IRB approval, participant recruitment
-
----
-
-### E5 — Compliance Coverage Mapping (answers RQ5)
-
-**Status**: 🟡 Partially implemented (ARIA produces compliance text)
-
-**Protocol**:
-1. Extract all controls from GDPR Art. 32/33, PCI-DSS Req. 6.3, ISO 27001 A.14.2
-2. Map each control to zero or more scanner checks that could evidence it
-3. Compute coverage ratio = controls_with_scanner_evidence / total_controls
-4. Document gaps as future scanner requirements
-
----
-
-## Dataset Infrastructure
-
-All experimental datasets must follow the policy in `docs/DATASETS.md`.
-
-**Planned datasets**:
-
-| Dataset ID | Experiment | Status |
-|------------|-----------|--------|
-| `d1_synthetic_benchmark` | E1 (baseline) | ✅ Created (`tests/test_risk_engine_benchmark.py`) |
-| `d2_real_world_scans` | E1 (validation) | 🔴 Not started |
-| `d3_dvwa_findings` | E2 | 🔴 Not started |
-| `d4_juiceshop_findings` | E2 | 🔴 Not started |
-| `d5_attack_chains` | E3 | 🔴 Not started |
+All datasets follow the versioning policy in `docs/DATASETS.md`.
 
 ---
 
 ## Publication Targets
 
-| Research Question | Target Venue | Status |
-|-------------------|-------------|--------|
-| RQ1 + RQ2 | IEEE Transactions on Dependable and Secure Computing (TDSC) | 🔴 Not ready |
-| RQ1 | ACM CCS Poster / NDSS Bar Track | 🔴 Not ready |
-| RQ3 | ACM SIGSAC Workshop on Automated Decision Making for Active Cyber Defense | 🔴 Not ready |
-| RQ5 | IEEE Security & Privacy Workshops | 🟡 In progress |
-| Platform paper | USENIX Security / IEEE S&P (tools track) | 🟡 In progress |
+| Contribution | Venue | Status |
+|---|---|---|
+| E1+E2 results (RQ1) | IEEE TDSC / USENIX Security (tools track) | 🔴 Not ready |
+| Benchmark platform paper | USENIX Security / IEEE S&P tools track | 🟡 In progress |
+| RQ3 attack chain paper | ACM SIGSAC Workshop | 🔴 Not ready |
+| PhD research proposal | CISPA (Abbasi group) | 🟡 Draft |
 
 ---
 
 ## Publication Readiness Checklist
 
-Before submitting any paper using SecuraX:
-
-- [ ] Cite `CITATION.cff` — use the DOI if available (Zenodo)
+- [ ] Cite `CITATION.cff` — request DOI via Zenodo
 - [ ] Record `risk_engine.VERSION` in all datasets
-- [ ] Record scanner versions (from `scanner_versions` in scan output)
+- [ ] Record scanner versions in scan output
 - [ ] Provide Docker environment for reproduction
-- [ ] Include `datasets/` directory with metadata and ground truth
-- [ ] Run `tests/test_risk_engine_benchmark.py` and include results
-- [ ] Review `docs/RISK_ENGINE.md` — all claims must match the implementation
+- [ ] Include `datasets/` with metadata and ground truth
+- [ ] Run `make e1` and `make e2` — include results files
+- [ ] Review `docs/RISK_ENGINE.md` — all claims must match implementation
+- [ ] Include pre-registration document in paper appendix
 
 ---
 
 ## Contributing to Research
 
-If you are using SecuraX for your own research, please:
-
-1. Open a GitHub Discussion describing your research question
-2. Submit your experimental dataset to `datasets/` via PR (see `docs/DATASETS.md`)
-3. Add your experiment to this document under "Planned Experiments"
+1. Open a GitHub Discussion with your research question
+2. Submit experimental datasets to `datasets/` via PR (see `docs/DATASETS.md`)
+3. Add your experiment to this document
 4. Cite SecuraX using `CITATION.cff`
 
-We actively support external research collaborations. Contact:
-`innovation.team.dz@gmail.com`
+Contact: `innovation.team.dz@gmail.com`

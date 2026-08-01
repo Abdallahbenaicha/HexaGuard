@@ -1,0 +1,429 @@
+[
+  {
+    "scenario_id": "e2-s01",
+    "scenario_type": "accumulation",
+    "description": "Five medium XSS/CSRF findings on an internet-facing PII system — accumulation elevates to high",
+    "expected": "high",
+    "rationale": "Five medium-CVSS findings (5.0 each) on an internet-facing system with PII. Geometric-decay aggregation produces raw_score ~15.8, environmental multiplier ~1.25 (internet) × ~1.38 (PII+GDPR) = ~1.73, env_score ~27.3, sigmoid ~0.84, exceeds high-tier floor. Baseline-CVSS sees only 'medium' for each individual finding and cannot aggregate — expected to classify as 'medium'.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "csrf", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "open_redirect", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "csrf", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s02",
+    "scenario_type": "attack_chain",
+    "description": "SQLi + exposed admin panel + weak auth = full data-exfiltration chain (critical)",
+    "expected": "critical",
+    "rationale": "SQLi (high, exploit_known) + admin panel exposure (medium) + weak authentication (medium) on internet-facing PII system. Attack chain: credential bypass → SQLi → data exfiltration. The attack-chain detector fires on (sqli + weak_auth) combination. KEV match on the SQLi CVE. Combined: env_score reaches critical tier. Baseline-CVSS sees 'high' from the SQLi alone — cannot detect the chain amplification.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "sqli", "severity": "high", "cve_id": "CVE-2023-23397", "exploit_known": true, "kev_match": true},
+        {"vuln_type": "broken_auth", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "security_misconfig", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "sensitive_data_exposure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": false,
+        "asset_criticality": "critical"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s03",
+    "scenario_type": "accumulation",
+    "description": "Eight low-severity findings on an internal non-critical system — stays low",
+    "expected": "low",
+    "rationale": "Eight low-CVSS findings (2.0 each) on an internal, non-internet-facing system. Geometric decay with k=1.5 means each additional finding contributes diminishing marginal risk. Accumulation score ~7.2, no internet multiplier, no PII bonus. Stays in low tier. Both SecuraX and Baseline-CVSS should agree here — this is a scenario where both are correct.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "low"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s04",
+    "scenario_type": "kev_amplified",
+    "description": "One medium finding + KEV match + internet-facing payment system = critical",
+    "expected": "critical",
+    "rationale": "Single medium finding (CVSS 5.0) but: KEV match (×1.3), exploit_known (×1.4), internet-facing (×1.25), has_payment (PCI-DSS penalty). Base 5.0 × 1.4 × 1.3 × 1.25 = ~11.4, after context +2.5 (PCI-DSS) = 13.9, sigmoid → 0.98 → exceeds critical floor. Baseline-CVSS classifies as 'medium' (sees only base severity). This is the canonical KEV-amplification test case.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "deserialization", "severity": "medium", "cve_id": "CVE-2021-44228", "exploit_known": true, "kev_match": true},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": true,
+        "asset_criticality": "critical"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s05",
+    "scenario_type": "accumulation",
+    "description": "Three medium dependency vulnerabilities on internal system — medium risk",
+    "expected": "medium",
+    "rationale": "Three medium dependency CVEs on internal non-payment system. Accumulation: raw_score ~11.0, no internet/PII/payment multiplier, stays medium. Tests that accumulation does not over-escalate when contextual multipliers are absent.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2022-1234", "exploit_known": false, "kev_match": false},
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2022-5678", "exploit_known": false, "kev_match": false},
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2022-9012", "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "medium"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s06",
+    "scenario_type": "isolated_critical",
+    "description": "One critical RCE among five low findings — floor guarantee keeps it critical",
+    "expected": "critical",
+    "rationale": "Floor guarantee: any critical-severity finding in a scan produces a critical output regardless of other context. The five low findings add noise but do not reduce the critical score. Both SecuraX (floor) and Baseline-CVSS (max severity) should agree here. Tests that accumulation is bounded by floor guarantees.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "rce", "severity": "critical", "cve_id": "CVE-2021-3156", "exploit_known": true, "kev_match": true},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s07",
+    "scenario_type": "attack_chain",
+    "description": "XSS + missing CSP + session fixation = session-hijacking chain (high)",
+    "expected": "high",
+    "rationale": "Classic XSS → CSP bypass → session hijack chain. Three medium findings but attack-chain detector fires on (xss + missing_csp) pair (+0.5). With internet-facing multiplier and PII context, env_score enters high tier. Baseline-CVSS sees 'medium' (no chain detection).",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_csp", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "session_fixation", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s08",
+    "scenario_type": "compliance_compound",
+    "description": "Mixed severity findings on PII+payment+internet system — high due to compliance compounding",
+    "expected": "high",
+    "rationale": "Two low + one medium finding, but: internet-facing (×1.25) + has_pii (GDPR +1.5) + has_payment (PCI-DSS +2.0) + asset_criticality critical (×1.3). Compliance context converts what would be a medium scan into high risk. Baseline-CVSS sees 'medium' from the medium finding alone.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "sensitive_data_exposure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": true,
+        "asset_criticality": "critical"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s09",
+    "scenario_type": "accumulation",
+    "description": "Twelve low findings on internet-facing non-critical system — accumulation to medium",
+    "expected": "medium",
+    "rationale": "Twelve low-severity findings (2.0 each). Geometric decay aggregation: raw_score = 2.0 × (1 - 1.5^-12)/(1-1.5^-1) ≈ 15.8, internet_facing ×1.25 → env_score ≈ 19.7, sigmoid → ~0.73, enters medium tier. Baseline-CVSS classifies as 'low' (max individual severity = low). Core accumulation test.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "medium"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s10",
+    "scenario_type": "accumulation",
+    "description": "Three low findings on fully isolated internal system — minimal risk",
+    "expected": "minimal",
+    "rationale": "Three low findings (2.0 each) on a fully isolated, non-internet-facing, non-PII, low-criticality system. No multipliers apply. raw_score ≈ 4.3, env_score ≈ 4.3, sigmoid → ~0.27, below low-tier threshold. Both SecuraX and Baseline-CVSS should agree (both see 'low' at most). With no context, correct classification is 'minimal'.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "low"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s11",
+    "scenario_type": "attack_chain",
+    "description": "RCE + internet-facing + no patch = lateral movement risk (critical)",
+    "expected": "critical",
+    "rationale": "RCE (high, exploit_known) + internet-facing. Attack chain: RCE+internet → lateral movement pathway. Chain detector fires. KEV match. asset_criticality critical. Floor guarantee for high+exploit_known on internet-facing system elevates to critical.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "rce", "severity": "high", "cve_id": "CVE-2022-0847", "exploit_known": true, "kev_match": true},
+        {"vuln_type": "security_misconfig", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "critical"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s12",
+    "scenario_type": "accumulation",
+    "description": "Four medium findings on high-criticality internal system — stays medium",
+    "expected": "medium",
+    "rationale": "Four medium findings (5.0 each) on internal high-criticality system. No internet multiplier. asset_criticality high (×1.2). Accumulation raw_score ≈ 15.4, × 1.2 = 18.5, sigmoid → 0.72, medium tier. Tests that high asset_criticality alone does not elevate to 'high' without other factors.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "sqli", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "csrf", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "broken_auth", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s13",
+    "scenario_type": "accumulation",
+    "description": "Six medium findings on internet-facing PII system — high",
+    "expected": "high",
+    "rationale": "Six medium findings on internet-facing PII system. Accumulation + PII context = high. This mirrors the motivating use case for the engine.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "csrf", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "sensitive_data_exposure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "broken_auth", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "xss", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s14",
+    "scenario_type": "accumulation",
+    "description": "Three low findings on non-critical isolated system — minimal",
+    "expected": "minimal",
+    "rationale": "Control scenario: minimal risk with no amplifying factors. Both SecuraX and baselines should agree.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "low"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s15",
+    "scenario_type": "accumulation",
+    "description": "Four low findings on internet-facing non-PII system — low",
+    "expected": "low",
+    "rationale": "Four low findings + internet-facing but no PII/payment. Accumulation reaches low tier. Baseline-CVSS also 'low'. Control scenario where both agree.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "low"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s16",
+    "scenario_type": "accumulation",
+    "description": "Two high findings on internal non-critical system — high (floor guarantee)",
+    "expected": "high",
+    "rationale": "Two high-CVSS findings (7.5 each) on internal system. High-tier floor guarantee applies. Both SecuraX and Baseline-CVSS should agree (both see 'high'). Control scenario.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "sqli", "severity": "high", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "rce", "severity": "high", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "medium"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s17",
+    "scenario_type": "attack_chain",
+    "description": "Weak crypto + sensitive data exposure + internet = data-leak chain (high)",
+    "expected": "high",
+    "rationale": "Weak crypto (medium) + sensitive data exposure (medium) + internet-facing + PII. Not individually critical, but the combination creates a clear data-exfiltration path. Chain amplification + PII context → high tier.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "weak_crypto", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "sensitive_data_exposure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": true,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s18",
+    "scenario_type": "accumulation",
+    "description": "Three medium dependency CVEs with known exploits on internet-facing system — high",
+    "expected": "high",
+    "rationale": "Three medium dependencies, each with exploit_known=True. Exploitability multiplier (×1.4 each) combined with accumulation and internet-facing context elevates to high. Baseline-CVSS sees 'medium' (ignores exploit_known).",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2021-44228", "exploit_known": true, "kev_match": false},
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2022-22965", "exploit_known": true, "kev_match": false},
+        {"vuln_type": "vulnerable_dependency", "severity": "medium", "cve_id": "CVE-2022-0778", "exploit_known": true, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s19",
+    "scenario_type": "accumulation",
+    "description": "Four medium findings on internal payment system — medium (no internet)",
+    "expected": "medium",
+    "rationale": "Four medium findings on internal payment system. PCI-DSS context adds compliance weight (+2.0) but no internet multiplier. Stays medium. Tests that PCI-DSS alone does not elevate to high.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "sqli", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "broken_auth", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "sensitive_data_exposure", "severity": "medium", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": false,
+        "has_pii": false,
+        "has_payment": true,
+        "asset_criticality": "high"
+      }
+    }
+  },
+  {
+    "scenario_id": "e2-s20",
+    "scenario_type": "accumulation",
+    "description": "Three low findings on low-criticality internet-facing system — low",
+    "expected": "low",
+    "rationale": "Three low findings with internet-facing but no PII/payment, low criticality. Stays low. Both SecuraX and Baseline-CVSS should agree. Control scenario.",
+    "scan_input": {
+      "findings": [
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "missing_security_headers", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false},
+        {"vuln_type": "info_disclosure", "severity": "low", "cve_id": null, "exploit_known": false, "kev_match": false}
+      ],
+      "context": {
+        "internet_facing": true,
+        "has_pii": false,
+        "has_payment": false,
+        "asset_criticality": "low"
+      }
+    }
+  }
+]

@@ -16,7 +16,38 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [2.0.0] \u2014 2026-07-30
+## [3.0.0] -- 2026-08-01
+
+### Research (PhD admission + contribution)
+- **E2 Pre-Registration** `docs/research/E2_HYPOTHESIS.md`: H0/H1 hypotheses
+  committed before any implementation — methodological guardrail enforced.
+- **E2 Dataset** `datasets/e2_multi_finding/`: 20 multi-finding scenarios
+  (3-12 findings each), expert-elicited scenario-level ground truth.
+- **E2 Results** `results/e2_risk_validation/`: H1 confirmed — SecuraX
+  macro-F1 (0.5167) > Baseline-CVSS (0.3391), +52.5% relative improvement.
+  `python research/run_experiment.py --experiment e2 --seed 42`
+- **CISPA Research Statement** `papers/cispa_research_statement.md`: 1-page
+  statement for Prof. Abbasi's group with E1+E2 combined results.
+- **RESEARCH_ROADMAP.md** rewritten with honest E1/E2 framing.
+- **research_logs/week05.md**: E2 per-class analysis + known weaknesses.
+
+### Reproducibility
+- Extended `research/run_experiment.py` with E2 dispatch loader architecture.
+- Both `make e1` and `make e2` now produce paper-ready outputs.
+
+### Pruning (maintainability)
+- DELETED `datasets/e2_fpr_study/`: empty placeholder, confused naming
+- DELETED `datasets/e3_attack_chains/`: empty placeholder, no data
+- DELETED `research/generate_manifest.py`: dead code, not in any pipeline
+
+### Fixes
+- `test_web_scanner.py`: removed unsupported `mode='passive'` kwarg; fixed
+  `_make_response()` headers to `dict()` preventing MagicMock in re.search().
+
+---
+
+## [2.0.0] -- 2026-07-30
+
 
 ### Added
 - **Research infrastructure**

@@ -1,0 +1,6 @@
+true\pred,minimal,low,medium,high,critical
+minimal,1,0,0,0,1
+low,0,1,1,0,1
+medium,3,1,0,0,0
+high,3,1,0,0,3
+critical,1,2,0,1,0

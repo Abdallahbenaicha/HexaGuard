@@ -43,10 +43,15 @@ def _make_response(
     url: str = "https://example.com",
     history: list | None = None,
 ) -> MagicMock:
-    """Build a mock requests.Response object."""
+    """Build a mock requests.Response object.
+
+    headers must be a plain dict[str, str] so that re.search() calls inside
+    web_scanner.py do not receive MagicMock objects instead of strings.
+    """
     resp = MagicMock()
     resp.status_code = status_code
-    resp.headers = headers or {}
+    # Always use a real dict so header value iteration returns plain strings
+    resp.headers = dict(headers) if headers is not None else {}
     resp.text = text
     resp.content = text.encode()
     resp.url = url
@@ -57,10 +62,32 @@ def _make_response(
     return resp
 
 
+
+def _run_scan(response_headers: dict | None = None, **scan_kwargs):
+    """
+    Shared helper: run run_web_scan with a fully mocked HTTP session.
+
+    The scanner uses _make_session() to create a requests.Session, then calls
+    sess.get() for the initial fetch. We patch _make_session to return a mock
+    session whose .get() returns a controlled _make_response().
+
+    All external API calls (ssllabs, shodan, etc.) are also suppressed by
+    returning the same resp mock from sess.get(), which will return empty dicts
+    from the parsers because the response body is minimal HTML.
+    """
+    from scanners import web_scanner
+    resp = _make_response(headers=response_headers or {})
+    mock_sess = MagicMock()
+    mock_sess.get.return_value = resp
+    mock_sess.request.return_value = resp
+    mock_sess.post.return_value = resp
+    with patch("scanners.web_scanner._make_session", return_value=mock_sess):
+        return web_scanner.run_web_scan("https://example.com", **scan_kwargs)
+
+
 def _scan_web(url: str = "https://example.com", **kwargs):
-    """Import and call run_web_scan with sensible test defaults."""
-    from scanners.web_scanner import run_web_scan
-    return run_web_scan(url, **kwargs)
+    """Backward-compat alias used by older tests."""
+    return _run_scan(**kwargs)
 
 
 # \u2500\u2500 Schema conformance \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -71,57 +98,26 @@ class TestWebScannerSchemaConformance:
     SecuraX scanner output schema, regardless of what the server returns.
     """
 
-    @patch("scanners.web_scanner.requests.Session")
-    def test_output_has_required_top_level_keys(self, mock_session_cls):
-        resp = _make_response()
-        mock_session_cls.return_value.__enter__ = MagicMock(return_value=MagicMock())
-        mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_session = mock_session_cls.return_value.__enter__.return_value
-        mock_session.get.return_value = resp
-        mock_session.request.return_value = resp
-
-        with patch("scanners.web_scanner.requests.get", return_value=resp):
-            result = _scan_web()
-
+    def test_output_has_required_top_level_keys(self):
+        result = _run_scan()
         assert "scan_type" in result
         assert "target" in result
         assert "vulnerabilities" in result
         assert result["scan_type"] == "web"
 
-    @patch("scanners.web_scanner.requests.get")
-    def test_all_findings_have_required_fields(self, mock_get):
+    def test_all_findings_have_required_fields(self):
         """Every vulnerability in the result must have severity, check, title, description."""
-        # Serve a response with missing headers to trigger findings
-        resp = _make_response(headers={})
-        mock_get.return_value = resp
-
-        with patch("scanners.web_scanner.requests.Session") as ms:
-            ms.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            ms.return_value.__exit__ = MagicMock(return_value=False)
-            ms.return_value.__enter__.return_value.get.return_value = resp
-            ms.return_value.__enter__.return_value.request.return_value = resp
-            result = _scan_web()
-
+        result = _run_scan(response_headers={})
         for vuln in result.get("vulnerabilities", []):
             assert "severity" in vuln, f"Finding missing 'severity': {vuln}"
             assert "check" in vuln, f"Finding missing 'check': {vuln}"
             assert "title" in vuln, f"Finding missing 'title': {vuln}"
             assert "description" in vuln, f"Finding missing 'description': {vuln}"
 
-    @patch("scanners.web_scanner.requests.get")
-    def test_all_severities_are_valid(self, mock_get):
+    def test_all_severities_are_valid(self):
         """Every severity value must be one of the canonical set."""
         from scanners.schema import VALID_SEVERITIES
-        resp = _make_response(headers={})
-        mock_get.return_value = resp
-
-        with patch("scanners.web_scanner.requests.Session") as ms:
-            ms.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            ms.return_value.__exit__ = MagicMock(return_value=False)
-            ms.return_value.__enter__.return_value.get.return_value = resp
-            ms.return_value.__enter__.return_value.request.return_value = resp
-            result = _scan_web()
-
+        result = _run_scan(response_headers={})
         for vuln in result.get("vulnerabilities", []):
             assert vuln.get("severity", "").lower() in VALID_SEVERITIES, (
                 f"Invalid severity '{vuln.get('severity')}' in finding: {vuln.get('check')}"
@@ -138,25 +134,9 @@ class TestSecurityHeaderChecks:
     """
 
     def _run_check_headers(self, response_headers: dict) -> list[dict]:
-        """
-        Call _check_headers (or equivalent) in isolation by mocking the session.
-        Falls back to checking the full scan result for findings matching known header names.
-        """
-        from scanners import web_scanner
+        """Run scanner with given response headers and return vulnerabilities."""
+        return _run_scan(response_headers=response_headers).get("vulnerabilities", [])
 
-        resp = _make_response(headers=response_headers, url="https://example.com")
-        with (
-            patch.object(web_scanner.requests, "get", return_value=resp),
-            patch("scanners.web_scanner.requests.Session") as ms,
-        ):
-            ms.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            ms.return_value.__exit__ = MagicMock(return_value=False)
-            mock_sess = ms.return_value.__enter__.return_value
-            mock_sess.get.return_value = resp
-            mock_sess.request.return_value = resp
-            result = web_scanner.run_web_scan("https://example.com", mode="passive")
-
-        return result.get("vulnerabilities", [])
 
     def test_missing_hsts_detected(self):
         """HSTS missing must produce a high-severity finding."""
