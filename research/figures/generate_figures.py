@@ -236,9 +236,12 @@ def fig_f1_comparison(output_dir: Path, results_path: Path = None):
         except Exception:
             pass
 
-    # Synthetic placeholder results (based on week03 benchmark)
+    # Synthetic placeholder results — used ONLY when no results JSON is found
     if not real_results:
-        print("[WARN] No results JSON found. Using synthetic placeholder values from week03 log.")
+        # WARNING: these are from week03 benchmarks and are NOT current.
+        # Run: python research/run_experiment.py --experiment e1 --seed 42
+        print("[WARN] No results JSON found — using stale week03 placeholder values.")
+        print("[WARN] Run: python research/run_experiment.py --experiment e1 --seed 42")
         real_results = {
             "SecuraX": {"metrics": {
                 "minimal": {"f1": 1.000}, "low": {"f1": 0.941},
@@ -355,29 +358,50 @@ def fig_ablation(output_dir: Path, ablation_path: Path = None):
 # Figure 5: Summary Dashboard
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fig_summary_dashboard(output_dir: Path):
-    """Generate a 2×2 summary dashboard for paper overview."""
+def fig_summary_dashboard(output_dir: Path, results_json: Path = None):
+    """Generate a 2x2 summary dashboard. Loads real metrics from results_json when available."""
+    # ── Load real metrics (or fall back to hardcoded) ──────────────────────────
+    real_f1s = None
+    real_matrix = None
+    if results_json and results_json.exists():
+        try:
+            data = json.loads(results_json.read_text())
+            methods_data = data.get("methods", {})
+            RISK_LEVELS_LOWER = ["minimal", "low", "medium", "high", "critical"]
+            method_order = ["SecuraX", "Baseline-CVSS", "Baseline-RULE", "Baseline-PRIORITY", "Baseline-RANDOM"]
+            real_f1s = [methods_data.get(m, {}).get("metrics", {}).get("macro", {}).get("f1", 0.0)
+                        for m in method_order if m in methods_data]
+            method_names_4 = ["SecuraX", "Priority", "Rule", "CVSS"]
+            src_keys = ["SecuraX", "Baseline-PRIORITY", "Baseline-RULE", "Baseline-CVSS"]
+            real_matrix = np.array([
+                [methods_data[m]["metrics"].get(lvl, {}).get("f1", 0.0)
+                 for lvl in RISK_LEVELS_LOWER]
+                for m in src_keys if m in methods_data
+            ])
+        except Exception as exc:
+            print(f"[WARN] Could not parse results JSON for dashboard: {exc}")
+
     fig = plt.figure(figsize=(14, 10))
     gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.4, wspace=0.35)
 
     # ── Top-left: Macro-F1 bar ────────────────────────────────────────────────
     ax1 = fig.add_subplot(gs[0, 0])
-    methods = ["SecuraX", "Baseline-\nPriority", "Baseline-\nRule",
-               "Baseline-\nCVSS", "Baseline-\nRandom"]
-    f1s     = [0.943, 0.822, 0.814, 0.772, 0.200]
-    colors  = ["#2ecc71", "#3498db", "#9b59b6", "#e67e22", "#95a5a6"]
-    ax1.barh(methods[::-1], f1s[::-1], color=colors[::-1], alpha=0.87, edgecolor="white")
+    disp_methods = ["SecuraX", "Baseline-\nPriority", "Baseline-\nRule",
+                    "Baseline-\nCVSS", "Baseline-\nRandom"]
+    f1s = real_f1s if real_f1s and len(real_f1s) == 5 else [0.5942, 0.8000, 0.6640, 0.8000, 0.1320]
+    colors = ["#2ecc71", "#3498db", "#9b59b6", "#e67e22", "#95a5a6"]
+    ax1.barh(disp_methods[::-1], f1s[::-1], color=colors[::-1], alpha=0.87, edgecolor="white")
     ax1.set_xlim(0, 1.0)
     ax1.set_xlabel("Macro-F1")
     ax1.set_title("(a) Macro-F1 by Method")
-    for i, (val, method) in enumerate(zip(f1s[::-1], methods[::-1])):
+    for i, (val, method) in enumerate(zip(f1s[::-1], disp_methods[::-1])):
         ax1.text(val + 0.01, i, f"{val:.3f}", va="center", fontsize=9)
     ax1.axvline(x=0.5, color="gray", ls="--", alpha=0.4)
 
     # ── Top-right: Dataset distribution ──────────────────────────────────────
     ax2 = fig.add_subplot(gs[0, 1])
     sizes  = [13, 22, 11, 4]
-    labels = [f"Critical\n(26%)", f"High\n(44%)", f"Medium\n(22%)", f"Low\n(8%)"]
+    labels = ["Critical\n(26%)", "High\n(44%)", "Medium\n(22%)", "Low\n(8%)"]
     cols   = [RISK_COLORS["Critical"], RISK_COLORS["High"],
               RISK_COLORS["Medium"], RISK_COLORS["Low"]]
     ax2.pie(sizes, labels=labels, colors=cols,
@@ -388,40 +412,49 @@ def fig_summary_dashboard(output_dir: Path):
     # ── Bottom-left: Per-class F1 heat comparison ─────────────────────────────
     ax3 = fig.add_subplot(gs[1, 0])
     method_names = ["SecuraX", "Priority", "Rule", "CVSS"]
-    f1_matrix = np.array([
-        [1.00, 0.941, 0.918, 0.857, 1.000],  # SecuraX
-        [0.941, 0.700, 0.900, 0.720, 0.850], # Priority
-        [0.941, 0.750, 0.880, 0.700, 0.800], # Rule
-        [0.941, 0.667, 0.916, 0.667, 0.667], # CVSS
-    ])
-    im = ax3.imshow(f1_matrix, cmap="RdYlGn", vmin=0.5, vmax=1.0, aspect="auto")
+    if real_matrix is not None and real_matrix.shape == (4, 5):
+        f1_matrix = real_matrix
+    else:
+        # Fall back to published E1 results
+        f1_matrix = np.array([
+            [0.000, 0.545, 0.583, 0.842, 1.000],  # SecuraX (actual E1)
+            [0.000, 1.000, 1.000, 1.000, 1.000],  # Priority
+            [0.000, 0.615, 0.706, 1.000, 1.000],  # Rule
+            [0.000, 1.000, 1.000, 1.000, 1.000],  # CVSS
+        ])
+    im = ax3.imshow(f1_matrix, cmap="RdYlGn", vmin=0.0, vmax=1.0, aspect="auto")
     ax3.set_xticks(range(len(RISK_LEVELS)))
     ax3.set_xticklabels(RISK_LEVELS, rotation=30, ha="right", fontsize=9)
     ax3.set_yticks(range(len(method_names)))
     ax3.set_yticklabels(method_names, fontsize=9)
-    ax3.set_title("(c) Per-Class F1 Heatmap")
+    ax3.set_title("(c) Per-Class F1 Heatmap (E1)")
     for i in range(len(method_names)):
         for j in range(len(RISK_LEVELS)):
             ax3.text(j, i, f"{f1_matrix[i,j]:.2f}", ha="center", va="center",
                      fontsize=8, color="black")
     plt.colorbar(im, ax=ax3, fraction=0.046, pad=0.04)
 
-    # ── Bottom-right: Ablation ─────────────────────────────────────────────────
+    # ── Bottom-right: E1 vs E2 comparison ────────────────────────────────────
     ax4 = fig.add_subplot(gs[1, 1])
-    comp_names = ["Full\nEngine", "w/o Threat\nCtx", "w/o Exp.", "w/o Compliance", "w/o Asset Crit."]
-    comp_f1s   = [0.943, 0.871, 0.856, 0.921, 0.930]
-    bar_cols   = ["#2ecc71" if i == 0 else "#e74c3c" if v < 0.88 else "#e67e22"
-                  for i, v in enumerate(comp_f1s)]
+    comp_names = ["E1\nSecuraX", "E1\nCVSS", "E2\nSecuraX", "E2\nCVSS"]
+    comp_f1s   = [0.5942, 0.8000, 0.5167, 0.3391]
+    bar_cols   = ["#2ecc71", "#e74c3c", "#27ae60", "#e74c3c"]
     ax4.bar(comp_names, comp_f1s, color=bar_cols, alpha=0.87, edgecolor="white")
-    ax4.set_ylim(0.8, 1.0)
+    ax4.set_ylim(0.0, 1.0)
     ax4.set_ylabel("Macro-F1")
-    ax4.set_title("(d) Ablation Study")
-    ax4.axhline(y=comp_f1s[0], color="green", ls="--", alpha=0.5)
+    ax4.set_title("(d) E1 vs E2: SecuraX vs CVSS")
+    ax4.axhline(y=0.5, color="gray", ls="--", alpha=0.4)
+    ax4.text(3.55, 0.52, "F1=0.5", color="gray", fontsize=7)
     for x, val in enumerate(comp_f1s):
-        ax4.text(x, val + 0.002, f"{val:.3f}", ha="center", fontsize=8)
+        ax4.text(x, val + 0.012, f"{val:.3f}", ha="center", fontsize=8,
+                 fontweight="bold" if x in (0, 2) else "normal")
+    # Annotation: H1 confirmed
+    ax4.annotate("H1\nconfirmed", xy=(2, 0.5167), xytext=(2.5, 0.65),
+                 fontsize=8, color="#27ae60", fontweight="bold",
+                 arrowprops=dict(arrowstyle="->", color="#27ae60", lw=1.2))
 
     fig.suptitle(
-        "SecuraX Research Summary — E1 Benchmark v1.0.0 | Engine v3.0.0",
+        "SecuraX Research Summary: E1 + E2 | Engine v3.0.0",
         fontsize=14, fontweight="bold", y=0.98
     )
     path = output_dir / "fig0_summary_dashboard.png"
@@ -459,7 +492,7 @@ def generate_all_figures(results_dir: Path, output_dir: Path):
     fig_dataset_stats(output_dir)
     fig_f1_comparison(output_dir, results_path=results_json)
     fig_ablation(output_dir, ablation_path=ablation_json)
-    fig_summary_dashboard(output_dir)
+    fig_summary_dashboard(output_dir, results_json=results_json)
 
     print(f"\n[DONE] {len(list(output_dir.glob('*.png')))} figures written to {output_dir}")
     print("\nTo embed in LaTeX:")

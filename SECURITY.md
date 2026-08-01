@@ -9,8 +9,9 @@ in SecuraX itself are reported, triaged, and remediated.
 
 | Version | Security Support |
 |---------|-----------------|
-| 2.x     | ✅ Active        |
-| 1.x     | ⚠️ Critical patches only |
+| 3.x     | ✅ Active        |
+| 2.x     | ⚠️ Critical patches only |
+| 1.x     | ❌ End-of-life   |
 | < 1.0   | ❌ End-of-life   |
 
 ## Reporting a Vulnerability
