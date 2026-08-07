@@ -190,7 +190,7 @@ All datasets follow the versioning policy in `docs/DATASETS.md`.
 | E1+E2 results (RQ1) | IEEE TDSC / USENIX Security (tools track) | 🔴 Not ready |
 | Benchmark platform paper | USENIX Security / IEEE S&P tools track | 🟡 In progress |
 | RQ3 attack chain paper | ACM SIGSAC Workshop | 🔴 Not ready |
-| PhD research proposal | CISPA (Abbasi group) | 🟡 Draft |
+| PhD research proposal | CISPA (others) | 🟡 Draft |
 
 ---
 
