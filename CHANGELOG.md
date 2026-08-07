@@ -27,7 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   macro-F1 (0.5167) > Baseline-CVSS (0.3391), +52.5% relative improvement.
   `python research/run_experiment.py --experiment e2 --seed 42`
 - **CISPA Research Statement** `papers/cispa_research_statement.md`: 1-page
-  statement for Prof. Abbasi's group with E1+E2 combined results.
+  statement for with E1+E2 combined results.
 - **RESEARCH_ROADMAP.md** rewritten with honest E1/E2 framing.
 - **research_logs/week05.md**: E2 per-class analysis + known weaknesses.
 
