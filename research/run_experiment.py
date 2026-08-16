@@ -36,7 +36,7 @@ References:
     [SKLEARN]    Pedregosa et al. "Scikit-learn: Machine Learning in Python."
                  JMLR 12, 2825-2830, 2011.
 
-Author:  Abdallah Benaicha <innovation.team.dz@gmail.com>
+Author:  Abdallah Benaicha <Abdallahbenaichatech@gmail.com>
 Version: 1.0.0
 """
 

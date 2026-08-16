@@ -32,7 +32,7 @@ References:
                arXiv:1901.08644, 2019.
     [CVSS31]   NIST NVD. CVSS v3.1 Specification. FIRST.Org, 2019.
 
-Author:  Abdallah Benaicha <innovation.team.dz@gmail.com>
+Author:  Abdallah Benaicha <Abdallahbenaichatech@gmail.com>
 Version: 1.0.0
 """
 

@@ -1,5 +1,5 @@
 # SecuraX — Research Statement
-### Abdallah Benaicha | innovation.team.dz@gmail.com | Abdallahbenaichatech@gmail.com
+### Abdallah Benaicha | Abdallahbenaichatech@gmail.com
 
 ## Summary
 

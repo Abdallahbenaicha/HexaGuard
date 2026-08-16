@@ -18,7 +18,7 @@ in SecuraX itself are reported, triaged, and remediated.
 
 **Do not file a public GitHub issue for security vulnerabilities.**
 
-Report vulnerabilities privately to: **innovation.team.dz@gmail.com**
+Report vulnerabilities privately to: **Abdallahbenaichatech@gmail.com**
 
 ### What to include
 

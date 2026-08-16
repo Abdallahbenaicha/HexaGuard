@@ -214,4 +214,4 @@ All datasets follow the versioning policy in `docs/DATASETS.md`.
 3. Add your experiment to this document
 4. Cite SecuraX using `CITATION.cff`
 
-Contact: `innovation.team.dz@gmail.com`
+Contact: `Abdallahbenaichatech@gmail.com`

@@ -210,7 +210,7 @@ export default function HelpPage() {
                         Ask ARIA
                     </Link>
                     <a
-                        href="mailto:innovation.team.dz@gmail.com"
+                        href="mailto:Abdallahbenaichatech@gmail.com"
                         className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     >
                         Contact Support
