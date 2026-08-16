@@ -3,7 +3,7 @@
   "experiment_name": "E2 -- Multi-Finding Aggregation Benchmark (pre-registered)",
   "engine_version": "3.0.0",
   "dataset_size": 20,
-  "timestamp_utc": "2026-08-01T03:08:32.436947+00:00",
+  "timestamp_utc": "2026-08-16T15:31:36.658018+00:00",
   "random_seed": 42,
   "methods": {
     "SecuraX": {

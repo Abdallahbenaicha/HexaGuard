@@ -3,10 +3,10 @@
 ## Research Proposal — Conference / Master Thesis
 
 **Author**: Abdallah Benaicha  
-**Institution**: [University / Department]  
-**Contact**: innovation.team.dz@gmail.com  
-**Date**: July 2026  
-**Version**: 1.0
+**Field**: Computer Science & Cybersecurity Research  
+**Contact**: innovation.team.dz@gmail.com | Abdallahbenaichatech@gmail.com  
+**Date**: August 2026  
+**Version**: 1.1.0 (Post-E2 Benchmark)
 
 ---
 

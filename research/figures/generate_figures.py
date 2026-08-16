@@ -355,6 +355,225 @@ def fig_ablation(output_dir: Path, ablation_path: Path = None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Figure 5: Confusion Matrix (SecuraX E1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fig_confusion_matrix(output_dir: Path, results_json: Path = None):
+    """Generate 5×5 normalised confusion matrix for SecuraX on E1 dataset."""
+    import csv as _csv
+
+    # ── Try to load from confusion_matrix CSV produced by run_experiment.py ──
+    cm = None
+    if results_json:
+        cm_path = results_json.parent / "confusion_matrix_securax.csv"
+        if cm_path.exists():
+            with open(cm_path, newline="") as f:
+                rows = list(_csv.reader(f))
+            if len(rows) >= 6:  # header + 5 rows
+                try:
+                    cm = np.array([[int(v) for v in row[1:]] for row in rows[1:]])
+                except ValueError:
+                    cm = None
+
+    # ── Fall back to E1 published values ─────────────────────────────────────
+    if cm is None:
+        # Derived from E1 TP/FP/FN breakdown in metrics_summary.json
+        cm = np.array([
+            [0,  0,  0,  0,  0],   # actual minimal
+            [1,  3,  0,  0,  0],   # actual low
+            [0,  4,  7,  0,  0],   # actual medium
+            [0,  0,  6, 16,  0],   # actual high
+            [0,  0,  0,  0, 13],   # actual critical
+        ])
+        print("[WARN] No confusion_matrix_securax.csv found — using E1 fallback values.")
+
+    # ── Normalise row-wise (recall perspective) ───────────────────────────────
+    row_sums = cm.sum(axis=1, keepdims=True).astype(float)
+    # Safe normalisation: avoid dividing zero-row by zero (NumPy evaluates both
+    # branches of np.where before selecting, causing RuntimeWarning otherwise)
+    cm_norm = np.zeros_like(cm, dtype=float)
+    non_zero = (row_sums[:, 0] > 0)
+    cm_norm[non_zero] = cm[non_zero] / row_sums[non_zero]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(cm_norm, cmap="Blues", vmin=0, vmax=1)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Recall (row-normalised)")
+
+    ax.set_xticks(range(5))
+    ax.set_yticks(range(5))
+    ax.set_xticklabels(RISK_LEVELS, rotation=30, ha="right")
+    ax.set_yticklabels(RISK_LEVELS)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title(
+        "SecuraX Confusion Matrix (E1, n=50)\n"
+        "Row-normalised — diagonal = recall per class | Engine v3.0.0"
+    )
+
+    for i in range(5):
+        for j in range(5):
+            raw = int(cm[i, j])
+            val = cm_norm[i, j]
+            color = "white" if val > 0.6 else "black"
+            ax.text(j, i, f"{val:.2f}\n({raw})",
+                    ha="center", va="center", fontsize=8.5, color=color)
+
+    fig.tight_layout()
+    path = output_dir / "fig5_confusion_matrix.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print(f"[OUT] {path}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Figure 7: Precision–Recall per class (E1 vs E2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fig_precision_recall(output_dir: Path, e1_json: Path = None, e2_json: Path = None):
+    """Grouped bar chart comparing precision and recall per risk tier, E1 and E2."""
+
+    def _load_metrics(path, method="SecuraX"):
+        if path and path.exists():
+            try:
+                data = json.loads(path.read_text())
+                return data["methods"][method]["metrics"]
+            except Exception:
+                pass
+        return None
+
+    m_e1 = _load_metrics(e1_json) or {
+        "minimal": {"precision": 0.0,    "recall": 0.0},
+        "low":     {"precision": 0.4286, "recall": 0.75},
+        "medium":  {"precision": 0.5385, "recall": 0.6364},
+        "high":    {"precision": 1.0,    "recall": 0.7273},
+        "critical":{"precision": 1.0,    "recall": 1.0},
+    }
+    m_e2 = _load_metrics(e2_json) or {
+        "minimal": {"precision": 0.0,   "recall": 0.0},
+        "low":     {"precision": 0.6,   "recall": 1.0},
+        "medium":  {"precision": 0.6,   "recall": 0.75},
+        "high":    {"precision": 0.6,   "recall": 0.4286},
+        "critical":{"precision": 0.6,   "recall": 0.75},
+    }
+
+    levels_lower = [r.lower() for r in RISK_LEVELS]
+    x = np.arange(len(RISK_LEVELS))
+    w = 0.20
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
+    for ax, (metrics, label, color_p, color_r) in zip(
+        axes,
+        [
+            (m_e1, "E1 — Single-Finding (n=50)", "#2980b9", "#1abc9c"),
+            (m_e2, "E2 — Multi-Finding (n=20)",  "#8e44ad", "#e67e22"),
+        ]
+    ):
+        prec = [metrics.get(l, {}).get("precision", 0) for l in levels_lower]
+        rec  = [metrics.get(l, {}).get("recall", 0)    for l in levels_lower]
+        ax.bar(x - w/2, prec, w*0.9, label="Precision", color=color_p, alpha=0.85, edgecolor="white")
+        ax.bar(x + w/2, rec,  w*0.9, label="Recall",    color=color_r, alpha=0.85, edgecolor="white")
+        ax.set_xticks(x)
+        ax.set_xticklabels(RISK_LEVELS)
+        ax.set_ylim(0, 1.15)
+        ax.set_ylabel("Score")
+        ax.set_title(label)
+        ax.legend()
+        ax.axhline(0.5, color="gray", ls="--", alpha=0.3)
+        for xi, (p, r) in enumerate(zip(prec, rec)):
+            if p > 0:
+                ax.text(xi - w/2, p + 0.02, f"{p:.2f}", ha="center", fontsize=7, color=color_p)
+            if r > 0:
+                ax.text(xi + w/2, r + 0.02, f"{r:.2f}", ha="center", fontsize=7, color=color_r)
+
+    fig.suptitle(
+        "SecuraX Precision and Recall per Risk Tier (E1 and E2)\n"
+        "Engine v3.0.0 — SecuraX method only",
+        fontsize=13, fontweight="bold"
+    )
+    fig.tight_layout()
+    path = output_dir / "fig7_precision_recall.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print(f"[OUT] {path}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Figure 8: ROC curves (one-vs-rest, AUC estimated from F1/TP/FP/FN)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fig_roc_curves(output_dir: Path, e1_json: Path = None):
+    """
+    Plot estimated ROC curves (one-vs-rest) for each risk tier using
+    the TP/FP/FN data from E1 results.
+
+    True ROC curves require per-sample scores, which are not stored in
+    metrics_summary.json.  We instead estimate the single operating point
+    (TPR, FPR) from TP/FP/FN/TN and draw the AUC triangle [ROCNOTE].
+
+    References:
+        [ROCNOTE] Fawcett, T. "An introduction to ROC analysis."
+                  Pattern Recog. Letters 27(8):861-874, 2006.
+    """
+    def _load_e1_counts(path):
+        if path and path.exists():
+            try:
+                data = json.loads(path.read_text())
+                return data["methods"]["SecuraX"]["metrics"]
+            except Exception:
+                pass
+        return None
+
+    metrics = _load_e1_counts(e1_json) or {
+        "minimal": {"tp": 0,  "fp": 1,  "fn": 0},
+        "low":     {"tp": 3,  "fp": 4,  "fn": 1},
+        "medium":  {"tp": 7,  "fp": 6,  "fn": 4},
+        "high":    {"tp": 16, "fp": 0,  "fn": 6},
+        "critical":{"tp": 13, "fp": 0,  "fn": 0},
+    }
+    N = 50  # E1 dataset size
+    levels_lower = [r.lower() for r in RISK_LEVELS]
+    colors = [RISK_COLORS[r] for r in RISK_LEVELS]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.4, lw=1.5, label="Random (AUC=0.50)")
+
+    for level, color in zip(levels_lower, colors):
+        m = metrics.get(level, {})
+        tp = m.get("tp", 0)
+        fp = m.get("fp", 0)
+        fn = m.get("fn", 0)
+        tn = N - tp - fp - fn
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+        # Estimated AUC = 0.5*(TPR*(1-FPR) + 1*(1 - FPR)) ≈ area of the triangle
+        auc_est = 0.5 * (tpr * (1 - fpr) + (1 - fpr)) if (fpr < 1) else 0.5
+        auc_est = round(min(max(auc_est, 0.0), 1.0), 3)
+        # Draw triangle: (0,0) → (FPR, TPR) → (FPR, 1.0) → (0, 1.0)
+        ax.fill_between([0, fpr], [0, tpr], alpha=0.06, color=color)
+        ax.plot([0, fpr, fpr], [0, tpr, 1.0], color=color, lw=1.5, alpha=0.5)
+        ax.scatter([fpr], [tpr], color=color, s=80, zorder=5,
+                   label=f"{level.capitalize()} (est. AUC={auc_est})")
+        ax.annotate(f"  {level.capitalize()}\n  ({fpr:.2f},{tpr:.2f})",
+                    xy=(fpr, tpr), fontsize=7.5, color=color, va="bottom")
+
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.08)
+    ax.set_xlabel("False Positive Rate (1 − Specificity)")
+    ax.set_ylabel("True Positive Rate (Recall)")
+    ax.set_title(
+        "SecuraX Estimated ROC Curves — One-vs-Rest (E1, n=50)\n"
+        "Note: AUC estimated from single operating point TP/FP/FN [Fawcett 2006]"
+    )
+    ax.legend(loc="lower right", fontsize=8)
+    ax.grid(alpha=0.25)
+    fig.tight_layout()
+    path = output_dir / "fig8_roc.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print(f"[OUT] {path}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Figure 5: Summary Dashboard
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -488,10 +707,21 @@ def generate_all_figures(results_dir: Path, output_dir: Path):
     print(f"  Output: {output_dir}")
     print(f"{'='*55}\n")
 
+    e2_results_json = None
+    for candidate in [
+        results_dir / "e2_risk_validation" / "metrics_summary.json",
+    ]:
+        if candidate.exists():
+            e2_results_json = candidate
+            break
+
     fig_risk_pipeline(output_dir)
     fig_dataset_stats(output_dir)
     fig_f1_comparison(output_dir, results_path=results_json)
     fig_ablation(output_dir, ablation_path=ablation_json)
+    fig_confusion_matrix(output_dir, results_json=results_json)
+    fig_precision_recall(output_dir, e1_json=results_json, e2_json=e2_results_json)
+    fig_roc_curves(output_dir, e1_json=results_json)
     fig_summary_dashboard(output_dir, results_json=results_json)
 
     print(f"\n[DONE] {len(list(output_dir.glob('*.png')))} figures written to {output_dir}")

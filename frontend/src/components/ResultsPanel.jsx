@@ -1,8 +1,9 @@
 import React from 'react';
-import { AlertTriangle, ShieldAlert, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { SEVERITY_STYLES, sortBySeverity, formatFinding } from '../utils/logicProtection';
 import { REPORT_ENDPOINTS, reportDownloadUrl } from '../utils/reportExport';
 import SeverityBadge from './SeverityBadge';
+import AttackChainPanel from './AttackChainPanel';
 
 const ResultsPanel = ({ findings, total, attackChains = [], kevFindings = [], reportToken = null }) => {
     const sorted = sortBySeverity(findings);
@@ -19,25 +20,8 @@ const ResultsPanel = ({ findings, total, attackChains = [], kevFindings = [], re
     return (
         <div className="mt-10 space-y-4">
 
-            {/* Attack chains warning — shown above everything */}
-            {attackChains.length > 0 && (
-                <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5 text-orange-400 shrink-0" />
-                        <span className="font-orbitron text-xs text-orange-400 tracking-widest uppercase font-bold">
-                            Attack Chain Risk Detected
-                        </span>
-                    </div>
-                    <ul className="space-y-2">
-                        {attackChains.map((chain, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm font-inter text-orange-300">
-                                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-orange-500" />
-                                {chain}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            {/* Attack chain panel — full-featured with MITRE ATT&CK badges */}
+            <AttackChainPanel attackChains={attackChains} kevFindings={kevFindings} />
 
             {/* Summary bar */}
             <div className="flex flex-wrap items-center justify-between gap-4 p-5 scanner-glass rounded-2xl mb-6">
