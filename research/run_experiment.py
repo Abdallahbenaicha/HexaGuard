@@ -646,6 +646,17 @@ def run_experiment(
     }
     results_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"[OUT] {results_path}")
+
+    # Write predictions log for bootstrap resampling (T8 Option A)
+    preds_log_path = output_dir / "predictions_log.json"
+    preds_log = {
+        "experiment_id":   experiment_id,
+        "sample_size":     len(ground_truth),
+        "ground_truth":    ground_truth,
+        "predictions":     {name: data["predictions"] for name, data in all_results.items()},
+    }
+    preds_log_path.write_text(json.dumps(preds_log, indent=2), encoding="utf-8")
+    print(f"[OUT] {preds_log_path}")
     print(f"\n[DONE] All results written to: {output_dir}")
 
     return all_results

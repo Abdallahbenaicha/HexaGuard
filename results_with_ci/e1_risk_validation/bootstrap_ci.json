@@ -1,0 +1,245 @@
+{
+  "n_resamples": 1000,
+  "sample_size": 50,
+  "seed": 42,
+  "methods": {
+    "SecuraX": {
+      "point_estimate": {
+        "macro_precision": 0.5934065934065934,
+        "macro_recall": 0.6227272727272727,
+        "macro_f1": 0.5941786283891547
+      },
+      "macro_f1": {
+        "mean": 0.5844,
+        "std_err": 0.0574,
+        "ci_95": [
+          0.4698,
+          0.689
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.5919,
+        "std_err": 0.0518,
+        "ci_95": [
+          0.4923,
+          0.6975
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.6191,
+        "std_err": 0.0662,
+        "ci_95": [
+          0.467,
+          0.726
+        ]
+      }
+    },
+    "Baseline-CVSS": {
+      "point_estimate": {
+        "macro_precision": 0.8,
+        "macro_recall": 0.8,
+        "macro_f1": 0.8
+      },
+      "macro_f1": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      }
+    },
+    "Baseline-RULE": {
+      "point_estimate": {
+        "macro_precision": 0.6888888888888889,
+        "macro_recall": 0.7090909090909091,
+        "macro_f1": 0.6642533936651583
+      },
+      "macro_f1": {
+        "mean": 0.6554,
+        "std_err": 0.0532,
+        "ci_95": [
+          0.546,
+          0.7532
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.6869,
+        "std_err": 0.0358,
+        "ci_95": [
+          0.6222,
+          0.76
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.7059,
+        "std_err": 0.0399,
+        "ci_95": [
+          0.6364,
+          0.7667
+        ]
+      }
+    },
+    "Baseline-PRIORITY": {
+      "point_estimate": {
+        "macro_precision": 0.8,
+        "macro_recall": 0.8,
+        "macro_f1": 0.8
+      },
+      "macro_f1": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.7968,
+        "std_err": 0.0251,
+        "ci_95": [
+          0.8,
+          0.8
+        ]
+      }
+    },
+    "Baseline-RANDOM": {
+      "point_estimate": {
+        "macro_precision": 0.20428571428571426,
+        "macro_recall": 0.1034965034965035,
+        "macro_f1": 0.13206028564665034
+      },
+      "macro_f1": {
+        "mean": 0.1283,
+        "std_err": 0.0402,
+        "ci_95": [
+          0.0515,
+          0.21
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.205,
+        "std_err": 0.058,
+        "ci_95": [
+          0.09,
+          0.32
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.1042,
+        "std_err": 0.0359,
+        "ci_95": [
+          0.0379,
+          0.1789
+        ]
+      }
+    },
+    "Baseline-EPSS": {
+      "point_estimate": {
+        "macro_precision": 0.7623376623376623,
+        "macro_recall": 0.7573426573426574,
+        "macro_f1": 0.7591630591630592
+      },
+      "macro_f1": {
+        "mean": 0.7543,
+        "std_err": 0.0349,
+        "ci_95": [
+          0.6892,
+          0.8
+        ]
+      },
+      "macro_precision": {
+        "mean": 0.7588,
+        "std_err": 0.0334,
+        "ci_95": [
+          0.7,
+          0.8
+        ]
+      },
+      "macro_recall": {
+        "mean": 0.7543,
+        "std_err": 0.0355,
+        "ci_95": [
+          0.6828,
+          0.8
+        ]
+      }
+    }
+  },
+  "paired_differences_vs_securax": {
+    "Baseline-CVSS": {
+      "point_difference_f1": -0.2058,
+      "mean_difference": -0.2124,
+      "std_err": 0.0572,
+      "ci_95": [
+        -0.326,
+        -0.1067
+      ],
+      "significant_at_95": true
+    },
+    "Baseline-RULE": {
+      "point_difference_f1": -0.0701,
+      "mean_difference": -0.071,
+      "std_err": 0.0451,
+      "ci_95": [
+        -0.1663,
+        0.0132
+      ],
+      "significant_at_95": false
+    },
+    "Baseline-PRIORITY": {
+      "point_difference_f1": -0.2058,
+      "mean_difference": -0.2124,
+      "std_err": 0.0572,
+      "ci_95": [
+        -0.326,
+        -0.1067
+      ],
+      "significant_at_95": true
+    },
+    "Baseline-RANDOM": {
+      "point_difference_f1": 0.4621,
+      "mean_difference": 0.4561,
+      "std_err": 0.0805,
+      "ci_95": [
+        0.2943,
+        0.6093
+      ],
+      "significant_at_95": true
+    },
+    "Baseline-EPSS": {
+      "point_difference_f1": -0.165,
+      "mean_difference": -0.1699,
+      "std_err": 0.0588,
+      "ci_95": [
+        -0.2908,
+        -0.0599
+      ],
+      "significant_at_95": true
+    }
+  }
+}

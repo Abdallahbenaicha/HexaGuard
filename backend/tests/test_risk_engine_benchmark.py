@@ -31,6 +31,14 @@ Dataset:
     WARNING: This is a synthetic dataset. Results on real-world scan data
     may differ. A real-world evaluation is planned for v4.0 (see
     docs/RESEARCH_ROADMAP.md).
+
+Scope Distinction (S1 Decision):
+    - This module serves as an IN-CODE UNIT REGRESSION BENCHMARK to ensure
+      engine calculations, floor guarantees, and contextual amplification
+      mechanics do not regress during software development.
+    - The ACADEMIC RESEARCH BENCHMARK is executed via `research/run_experiment.py`
+      on the file-based datasets in `datasets/e1_risk_validation/` and
+      `datasets/e2_multi_finding/`.
 """
 
 import hashlib
