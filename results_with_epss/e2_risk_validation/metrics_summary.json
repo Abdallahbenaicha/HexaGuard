@@ -1,0 +1,406 @@
+{
+  "experiment_id": "e2",
+  "experiment_name": "E2 -- Multi-Finding Aggregation Benchmark (pre-registered)",
+  "engine_version": "3.0.0",
+  "dataset_size": 20,
+  "timestamp_utc": "2026-08-18T11:30:58.628555+00:00",
+  "random_seed": 42,
+  "methods": {
+    "SecuraX": {
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.6,
+          "recall": 1.0,
+          "f1": 0.75
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 2,
+          "fn": 1,
+          "precision": 0.6,
+          "recall": 0.75,
+          "f1": 0.6667
+        },
+        "high": {
+          "tp": 3,
+          "fp": 2,
+          "fn": 4,
+          "precision": 0.6,
+          "recall": 0.4286,
+          "f1": 0.5
+        },
+        "critical": {
+          "tp": 3,
+          "fp": 2,
+          "fn": 1,
+          "precision": 0.6,
+          "recall": 0.75,
+          "f1": 0.6667
+        },
+        "macro": {
+          "precision": 0.48,
+          "recall": 0.5857,
+          "f1": 0.5167
+        }
+      },
+      "metadata": {
+        "name": "SecuraX",
+        "version": "3.0.0"
+      }
+    },
+    "Baseline-CVSS": {
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 7,
+          "fn": 1,
+          "precision": 0.3,
+          "recall": 0.75,
+          "f1": 0.4286
+        },
+        "high": {
+          "tp": 1,
+          "fp": 2,
+          "fn": 6,
+          "precision": 0.3333,
+          "recall": 0.1429,
+          "f1": 0.2
+        },
+        "critical": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.25,
+          "f1": 0.4
+        },
+        "macro": {
+          "precision": 0.4267,
+          "recall": 0.4286,
+          "f1": 0.3391
+        }
+      },
+      "metadata": {
+        "name": "Baseline-CVSS",
+        "version": "1.0.0",
+        "description": "Naive CVSS-only baseline: classifies risk by highest severity present in scan results. No contextual adjustment.",
+        "contextual_factors": [],
+        "references": [
+          "https://www.first.org/cvss/specification-document",
+          "https://nvd.nist.gov/"
+        ]
+      }
+    },
+    "Baseline-RULE": {
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 7,
+          "fn": 1,
+          "precision": 0.3,
+          "recall": 0.75,
+          "f1": 0.4286
+        },
+        "high": {
+          "tp": 1,
+          "fp": 2,
+          "fn": 6,
+          "precision": 0.3333,
+          "recall": 0.1429,
+          "f1": 0.2
+        },
+        "critical": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.25,
+          "f1": 0.4
+        },
+        "macro": {
+          "precision": 0.4267,
+          "recall": 0.4286,
+          "f1": 0.3391
+        }
+      },
+      "metadata": {
+        "name": "Baseline-Rule",
+        "version": "1.0.0",
+        "description": "Rule-based baseline: applies fixed heuristics (severity counts + internet_facing flag) without temporal or full environmental context.",
+        "contextual_factors": [
+          "internet_facing",
+          "finding_counts"
+        ],
+        "references": [
+          "https://owasp.org/www-community/OWASP_Risk_Rating_Methodology",
+          "https://www.iso.org/standard/80585.html"
+        ]
+      }
+    },
+    "Baseline-PRIORITY": {
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        "medium": {
+          "tp": 3,
+          "fp": 7,
+          "fn": 1,
+          "precision": 0.3,
+          "recall": 0.75,
+          "f1": 0.4286
+        },
+        "high": {
+          "tp": 1,
+          "fp": 2,
+          "fn": 6,
+          "precision": 0.3333,
+          "recall": 0.1429,
+          "f1": 0.2
+        },
+        "critical": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.25,
+          "f1": 0.4
+        },
+        "macro": {
+          "precision": 0.4267,
+          "recall": 0.4286,
+          "f1": 0.3391
+        }
+      },
+      "metadata": {
+        "name": "Baseline-Priority",
+        "version": "1.0.0",
+        "description": "Priority-based baseline: CVSS severity + asset criticality, without temporal factors (no KEV, no exploit_known, no attack chains).",
+        "contextual_factors": [
+          "severity_scores",
+          "asset_criticality"
+        ],
+        "excluded_factors": [
+          "internet_facing",
+          "exploit_known",
+          "kev_integration",
+          "has_pii",
+          "has_payment",
+          "attack_chains"
+        ],
+        "references": [
+          "https://doi.org/10.6028/NIST.SP.800-37r2",
+          "https://www.first.org/cvss/specification-document"
+        ]
+      }
+    },
+    "Baseline-RANDOM": {
+      "metrics": {
+        "minimal": {
+          "tp": 1,
+          "fp": 7,
+          "fn": 1,
+          "precision": 0.125,
+          "recall": 0.5,
+          "f1": 0.2
+        },
+        "low": {
+          "tp": 1,
+          "fp": 4,
+          "fn": 2,
+          "precision": 0.2,
+          "recall": 0.3333,
+          "f1": 0.25
+        },
+        "medium": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 4,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "high": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 7,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "critical": {
+          "tp": 0,
+          "fp": 5,
+          "fn": 4,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "macro": {
+          "precision": 0.065,
+          "recall": 0.1667,
+          "f1": 0.09
+        }
+      },
+      "metadata": {
+        "name": "Baseline-Random",
+        "version": "1.0.0",
+        "description": "Random baseline: assigns uniformly random risk levels. Serves as a statistical lower bound \u2014 expected macro-F1 \u2248 0.20.",
+        "contextual_factors": [],
+        "references": [
+          "https://doi.org/10.1016/j.ipm.2009.03.002"
+        ],
+        "warning": "Results are non-deterministic without a fixed seed."
+      }
+    },
+    "Baseline-EPSS": {
+      "metrics": {
+        "minimal": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "low": {
+          "tp": 3,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        "medium": {
+          "tp": 2,
+          "fp": 5,
+          "fn": 2,
+          "precision": 0.2857,
+          "recall": 0.5,
+          "f1": 0.3636
+        },
+        "high": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 6,
+          "precision": 1.0,
+          "recall": 0.1429,
+          "f1": 0.25
+        },
+        "critical": {
+          "tp": 4,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.8,
+          "recall": 1.0,
+          "f1": 0.8889
+        },
+        "macro": {
+          "precision": 0.5171,
+          "recall": 0.5286,
+          "f1": 0.4338
+        }
+      },
+      "metadata": {
+        "name": "Baseline-EPSS",
+        "version": "1.0.0",
+        "description": "EPSS-based baseline: uses the public first.org EPSS API to classify risk by empirical exploit probability. CVSS fallback only on API failure or absent CVE identifiers -- a valid EPSS score of any magnitude is used directly.",
+        "api_endpoint": "https://api.first.org/data/v1/epss",
+        "epss_tier_mapping": {
+          ">=0.70": "critical",
+          ">=0.40": "high",
+          ">=0.10": "medium",
+          ">=0.01": "low",
+          "<0.01": "minimal (valid EPSS result -- NOT fallback)"
+        },
+        "fallback_strategy": "cvss_severity_lookup",
+        "fallback_trigger": "Fallback to CVSS only when: (a) no valid CVE in scan_input, (b) EPSS API fails/times out, or (c) CVE not in EPSS database. A valid EPSS score below 0.01 maps to minimal -- not a fallback.",
+        "run_coverage": {
+          "epss_observations": 6,
+          "fallback_observations": 14,
+          "epss_calls": 9,
+          "epss_hits": 8,
+          "total_calls": 20,
+          "epss_rate": 0.3,
+          "fallback_rate": 0.7,
+          "disclosure_label": "Baseline-EPSS (fallback-dominated)"
+        },
+        "disclosure": {
+          "disclosure_label": "Baseline-EPSS (fallback-dominated)",
+          "rule": "fallback_rate > 0.50 -> label as Baseline-EPSS (fallback-dominated). Such results must not be cited as a pure EPSS evaluation."
+        },
+        "contextual_factors": [
+          "cve_ids"
+        ],
+        "ignored_factors": [
+          "internet_facing",
+          "exploit_known",
+          "has_pii",
+          "has_payment",
+          "asset_criticality",
+          "kev_integration"
+        ],
+        "references": [
+          "https://api.first.org/data/v1/epss",
+          "https://www.first.org/epss"
+        ]
+      }
+    }
+  }
+}

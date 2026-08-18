@@ -1,0 +1,22 @@
+\begin{table}[htbp]
+\centering
+\caption{Macro-averaged Performance Comparison: SecuraX vs Baselines}
+\label{tab:macro_comparison}
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+SecuraX & 0.5934 & 0.6227 & 0.5942 \\
+Baseline-CVSS & 0.8000 & 0.8000 & 0.8000 \\
+Baseline-RULE & 0.6889 & 0.7091 & 0.6643 \\
+Baseline-PRIORITY & 0.8000 & 0.8000 & 0.8000 \\
+Baseline-RANDOM & 0.2043 & 0.1035 & 0.1321 \\
+Baseline-EPSS & 0.7623 & 0.7573 & 0.7592 \\
+\hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item Dataset: SecuraX E1 Benchmark v1.0.0 (synthetic ground truth, 5 environments)
+\item Engine version: 3.0.0
+\end{tablenotes}
+\end{table}

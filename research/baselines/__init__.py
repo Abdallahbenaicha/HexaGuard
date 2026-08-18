@@ -1,12 +1,13 @@
 """
 SecuraX Research Baselines Package
 ====================================
-Provides four risk classification baselines for comparative evaluation:
+Provides five risk classification baselines for comparative evaluation:
 
     Baseline-CVSS      Naive severity lookup (lower bound)
     Baseline-Rule      Fixed heuristics (internet_facing + counts)
     Baseline-Priority  CVSS + asset criticality (no temporal)
     Baseline-Random    Uniform random (statistical floor)
+    Baseline-EPSS      EPSS exploit probability (first.org API)
 
 Usage:
     from research.baselines import get_baseline
@@ -35,7 +36,7 @@ def get_baseline(name: str):
     Return a baseline module by name.
 
     Args:
-        name: One of {cvss, rule, random, priority}
+        name: One of {cvss, rule, random, priority, epss}
 
     Returns:
         Baseline module with .classify() and .metadata() functions.
@@ -56,11 +57,14 @@ def get_baseline(name: str):
     elif name == "priority":
         from research.baselines import baseline_priority
         return baseline_priority
+    elif name == "epss":
+        from research.baselines import baseline_epss
+        return baseline_epss
     else:
         raise ValueError(
             f"Unknown baseline '{name}'. "
-            f"Available: cvss, rule, random, priority"
+            f"Available: cvss, rule, random, priority, epss"
         )
 
 
-ALL_BASELINES = ["cvss", "rule", "priority", "random"]
+ALL_BASELINES = ["cvss", "rule", "priority", "random", "epss"]
