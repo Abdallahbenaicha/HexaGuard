@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="https://img.shields.io/badge/HexaGuard-v2.0-00f5ff?style=for-the-badge&labelColor=0a0a1a" alt="HexaGuard Version"/>
 
@@ -41,7 +41,7 @@ Modern organisations face a **fragmented security landscape**:
 
 > **Discovery → Analysis → Prioritisation → Remediation → Compliance Reporting**
 
-It orchestrates the world's most trusted open-source security tools — OWASP ZAP, Nmap, Bandit, Semgrep, Nikto — through a single cohesive interface, then layers **ARIA**, an AI agent powered by Google Gemini 1.5, to transform raw scan data into actionable intelligence: attack chains, MITRE ATT&CK mappings, compliance assessments, and copy-pasteable remediation code.
+It orchestrates the world's most trusted open-source security tools — OWASP ZAP, Nmap, Bandit, Semgrep, Nikto — through a single cohesive interface, then layers **ARIA**, an AI agent powered by Google Gemini 2.x, to transform raw scan data into actionable intelligence: attack chains, MITRE ATT&CK mappings, compliance assessments, and copy-pasteable remediation code.
 
 ---
 
@@ -71,17 +71,18 @@ ARIA is not a chatbot bolted onto a scanner. It is an **autonomous five-stage an
 |-------|-----------|
 | **NVD CVE Enrichment** | Queries NIST NVD API v2 in real-time for authoritative CVSS v3.1 scores |
 | **MITRE ATT&CK Mapping** | Maps every finding to T-codes and tactics for adversarial context |
-| **Attack Chain Generation** | Generates a realistic step-by-step compromise narrative across all findings |
+| **Attack Chain Detection & Narrative** | Rule-based finding correlation with LLM-generated compromise narratives |
 | **Remediation Planning** | Prioritised fixes with copy-pasteable Python / Bash / Apache config code |
 | **Compliance Assessment** | Automated GDPR Art. 32 · PCI-DSS Req. 6.3 · ISO 27001 A.14.2 mapping |
-
-### ⚙️ Platform Capabilities
 
 | Feature | Description |
 |---------|-------------|
 | **Background Scans** | Queue scans and navigate freely — browser push notifications on completion |
 | **Scheduled Scans** | Daily / weekly / monthly recurring scans per user |
-| **PDF Reports** | Professional export with CVSS scores, OWASP mapping, and remediation guidance |
+| **Multi-Format Reports** | Professional export in PDF (with Arabic reshaping), CSV, Markdown, and JSON |
+| **Public Report Sharing** | Generate unguessable 128-bit UUID share links for client/prospect reporting |
+| **Token & Session Auth** | Session-cookie authentication for web UI alongside Bearer API tokens (`sx_...`) for CI/CD |
+| **Domain Verification** | Optional DNS TXT / HTML meta-tag ownership verification for trust badges (never blocks scans) |
 | **Admin Dashboard** | System-wide stats, user management, 7-day vulnerability trend charts |
 | **Audit Logs** | Full event trail with IP + user-agent for compliance (SOC 2 / ISO 27001) |
 | **Role-Based Access Control** | Admin / Analyst / Viewer roles with per-user target locking |
@@ -107,7 +108,7 @@ ARIA is not a chatbot bolted onto a scanner. It is an **autonomous five-stage an
 │                                                             │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
 │  │  Blueprints │  │  ARIA Agent  │  │  Scanner Engines  │   │
-│  │  auth/      │  │  Gemini 1.5  │  │  ZAP  · Nmap     │   │
+│  │  auth/      │  │ Gemini 2.x  │  │  ZAP  · Nmap     │   │
 │  │  scans/     │  │  NVD API     │  │  Bandit · Semgrep │   │
 │  │  admin/     │  │  ATT&CK Maps │  │  Nikto · pip-audit│   │
 │  │  reports/   │  │  CVSS Engine │  │  ssl  · dns · wp  │   │
@@ -128,11 +129,11 @@ ARIA is not a chatbot bolted onto a scanner. It is an **autonomous five-stage an
 | Layer | Technology |
 |-------|-----------|
 | **Backend Framework** | Flask 3.1 — Application Factory pattern with Blueprint architecture |
-| **Auth & Security** | Flask-Login · Flask-WTF (CSRF) · Flask-Limiter · bcrypt (12 rds) · pyotp |
-| **AI Integration** | Google Gemini 1.5 Flash via `google-genai` SDK |
-| **PDF Generation** | reportlab + arabic-reshaper + python-bidi |
+| **Auth & Security** | Flask-Login · Flask-WTF (CSRF) · Flask-Limiter · bcrypt (12 rds) · pyotp · API tokens |
+| **AI Integration** | Google Gemini 2.x (`gemini-2.5-flash-lite`, `gemini-2.0-flash`) via `google-genai` SDK |
+| **Report Generation** | reportlab + arabic-reshaper + python-bidi · CSV · Markdown · JSON |
 | **Frontend** | React 19 + Vite 8 + Tailwind CSS 3 |
-| **Animations** | Framer Motion 12 |
+| **Animations & 3D** | Framer Motion 12 · Spline (`@splinetool/react-spline`) with pure CSS 3D fallback |
 | **HTTP Client** | Axios |
 | **Routing** | React Router 7 |
 
@@ -224,12 +225,16 @@ npm run dev
 
 ### Authentication
 
-| Method | Endpoint | Body |
-|--------|----------|------|
-| `POST` | `/api/login` | `{username, password}` |
-| `POST` | `/api/logout` | — |
-| `GET` | `/api/profile` | — |
-| `POST` | `/api/2fa/verify` | `{token}` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/login` | Session login `{username, password}` |
+| `POST` | `/api/auth/logout` | Session logout |
+| `GET` | `/api/auth/me` | Current authenticated user profile & permissions |
+| `POST` | `/api/auth/totp/enable` | Enable TOTP 2FA `{token}` |
+| `POST` | `/api/auth/change-password` | Update password `{current_password, new_password}` |
+| `GET` | `/api/auth/token` | Check if API token exists |
+| `POST` | `/api/auth/token/generate` | Generate headless API Bearer token (`sx_...`) |
+| `POST` | `/api/auth/token/revoke` | Revoke active API Bearer token |
 
 ### Scans — Synchronous
 
@@ -266,14 +271,28 @@ npm run dev
 
 `cron_expr` values: `daily` · `weekly` · `monthly`
 
-### Reports
+### Reports & Exports
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/reports` | User report list |
+| `GET` | `/api/reports` | Paginated user report list |
 | `GET` | `/api/reports/<token>` | Report detail with full ARIA analysis |
 | `DELETE` | `/api/reports/<token>` | Delete report |
-| `GET` | `/api/reports/<token>/pdf` | Download PDF |
+| `GET` | `/download_report?token=<t>` | Export report as PDF (supports `&lang=ar` / `&lang=en`) |
+| `GET` | `/download_report_csv?token=<t>` | Export report as CSV |
+| `GET` | `/download_report_md?token=<t>` | Export report as Markdown |
+| `GET` | `/download_report_json?token=<t>` | Export report as structured JSON |
+| `POST` | `/api/reports/<token>/share` | Generate public share link (`share_token`) |
+| `GET` | `/public/report/<share_token>` | Public read-only report view (unauthenticated) |
+
+### Domain Ownership Verification
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/domain/request` | Request verification token for target domain |
+| `POST` | `/api/domain/verify/dns` | Verify domain via DNS TXT record `_securax.<domain>` |
+| `POST` | `/api/domain/verify/meta` | Verify domain via HTML `<meta>` tag |
+| `GET` | `/api/domain/status?domain=<d>` | Query domain verification badge status |
 
 ### Admin *(admin role only)*
 
@@ -355,14 +374,19 @@ pytest tests/ -v
 pytest tests/ --cov=. --cov-report=term-missing --cov-report=html
 
 # Individual test suites
-pytest tests/test_risk_engine.py -v    # 12 tests — CVSS risk scoring engine
-pytest tests/test_database.py -v       # 18 tests — database CRUD operations
-pytest tests/test_job_manager.py -v    # 10 tests — background job persistence
-pytest tests/test_auth.py -v           # 8 tests  — auth, TOTP, rate limiting
-pytest tests/test_api.py -v            # 12 tests — API endpoint integration
+pytest tests/test_scanners_unit.py -v         # 29 tests — Scanner unit tests (Bandit, Semgrep, DAST, SSL, etc.)
+pytest tests/test_web_scanner.py -v           # 19 tests — Web scanner integration, security headers, crawlers
+pytest tests/test_database.py -v              # 18 tests — Database CRUD, schema migrations, reporting layer
+pytest tests/test_api.py -v                   # 15 tests — API endpoints, CORS, scan dispatch
+pytest tests/test_risk_engine.py -v           # 14 tests — CVSS v3.1 multi-dimensional risk scoring engine
+pytest tests/test_job_manager.py -v           # 13 tests — Background scan job queue and persistence
+pytest tests/test_aria.py -v                  # 10 tests — ARIA AI agent, NVD enrichment, ATT&CK mapping
+pytest tests/test_auth.py -v                  # 10 tests — Authentication, TOTP 2FA, rate limiting, session security
+pytest tests/test_forms.py -v                 #  8 tests — Form input validation & security checks
+pytest tests/test_risk_engine_benchmark.py -v #  4 tests — Risk engine benchmark & floor guarantee tests
 ```
 
-**Total: 60+ tests** covering risk engine, database layer, background job queue, authentication flows, and API endpoints.
+**Total: 140 collected pytest tests** across 10 test modules, providing comprehensive automated test coverage for scanner engines, risk calculation, database layer, background job queue, and authentication workflows.
 
 ---
 
@@ -467,7 +491,7 @@ HexaGuard/
 │   │   ├── docker_scanner.py
 │   │   ├── dns_scanner.py
 │   │   └── wordpress_scanner.py
-│   ├── tests/                  # 60+ pytest test cases
+│   ├── tests/                  # 140 pytest test cases across 10 test suites
 │   └── migrations/             # Database migration scripts
 ├── frontend/
 │   ├── src/
