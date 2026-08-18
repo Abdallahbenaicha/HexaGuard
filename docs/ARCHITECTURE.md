@@ -42,14 +42,14 @@ used independently as a headless API for research automation.
 │  React Router 7 · Axios · i18n (AR/EN)                        │
 └──────────────────────────┬─────────────────────────────────────┘
                            │  HTTPS · JSON REST API
-                           │  Cookie-based session auth
+                           │  Session cookie + Bearer API token auth
 ┌──────────────────────────▼─────────────────────────────────────┐
 │                   Backend (Flask API)                           │
 │                                                                │
 │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │
 │  │ Blueprints  │  │ ARIA Agent  │  │  Scanner Engines      │   │
 │  │  auth       │  │ (ai_agent)  │  │  web_scanner.py       │   │
-│  │  scans      │  │ Gemini 1.5  │  │  dast_scanner.py      │   │
+│  │  scans      │  │ Gemini 2.x  │  │  dast_scanner.py      │   │
 │  │  admin      │  │ NVD API     │  │  sast_scanner.py      │   │
 │  │  reports    │  │ ATT&CK maps │  │  netscan_scanner.py   │   │
 │  │  ai_routes  │  └─────────────┘  │  ssl_scanner.py       │   │
@@ -158,11 +158,12 @@ migration path exists via the `RATELIMIT_STORAGE_URI` config.
 ### `ai_agent.py` — ARIA Intelligence Agent
 Five-stage autonomous agent: (1) NVD CVE enrichment, (2) MITRE ATT&CK mapping,
 (3) attack chain generation, (4) remediation planning, (5) compliance assessment.
-Calls Google Gemini 1.5 Flash API. Gracefully degrades if API key is absent.
+Calls Google Gemini 2.x API (`gemini-2.5-flash-lite` primary, falling back to `gemini-2.0-flash-lite` and `gemini-2.0-flash`). Gracefully degrades if API key is absent.
 
-### `report_generator.py` — PDF Report Generator
-Generates professional PDF reports using ReportLab with Arabic reshaping
-(`arabic-reshaper` + `python-bidi`). Supports both RTL (Arabic) and LTR (English).
+### `report_generator.py` — Multi-Format Report Generator
+Generates reports across four formats: PDF using ReportLab with Arabic
+reshaping (`arabic-reshaper` + `python-bidi`) supporting RTL (Arabic) and LTR (English),
+as well as CSV, Markdown, and structured JSON. Provides public share links via 128-bit tokens.
 
 ### `middleware.py` — Security Middleware
 Registers `after_request` hooks for security headers:

@@ -307,6 +307,11 @@ def start_scan():
 @require_scanner("web")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
+# CSRF exemption rationale: JSON API bridge consumed by React SPA (useScanner.js)
+# using application/json Content-Type. Protected against cross-origin CSRF via:
+# (1) CORS origin whitelist (ALLOWED_ORIGINS) with preflight required for application/json,
+# (2) @require_permission("run_scan") session authentication check,
+# (3) Rate limiting (5/minute), and (4) Strict target-locking & SSRF validation.
 @csrf.exempt
 def scan_url_bridge():
     data          = request.get_json(silent=True) or {}

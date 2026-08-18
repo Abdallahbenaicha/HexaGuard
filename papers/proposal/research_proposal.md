@@ -45,7 +45,7 @@ SecuraX is a **multi-dimensional vulnerability risk prioritization platform** th
    ```
    Risk Score = f(CVSS_severity, exploitability, exposure, business_context, asset_criticality)
    ```
-3. **Explains** the risk via ARIA, an AI agent (Gemini 1.5 Flash) that generates
+3. **Explains** the risk via ARIA, an AI agent (Google Gemini 2.x) that generates
    remediation guidance mapped to GDPR/PCI-DSS/ISO 27001 compliance requirements
 4. **Measures** itself via a research benchmark that compares the engine against
    four baselines on a ground-truth dataset

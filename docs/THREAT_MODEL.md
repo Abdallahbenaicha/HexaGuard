@@ -31,7 +31,7 @@ Assets are ordered by business impact (highest first).
 | AS-01 | Scan Results Database | All vulnerability findings, risk scores, remediation guidance | **High** | **High** | Medium |
 | AS-02 | User Credentials | Admin and analyst account hashes | **High** | **High** | Medium |
 | AS-03 | Target Configuration | URLs, IPs, credentials of scanned systems | **High** | High | Low |
-| AS-04 | AI Agent (ARIA) API Key | Gemini 1.5 Flash API key | High | Medium | Low |
+| AS-04 | AI Agent (ARIA) API Key | Gemini 2.x API key (`gemini-2.5-flash-lite` / `gemini-2.0-flash`) | High | Medium | Low |
 | AS-05 | NVD API Key | NIST vulnerability feed access | Medium | Medium | Low |
 | AS-06 | Risk Engine Logic | The scoring algorithm (competitive advantage) | Medium | **High** | Medium |
 | AS-07 | Session Tokens | Active user sessions | **High** | High | Low |
@@ -100,6 +100,8 @@ Assets are ordered by business impact (highest first).
 | `/scans/new` | POST | SSRF via target URL | URL validation, private IP blocklist |
 | `/scans/<id>/results` | GET | IDOR — access other users' results | User-scoped query |
 | `/reports/<id>` | GET | Information disclosure | Auth required, ownership check |
+| `/api/reports/<token>/share` | POST | Unauthorized share link creation | Auth required, owner/admin check, 128-bit UUID4 generation |
+| `/public/report/<share_token>` | GET | Token enumeration / info disclosure | 128-bit random token entropy, rate limiting, redacted read-only view |
 
 ### 5.3 — AI Agent (ARIA)
 
@@ -156,6 +158,7 @@ storage. The schema validates severity, check name, and evidence fields.
 | IDOR on scan results | AS-01 | User-scoped DB queries |
 | Error message leakage | All | Generic error messages in production |
 | API key in logs | AS-04, AS-05 | Log redaction middleware |
+| Public share token brute force | AS-01 | Cryptographically random UUID4 (128-bit entropy), rate limiting, redacted public payload |
 
 ### Denial of Service
 | Threat | Asset | Control |
