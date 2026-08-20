@@ -485,10 +485,48 @@ def _bootstrap_admin():
     that already exists so existing users / passwords are never overwritten.
     This means the accounts always survive a Render restart (fresh ephemeral DB)
     and won't clobber manually-added users.
+
+    SEC-02 remediation (2026-08-20): Hardcoded fallback passwords removed.
+    In production, SECURAX_ADMIN_PASSWORD and SECURAX_ANALYST_PASSWORD MUST
+    be set as environment variables or the application will refuse to start.
+    In development/testing, a prominent warning is emitted — no silent fallback.
     """
     import os
-    admin_pw   = os.environ.get("SECURAX_ADMIN_PASSWORD",   "").strip() or "Admin@2024!"
-    analyst_pw = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip() or "Analyst@2024!"
+    import secrets as _secrets
+
+    flask_env = os.environ.get("FLASK_ENV", "development").strip().lower()
+    is_production = flask_env == "production"
+
+    admin_pw   = os.environ.get("SECURAX_ADMIN_PASSWORD",   "").strip()
+    analyst_pw = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip()
+
+    if is_production:
+        # Hard stop — no silent fallback in production
+        if not admin_pw:
+            raise RuntimeError(
+                "[SEC-02] SECURAX_ADMIN_PASSWORD must be set as an environment variable "
+                "in production. Refusing to start with a known or empty password."
+            )
+        if not analyst_pw:
+            raise RuntimeError(
+                "[SEC-02] SECURAX_ANALYST_PASSWORD must be set as an environment variable "
+                "in production. Refusing to start with a known or empty password."
+            )
+    else:
+        # Dev/test: use env vars if provided, otherwise generate a random one-time
+        # password and log it loudly — never use a well-known public string.
+        if not admin_pw:
+            admin_pw = _secrets.token_urlsafe(24)
+            logger.warning(
+                "[SEC-02] SECURAX_ADMIN_PASSWORD not set — using one-time random password "
+                "for 'admin' account: %s  (set the env var to control this)", admin_pw
+            )
+        if not analyst_pw:
+            analyst_pw = _secrets.token_urlsafe(24)
+            logger.warning(
+                "[SEC-02] SECURAX_ANALYST_PASSWORD not set — using one-time random password "
+                "for 'analyst' account: %s  (set the env var to control this)", analyst_pw
+            )
 
     now     = datetime.now(timezone.utc).isoformat()
     created = []
@@ -525,6 +563,7 @@ def _bootstrap_admin():
             "bootstrapped missing accounts: %s — change default passwords immediately!",
             ", ".join(created),
         )
+
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
