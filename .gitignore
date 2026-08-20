@@ -32,6 +32,10 @@ backend/venv/
 *.pem
 *.key
 secrets/
+# Explicit backend secrets — never commit these (SEC-01 remediation 2026-08-20)
+backend/.env
+backend/.env.*
+!backend/.env.example
 
 # ── Build artifacts ────────────────────────────────────────────
 *.egg-info/
