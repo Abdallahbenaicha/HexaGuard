@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import bcrypt
 
@@ -182,6 +182,8 @@ _SCHEMA_SQLITE = """
         result_json      TEXT    NOT NULL,
         original_content TEXT,
         stored_at        TEXT    NOT NULL,
+        share_token      TEXT,
+        share_expires_at TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
     );
     CREATE TABLE IF NOT EXISTS scan_vulnerabilities (
@@ -465,8 +467,9 @@ def init_db():
         "ALTER TABLE users ADD COLUMN api_token TEXT",
         "ALTER TABLE users ADD COLUMN api_token_created TEXT",
         "ALTER TABLE users ADD COLUMN allowed_scanners TEXT DEFAULT NULL",
-        # Public shareable report links
+        # Public shareable report links (SEC-04)
         "ALTER TABLE scan_reports ADD COLUMN share_token TEXT",
+        "ALTER TABLE scan_reports ADD COLUMN share_expires_at TEXT",
     ]:
         try:
             db.execute(migration)
@@ -1350,20 +1353,32 @@ def get_monthly_usage_report() -> dict:
 
 # ── Shareable Report Links ────────────────────────────────────────────────────
 
-def get_or_create_share_token(report_token: str) -> str | None:
+def get_or_create_share_token(report_token: str, expires_in_days: int = 7) -> str | None:
     row = _get_db().execute(
-        "SELECT share_token FROM scan_reports WHERE token=?", (report_token,)
+        "SELECT share_token, share_expires_at FROM scan_reports WHERE token=?", (report_token,)
     ).fetchone()
     if not row:
         return None
-    existing = dict(row).get("share_token")
+    d = dict(row)
+    existing = d.get("share_token")
+    expires_at = d.get("share_expires_at")
+    now_dt = datetime.now(timezone.utc)
     if existing:
-        return existing
+        if expires_at:
+            try:
+                exp_dt = datetime.fromisoformat(expires_at)
+                if exp_dt > now_dt:
+                    return existing
+            except (ValueError, TypeError):
+                pass
+        else:
+            return existing
     share_token = uuid.uuid4().hex
+    new_expires_at = (now_dt + timedelta(days=expires_in_days)).isoformat()
     try:
         _exec(
-            "UPDATE scan_reports SET share_token=? WHERE token=?",
-            (share_token, report_token),
+            "UPDATE scan_reports SET share_token=?, share_expires_at=? WHERE token=?",
+            (share_token, new_expires_at, report_token),
         )
         return share_token
     except Exception:
@@ -1378,6 +1393,15 @@ def get_report_by_share_token(share_token: str) -> dict | None:
         if not row:
             return None
         d = dict(row)
+        expires_at = d.get("share_expires_at")
+        if expires_at:
+            try:
+                exp_dt = datetime.fromisoformat(expires_at)
+                if datetime.now(timezone.utc) > exp_dt:
+                    logger.warning("Access denied: share token expired: %s", share_token[:8])
+                    return None
+            except (ValueError, TypeError):
+                pass
         d["result"] = json.loads(d["result_json"])
         return d
     except Exception:

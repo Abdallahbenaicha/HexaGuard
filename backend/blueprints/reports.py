@@ -962,11 +962,15 @@ def api_generate_share_link(token):
 
 
 @reports_bp.route("/public/report/<share_token>")
+@limiter.limit("20/minute")
 def public_report(share_token):
     """Public read-only report view — no login required. Used for prospect demos."""
+    logger.info("Public report access attempt: token=%s ip=%s", share_token[:8] if share_token else "none", request.remote_addr)
     data = get_report_by_share_token(share_token)
     if not data:
+        logger.warning("Public report access denied or expired: token=%s ip=%s", share_token[:8] if share_token else "none", request.remote_addr)
         return jsonify({"error": "Report not found or link expired."}), 404
+    logger.info("Public report access granted: token=%s target=%s scan_type=%s ip=%s", share_token[:8], data.get("target"), data.get("scan_type"), request.remote_addr)
     result = data.get("result", {})
     vulns  = result.get("vulnerabilities", [])
     return jsonify({
