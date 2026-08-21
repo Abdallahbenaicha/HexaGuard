@@ -51,7 +51,7 @@ bandit==1.8.3
 google-genai>=2.5.0,<4.0.0
 
 # ── Environment & Config ───────────────────────────────
-python-dotenv==1.2.1
+python-dotenv>=1.2.2
 
 # ── Production Server ──────────────────────────────────
 gunicorn==25.1.0
