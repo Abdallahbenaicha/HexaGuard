@@ -14,8 +14,8 @@ workers     = 1
 worker_class = "gthread"
 threads     = 4          # async I/O for concurrent scan + AI requests
 
-# Timeouts — scans can take several minutes
-timeout     = 600        # 10 min hard limit per request (long DAST/nmap scans)
+# Timeouts — tuned to longest scanner execution (DAST Nikto proc limit 390s + 30s margin = 420s)
+timeout     = 420        # 7 min limit per request (reduced from 600s to mitigate connection exhaustion)
 keepalive   = 5
 graceful_timeout = 30
 
