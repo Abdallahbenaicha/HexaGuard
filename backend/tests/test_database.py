@@ -91,6 +91,23 @@ class TestUpdateUser:
         updated = db.get_user_by_id(user["id"])
         assert updated["password_hash"] != user["password_hash"]
 
+    def test_disallowed_field_rejected(self):
+        db.create_user("jack", "Password1!")
+        user = db.get_user_by_username("jack")
+        ok, msg = db.update_user(user["id"], unauthorized_field="evil_value")
+        assert ok is False
+        assert "Disallowed fields" in msg
+        assert "unauthorized_field" in msg
+
+    def test_allowed_whitelist_kwargs_succeed(self):
+        db.create_user("karen", "Password1!")
+        user = db.get_user_by_username("karen")
+        ok, msg = db.update_user(user["id"], failed_attempts=3, locked_target="example.com")
+        assert ok is True
+        updated = db.get_user_by_id(user["id"])
+        assert updated["failed_attempts"] == 3
+        assert updated["locked_target"] == "example.com"
+
 
 class TestAuditLog:
     def test_log_event_created(self):

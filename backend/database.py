@@ -649,10 +649,28 @@ def get_allowed_scanners(user_id: int) -> list[str] | None:
         return None
 
 
+# ── Allowed fields whitelist for user updates (ARCH-01) ──────────────────────
+_ALLOWED_USER_FIELDS = {
+    "role",
+    "permissions",
+    "is_active",
+    "password_hash",
+    "failed_attempts",
+    "locked_until",
+    "locked_target",
+    "allowed_scanners",
+}
+
+
 def update_user(uid: int, role=None, permissions=None, is_active=None,
                 new_password=None, failed_attempts=None, locked_until=None,
                 reset_locked_target=False, locked_target_value=_UNSET,
-                allowed_scanners=_UNSET, **_) -> tuple[bool, str]:
+                allowed_scanners=_UNSET, **kwargs) -> tuple[bool, str]:
+    if kwargs:
+        disallowed = set(kwargs.keys()) - _ALLOWED_USER_FIELDS
+        if disallowed:
+            return False, f"Disallowed fields: {', '.join(sorted(disallowed))}"
+
     fields, values = [], []
     if role            is not None: fields.append("role=?");             values.append(role)
     if permissions     is not None: fields.append("permissions=?");      values.append(json.dumps(permissions))
@@ -670,6 +688,24 @@ def update_user(uid: int, role=None, permissions=None, is_active=None,
         # None → unrestricted (NULL in DB), list → JSON whitelist
         fields.append("allowed_scanners=?")
         values.append(None if allowed_scanners is None else json.dumps(list(allowed_scanners)))
+
+    for k, v in kwargs.items():
+        if k == "password_hash" and v is not None:
+            fields.append("password_hash=?")
+            values.append(v)
+        elif k in {"role", "locked_target"} and v is not None:
+            fields.append(f"{k}=?")
+            values.append(v)
+        elif k in {"is_active", "failed_attempts"} and v is not None:
+            fields.append(f"{k}=?")
+            values.append(int(v))
+        elif k == "locked_until" and v is not None:
+            fields.append("locked_until=?")
+            values.append(v)
+        elif k in {"permissions", "allowed_scanners"} and v is not None:
+            fields.append(f"{k}=?")
+            values.append(json.dumps(v) if isinstance(v, (list, dict)) else v)
+
     if not fields:
         return True, ""
     values.append(uid)
