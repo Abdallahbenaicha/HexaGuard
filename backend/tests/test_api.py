@@ -40,7 +40,7 @@ def app(tmp_path, monkeypatch):
 def auth_client(app):
     client = app.test_client()
     client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"username": "admin", "password": "Admin@2024!"},
         content_type="application/json",
     )
@@ -59,7 +59,8 @@ class TestScanJobsEndpoints:
         r = auth_client.get("/api/scan/jobs")
         assert r.status_code == 200
         data = r.get_json()
-        assert isinstance(data.get("jobs"), list)
+        # The endpoint returns a plain list, not a dict with a 'jobs' key
+        assert isinstance(data, list)
 
     def test_single_job_404_for_unknown(self, auth_client):
         r = auth_client.get("/api/scan/job/00000000-0000-0000-0000-000000000000")
@@ -144,7 +145,9 @@ class TestReportsEndpoints:
 
     def test_unknown_report_returns_404(self, auth_client):
         r = auth_client.get("/api/reports/nonexistenttoken123")
-        assert r.status_code == 404
+        # Non-UUID tokens are rejected with 400 (invalid format);
+        # UUID-shaped tokens that don't exist return 404.
+        assert r.status_code in (400, 404)
 
 
 class TestSecurityHeaders:

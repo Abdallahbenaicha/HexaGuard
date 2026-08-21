@@ -45,7 +45,7 @@ def client(app):
 
 def _login(client, username="admin", password="Admin@2024!"):
     return client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"username": username, "password": password},
         content_type="application/json",
     )
@@ -69,7 +69,7 @@ class TestLogin:
         assert r.status_code in (401, 400)
 
     def test_missing_fields_rejected(self, client):
-        r = client.post("/api/login", json={}, content_type="application/json")
+        r = client.post("/api/auth/login", json={}, content_type="application/json")
         assert r.status_code in (400, 422)
 
 
@@ -99,7 +99,7 @@ class TestProtectedRoute:
 class TestLogout:
     def test_logout_clears_session(self, client):
         _login(client)
-        r = client.post("/api/logout")
+        r = client.post("/api/auth/logout")
         assert r.status_code == 200
         # After logout, dashboard should require auth again
         r2 = client.get("/api/dashboard")
@@ -109,7 +109,7 @@ class TestLogout:
 class TestProfile:
     def test_profile_returns_user_info(self, client):
         _login(client)
-        r = client.get("/api/profile")
+        r = client.get("/api/auth/me")
         assert r.status_code == 200
         data = r.get_json()
         assert "username" in data or "user" in data
