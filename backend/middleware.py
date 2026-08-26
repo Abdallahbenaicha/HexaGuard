@@ -13,6 +13,24 @@ _IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
 def register_middleware(app) -> None:
     @app.before_request
+    def handle_options_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            origin = request.headers.get("Origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Headers"] = (
+                    request.headers.get("Access-Control-Request-Headers")
+                    or "Content-Type, X-CSRFToken, Authorization, Accept"
+                )
+                response.headers["Access-Control-Allow-Methods"] = (
+                    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                )
+                response.headers["Access-Control-Max-Age"] = "600"
+            return response
+
+    @app.before_request
     def set_csp_nonce():
         g.csp_nonce = secrets.token_hex(16)
 
@@ -43,6 +61,11 @@ def register_middleware(app) -> None:
             response.headers["X-CSP-Nonce"] = nonce
         if "text/html" in response.headers.get("Content-Type", ""):
             response.headers["Content-Type"] = "text/html; charset=utf-8"
+
+        origin = request.headers.get("Origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
 
         # Request tracing — echo back the client's ID or generate one
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]

@@ -1,3 +1,24 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://abdallahbenaicha-hexaguard.hf.space/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://abdallahbenaicha-hexaguard.hf.space/health"
+    },
+    {
+      "source": "/download/:path*",
+      "destination": "https://abdallahbenaicha-hexaguard.hf.space/download/:path*"
+    },
+    {
+      "source": "/static/:path*",
+      "destination": "https://abdallahbenaicha-hexaguard.hf.space/static/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
