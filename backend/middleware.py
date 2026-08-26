@@ -17,7 +17,7 @@ def register_middleware(app) -> None:
         if request.method == "OPTIONS":
             response = app.make_default_options_response()
             origin = request.headers.get("Origin")
-            if origin:
+            if origin and (origin in ALLOWED_ORIGINS or "vercel.app" in origin or "hf.space" in origin or "localhost" in origin or "127.0.0.1" in origin):
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Allow-Headers"] = (
@@ -45,7 +45,7 @@ def register_middleware(app) -> None:
 
         nonce = getattr(g, "csp_nonce", "")
         _frontend_origins = " ".join(
-            o for o in ALLOWED_ORIGINS if o.startswith("https://")
+            o for o in ALLOWED_ORIGINS if isinstance(o, str) and o.startswith("https://")
         ) or "'self'"
         _connect_src = f"'self' {_frontend_origins}" if _IS_PRODUCTION else "'self'"
         response.headers["Content-Security-Policy"] = (
@@ -63,7 +63,7 @@ def register_middleware(app) -> None:
             response.headers["Content-Type"] = "text/html; charset=utf-8"
 
         origin = request.headers.get("Origin")
-        if origin:
+        if origin and (origin in ALLOWED_ORIGINS or "vercel.app" in origin or "hf.space" in origin or "localhost" in origin or "127.0.0.1" in origin):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
 

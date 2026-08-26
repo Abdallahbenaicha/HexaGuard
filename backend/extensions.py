@@ -21,22 +21,28 @@ limiter       = Limiter(
     default_limits=["500/hour", "200/minute"],
 )
 
-_ENV_ORIGINS = [
-    o.strip()
-    for o in os.environ.get("ALLOWED_ORIGINS", "").split(",")
-    if o.strip()
-]
+_DEFAULT_ORIGINS = (
+    # Production frontends
+    "https://hexa-gaurd.vercel.app,"
+    "https://hexaguard.vercel.app,"
+    "https://securax.vercel.app,"
+    "https://abdallahbenaicha-hexaguard.hf.space,"
+    # Local development
+    "http://localhost:3000,"
+    "http://localhost:3001,"
+    "http://localhost:5173,"
+    "http://127.0.0.1:3000,"
+    "http://127.0.0.1:3001,"
+    "http://127.0.0.1:5173"
+)
 
-ALLOWED_ORIGINS = [
-    re.compile(r"^https://.*\.vercel\.app$"),
-    re.compile(r"^https://.*\.hf\.space$"),
-    re.compile(r"^http://localhost(:\d+)?$"),
-    re.compile(r"^http://127\.0\.0\.1(:\d+)?$"),
-    "https://hexa-gaurd.vercel.app",
-    "https://hexaguard.vercel.app",
-    "https://securax.vercel.app",
-    "https://abdallahbenaicha-hexaguard.hf.space",
-] + _ENV_ORIGINS
+# Also add any extra origins from the environment variable
+_ENV_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = list({
+    o.strip()
+    for o in (_DEFAULT_ORIGINS + "," + _ENV_ORIGINS).split(",")
+    if o.strip()
+})
 
 
 def init_extensions(app) -> None:
