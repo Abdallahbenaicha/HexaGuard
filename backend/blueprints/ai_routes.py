@@ -6,9 +6,9 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from ai_agent import get_aria
+from database import get_report, log_event
 from extensions import limiter
 from utils import _UUID_RE, require_permission
-from database import get_report, log_event
 
 logger = logging.getLogger(__name__)
 

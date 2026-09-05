@@ -8,10 +8,11 @@ Works locally and on Render (use the Render Shell tab to run it).
 
 import argparse
 import os
-import sys
 import sqlite3
-import bcrypt
+import sys
 from pathlib import Path
+
+import bcrypt
 
 DB_PATH = os.environ.get("DATABASE_URL", "securax.db")
 # If DATABASE_URL starts with sqlite:/// strip it

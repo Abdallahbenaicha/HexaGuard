@@ -9,7 +9,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, request, url_for, Response
+from flask import Flask, Response, jsonify, redirect, request, url_for
 
 from extensions import init_extensions, login_manager
 from middleware import register_middleware
@@ -87,14 +87,14 @@ def create_app() -> Flask:
         return jsonify({"status": "ok", "service": "SecuraX API"}), 200
 
     # ── Blueprints ───────────────────────────────────────────────────────────
-    from blueprints.auth                import auth_bp
-    from blueprints.scans               import scans_bp
-    from blueprints.reports             import reports_bp
-    from blueprints.admin               import admin_bp
-    from blueprints.ai_routes           import ai_bp
-    from blueprints.scheduled           import scheduled_bp
-    from blueprints.extra_scans         import extra_bp
+    from blueprints.admin import admin_bp
+    from blueprints.ai_routes import ai_bp
+    from blueprints.auth import auth_bp
     from blueprints.domain_verification import domain_bp
+    from blueprints.extra_scans import extra_bp
+    from blueprints.reports import reports_bp
+    from blueprints.scans import scans_bp
+    from blueprints.scheduled import scheduled_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)

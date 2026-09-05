@@ -7,7 +7,7 @@ survive server restarts.  An in-memory mirror is kept for fast reads.
 import logging
 import threading
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import database as db
 

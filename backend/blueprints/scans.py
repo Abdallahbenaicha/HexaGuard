@@ -12,20 +12,28 @@ import re
 import tempfile
 import time
 
-
 from flask import Blueprint, jsonify, render_template, request
+from flask_cors import cross_origin
 from flask_login import current_user, login_required
 
+import job_manager
 from database import (
-    get_system_stats, log_event, store_report,
-    check_and_consume_quota, get_subscription, PLANS,
-    store_network_snapshot, get_last_network_snapshot,
+    PLANS,
+    check_and_consume_quota,
+    get_last_network_snapshot,
+    get_subscription,
+    get_system_stats,
+    log_event,
+    store_network_snapshot,
+    store_report,
 )
 from extensions import csrf, limiter
 from forms import ScanForm
-import job_manager
 from report_generator import (
-    attach_risk_breakdown, build_network_recon, executive_summary, vulns_to_findings,
+    attach_risk_breakdown,
+    build_network_recon,
+    executive_summary,
+    vulns_to_findings,
 )
 from risk_engine import calculate_risk_v2
 from scanners.dast_scanner import run_dast_scan
@@ -36,8 +44,13 @@ from scanners.server_ext import run_server_scan
 from scanners.server_int import generate_fixed_config, run_server_config_scan
 from scanners.ssl_scanner import run_ssl_scan
 from scanners.web_scanner import run_web_scan
-from utils import _check_target_lock, _is_private_ip, require_permission, require_scanner, validate_upload
-from flask_cors import cross_origin
+from utils import (
+    _check_target_lock,
+    _is_private_ip,
+    require_permission,
+    require_scanner,
+    validate_upload,
+)
 
 logger = logging.getLogger(__name__)
 

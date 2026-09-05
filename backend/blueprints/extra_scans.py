@@ -15,10 +15,10 @@ from flask_login import current_user, login_required
 
 from database import log_event, store_report
 from extensions import csrf, limiter
-from report_generator import attach_risk_breakdown, vulns_to_findings, executive_summary
+from report_generator import attach_risk_breakdown, executive_summary, vulns_to_findings
 from risk_engine import calculate_risk_v2
-from scanners.docker_scanner    import run_docker_scan
-from scanners.dns_scanner       import run_dns_scan
+from scanners.dns_scanner import run_dns_scan
+from scanners.docker_scanner import run_docker_scan
 from scanners.wordpress_scanner import run_wordpress_scan
 from utils import _check_target_lock, require_permission, require_scanner, validate_upload
 

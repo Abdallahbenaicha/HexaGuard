@@ -272,8 +272,8 @@ def _network_section_md(result: dict, lang: str) -> list[str]:
         lines = [
             "## ملخص استكشاف الشبكة",
             "",
-            f"| المقياس | القيمة |",
-            f"|--------|--------|",
+            "| المقياس | القيمة |",
+            "|--------|--------|",
             f"| الهدف | `{recon['ip']}` |",
             f"| نظام التشغيل | {recon['os']} |",
             f"| المضيفين النشطين | {recon['hosts_up']} / {recon['total_hosts']} |",
@@ -297,8 +297,8 @@ def _network_section_md(result: dict, lang: str) -> list[str]:
     lines = [
         "## Network Reconnaissance Summary",
         "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Target | `{recon['ip']}` |",
         f"| Operating System | {recon['os']} |",
         f"| Hosts Up | {recon['hosts_up']} / {recon['total_hosts']} |",

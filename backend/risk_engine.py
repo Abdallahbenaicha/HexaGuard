@@ -29,8 +29,8 @@ References:
 #: future researchers can reproduce scores with the exact engine version.
 VERSION: str = "3.0.0"
 
-import math
 import logging
+import math
 import re
 import threading
 import time

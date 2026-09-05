@@ -147,8 +147,8 @@ def api_domain_request():
             "meta": {
                 "tag": f'<meta name="securax-verification" content="{token}">',
                 "instructions": (
-                    f"Ajoutez cette balise dans le <head> de votre page d'accueil "
-                    f"puis cliquez sur 'Vérifier'."
+                    "Ajoutez cette balise dans le <head> de votre page d'accueil "
+                    "puis cliquez sur 'Vérifier'."
                 ),
             },
         },

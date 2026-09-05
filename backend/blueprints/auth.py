@@ -13,17 +13,27 @@ import re
 import bcrypt
 import pyotp
 import qrcode
-
 from flask import (
-    Blueprint, flash, jsonify, redirect, render_template,
-    request, session, url_for,
+    Blueprint,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
 )
 from flask_login import current_user, login_required, login_user, logout_user
 
 from database import (
-    create_user, get_user_by_id, log_event,
-    update_last_login, update_user, update_user_totp,
-    set_api_token, revoke_api_token,
+    create_user,
+    get_user_by_id,
+    log_event,
+    revoke_api_token,
+    set_api_token,
+    update_last_login,
+    update_user,
+    update_user_totp,
 )
 from extensions import limiter
 from forms import ChangePasswordForm, LoginForm, TOTPForm, check_password_complexity

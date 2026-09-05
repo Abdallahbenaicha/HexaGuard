@@ -4,6 +4,7 @@ Flask-WTF forms with input validation.
 """
 
 import re
+
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileSize
 from wtforms import BooleanField, PasswordField, RadioField, StringField

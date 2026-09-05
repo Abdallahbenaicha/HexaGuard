@@ -12,23 +12,41 @@ import json
 import logging
 
 from flask import (
-    Blueprint, Response, current_app, jsonify, redirect,
-    render_template, request, url_for,
+    Blueprint,
+    Response,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
 )
 from flask_login import current_user, login_required
 
 from database import (
-    delete_report, get_all_dashboard_stats, get_all_reports,
-    get_dashboard_stats, get_report, get_user_reports, log_event,
-    store_report, get_or_create_share_token, get_report_by_share_token,
+    delete_report,
+    get_all_dashboard_stats,
+    get_all_reports,
+    get_dashboard_stats,
+    get_or_create_share_token,
+    get_report,
+    get_report_by_share_token,
     get_subscription,
+    get_user_reports,
+    log_event,
+    store_report,
 )
 from extensions import limiter
 from forms import ScanForm
 from report_generator import (
-    build_network_recon, count_severities, executive_summary,
-    generate_csv_rows, generate_markdown_report, normalize_api_report,
-    risk_level_from_score, strip_md_for_pdf,
+    build_network_recon,
+    count_severities,
+    executive_summary,
+    generate_csv_rows,
+    generate_markdown_report,
+    normalize_api_report,
+    risk_level_from_score,
+    strip_md_for_pdf,
 )
 from scanners.server_int import generate_fixed_config
 from utils import _UUID_RE
@@ -205,6 +223,7 @@ def download_report_pdf():
 
     try:
         import os as _os
+
         from reportlab.lib import colors as rl_colors
         from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
         from reportlab.lib.pagesizes import A4
@@ -213,7 +232,12 @@ def download_report_pdf():
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+            HRFlowable,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
         )
 
         _F  = "Helvetica"
@@ -303,8 +327,8 @@ def download_report_pdf():
         def _p(text, style):
             return Paragraph(_safe(text), style)
 
-        body  = _ps("body",  fontSize=9,  leading=13)
-        small = _ps("small", fontSize=7,  leading=10, textColor=C_MUTED)
+        _ps("body",  fontSize=9,  leading=13)
+        _ps("small", fontSize=7,  leading=10, textColor=C_MUTED)
         lbl   = _ps("lbl",   fontSize=8,  fontName=_FB, textColor=C_MUTED)
         val   = _ps("val",   fontSize=9,  fontName=_FB, textColor=C_NAVY)
         rval  = _ps("rval",  fontSize=9,  fontName=_FB, textColor=risk_color)

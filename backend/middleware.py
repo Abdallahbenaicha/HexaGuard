@@ -110,6 +110,7 @@ def register_middleware(app) -> None:
     @app.errorhandler(Exception)
     def handle_unexpected(e):
         import logging
+
         from flask import jsonify
         logging.getLogger(__name__).exception("Unexpected server error")
         return jsonify({"error": "Internal server error."}), 500
