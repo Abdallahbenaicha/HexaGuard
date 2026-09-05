@@ -48,10 +48,13 @@ try:
         from google import genai as _genai_mod
         _genai_client = _genai_mod.Client(api_key=_GEMINI_KEY)
         logger.info("ARIA: Gemini client initialised ✓ (key=...%s)", _GEMINI_KEY[-6:])
+        _GENAI_AVAILABLE = True
     else:
         logger.warning("ARIA: GEMINI_API_KEY not set — running in offline mode.")
+        _GENAI_AVAILABLE = False
 except Exception as _e:
     logger.warning("ARIA: Gemini init failed — %s", _e)
+    _GENAI_AVAILABLE = False
 
 # ── ARIA system prompt ────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """\
