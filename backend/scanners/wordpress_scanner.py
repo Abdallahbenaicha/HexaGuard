@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 

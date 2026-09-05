@@ -1,8 +1,10 @@
 """Tests for risk_engine.calculate_risk_v2()"""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from risk_engine import calculate_risk_v2, calculate_risk, RiskBreakdown
+from risk_engine import RiskBreakdown, calculate_risk, calculate_risk_v2
 
 
 def _scan(vulns, scan_type="web"):

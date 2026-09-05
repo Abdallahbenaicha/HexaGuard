@@ -363,7 +363,7 @@ def _check_follow_symlinks(parsed: list) -> list[ConfigFinding]:
         # التحقق من الخيارات مع الانتباه للعلامة -
         has_follow     = False
         has_owner_only = False
-        
+
         for opt in value.split():
             opt_lower = opt.lower()
             # تخطّ الخيارات المعطَّلة (تبدأ بـ -)
@@ -412,7 +412,7 @@ def _check_ssl_settings(parsed: list) -> list[ConfigFinding]:
                 findings.append(ConfigFinding(
                     check="weak_ssl_protocol",
                     severity=Severity.HIGH,
-                    title=f"بروتوكول SSL/TLS ضعيف مُفعَّل",
+                    title="بروتوكول SSL/TLS ضعيف مُفعَّل",
                     description="SSLv2/3 وTLS 1.0/1.1 عرضة لهجمات POODLE و BEAST.",
                     evidence=f"Line {line_num}: SSLProtocol {value}",
                     remediation=(
@@ -1405,7 +1405,7 @@ def _check_exec_cgi(parsed: list) -> list[ConfigFinding]:
                 evidence=f"Line {line_num}: Options {value}",
                 remediation=(
                     "غيّر إلى:\n"
-                    f"  Options -ExecCGI\n"
+                    "  Options -ExecCGI\n"
                     "أو أزل ExecCGI من القائمة"
                 ),
                 fixed_directive=f"Options {fixed_opts}" if fixed_opts.strip("-").strip() else "Options -ExecCGI",

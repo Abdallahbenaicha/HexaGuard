@@ -897,7 +897,7 @@ def _api_greynoise(ip: str | None) -> tuple[list[dict], dict]:
                     "critical",
                     f"GreyNoise classifies {ip} as malicious ({name}). "
                     "This IP is actively scanning the internet with malicious intent.",
-                    evidence=f"GreyNoise: noise=True, classification=malicious",
+                    evidence="GreyNoise: noise=True, classification=malicious",
                     check="greynoise",
                 ))
             elif noise:
@@ -1416,7 +1416,7 @@ def _local_response_body(resp: requests.Response) -> list[dict]:
         if re.search(pattern, body, re.IGNORECASE | re.DOTALL):
             vulns.append(_vuln(
                 f"Information disclosure: {description.split(' — ')[0]}", severity, description,
-                evidence=f"Pattern matched in HTTP response body",
+                evidence="Pattern matched in HTTP response body",
                 remediation="Disable debug mode. Use custom error pages. Never expose internal errors.",
                 check="disclosure",
             ))

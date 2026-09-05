@@ -6,15 +6,15 @@ Usage:
 
 Examples:
   python scripts/run_netscan.py 192.168.1.0/24 --internal --out myscan.json
-  
+
 Prerequisites:
   - nmap installed on system (apt install nmap on Linux, https://nmap.org on Windows)
   - python-nmap installed (pip install python-nmap)
 """
 import argparse
 import json
-import sys
 import logging
+import sys
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def main():
 
     logger.info(f"Starting netscan on target: {args.target}")
     logger.info(f"Options: deep={args.deep}, internal={args.internal}")
-    
+
     try:
         res = run_netscan_scan(args.target, deep=args.deep, internal=args.internal)
     except RuntimeError as e:

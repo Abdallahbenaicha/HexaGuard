@@ -51,8 +51,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from risk_engine import calculate_risk_v2, VERSION  # noqa: E402
-
+from risk_engine import VERSION, calculate_risk_v2  # noqa: E402
 
 # \u2500\u2500 Ground-truth dataset \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 # Each entry:
@@ -371,9 +370,9 @@ def _compute_metrics(predictions: list[str], ground_truth: list[str]) -> dict:
     classes = ["minimal", "low", "medium", "high", "critical"]
     metrics = {}
     for cls in classes:
-        tp = sum(1 for p, g in zip(predictions, ground_truth) if p == cls and g == cls)
-        fp = sum(1 for p, g in zip(predictions, ground_truth) if p == cls and g != cls)
-        fn = sum(1 for p, g in zip(predictions, ground_truth) if p != cls and g == cls)
+        tp = sum(1 for p, g in zip(predictions, ground_truth, strict=False) if p == cls and g == cls)
+        fp = sum(1 for p, g in zip(predictions, ground_truth, strict=False) if p == cls and g != cls)
+        fn = sum(1 for p, g in zip(predictions, ground_truth, strict=False) if p != cls and g == cls)
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1 = (

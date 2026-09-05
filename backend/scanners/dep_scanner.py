@@ -307,7 +307,7 @@ def _osv_batch_query(
         results  = resp.json().get("results", [])
         findings: list[DepFinding] = []
 
-        for pkg, res in zip(packages, results):
+        for pkg, res in zip(packages, results, strict=False):
             for vuln in res.get("vulns", []):
                 osv_id  = vuln.get("id", "")
                 aliases = [a for a in vuln.get("aliases", []) if a != osv_id]

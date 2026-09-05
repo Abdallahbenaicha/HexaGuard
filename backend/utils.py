@@ -239,7 +239,7 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
 
     # Block if target is already a private IP literal
     if _is_private_ip(host):
-        return False, f"Scanning private/internal IP addresses is not allowed."
+        return False, "Scanning private/internal IP addresses is not allowed."
 
     # Resolve hostname and check the resolved IP(s)
     try:
@@ -248,7 +248,7 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
             ip_str = item[4][0]
             if _is_private_ip(ip_str):
                 logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
-                return False, f"Target resolves to a private/internal IP address — not allowed."
+                return False, "Target resolves to a private/internal IP address — not allowed."
     except socket.gaierror:
         pass  # DNS failure — let the scanner handle it
 

@@ -1,8 +1,11 @@
 """Tests for ARIA ai_agent structured analysis output."""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from unittest.mock import patch
+
 from ai_agent import ARIA
 
 

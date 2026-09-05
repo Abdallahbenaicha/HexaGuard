@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Quick environment check for SecuraX."""
-import sys
 import subprocess
+import sys
+
 
 def check_nmap():
     """Check if nmap is installed."""
@@ -41,22 +42,22 @@ def check_database():
 
 def main():
     print("\n🔍 SecuraX Environment Check\n" + "="*50)
-    
+
     checks = [
         ("System nmap", check_nmap),
         ("Python-nmap module", check_python_nmap),
         ("Flask framework", check_flask),
         ("Database", check_database),
     ]
-    
+
     results = []
     for name, check_fn in checks:
         status, detail = check_fn()
         results.append((name, status, detail))
         print(f"{name:25} {status:20} {detail}")
-    
+
     print("\n" + "="*50)
-    
+
     # Summary
     all_ok = all("✅" in s for _, s, _ in results)
     if all_ok:

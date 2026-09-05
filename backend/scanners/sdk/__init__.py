@@ -21,7 +21,7 @@ Quick start:
     registry.register(MyScanner)
 """
 
-from backend.scanners.sdk.base import ScannerPlugin, Finding
+from backend.scanners.sdk.base import Finding, ScannerPlugin
 from backend.scanners.sdk.registry import PluginRegistry, registry
 
 __all__ = ["ScannerPlugin", "Finding", "PluginRegistry", "registry"]

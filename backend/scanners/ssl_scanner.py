@@ -353,8 +353,8 @@ def run_ssl_scan(target: str) -> dict:
             _vuln(
                 f"Weak RSA Key: {key_bits} bits",
                 "high",
-                f"RSA keys smaller than 2048 bits are considered insecure and can be broken "
-                f"with modern computing resources.",
+                "RSA keys smaller than 2048 bits are considered insecure and can be broken "
+                "with modern computing resources.",
                 evidence=f"Key type: {key_type}  Bits: {key_bits}",
                 remediation="Generate a new RSA key of at least 2048 bits (4096 recommended).",
                 check="ssl_key",
@@ -364,7 +364,7 @@ def run_ssl_scan(target: str) -> dict:
             _vuln(
                 f"Weak EC Key: {key_bits} bits",
                 "high",
-                f"Elliptic curve keys smaller than 224 bits are considered weak.",
+                "Elliptic curve keys smaller than 224 bits are considered weak.",
                 evidence=f"Key type: EC  Bits: {key_bits}",
                 remediation="Use at least P-256 (256-bit) ECDSA.",
                 check="ssl_key",
