@@ -40,6 +40,7 @@ import DnsScanPage        from './pages/DnsScanPage';
 import WordPressScanPage  from './pages/WordPressScanPage';
 import ScannerHubPage    from './pages/ScannerHubPage';
 import ScannerGuard      from './components/ScannerGuard';
+import BountyTargetsPage from './pages/BountyTargetsPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -200,6 +201,7 @@ function AppInner() {
                 <Route path="/admin/users"       element={<ProtectedRoute element={<AdminUsersPage />}     adminOnly />} />
                 <Route path="/admin/scans"       element={<ProtectedRoute element={<AdminScansPage />}     adminOnly />} />
                 <Route path="/audit"             element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
+                <Route path="/admin/bounty-targets" element={<ProtectedRoute element={<BountyTargetsPage />} adminOnly />} />
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

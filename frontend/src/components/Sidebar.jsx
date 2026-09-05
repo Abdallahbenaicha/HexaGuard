@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     Users, ScanLine, ScrollText, LayoutDashboard,
     LogOut, Settings, Clock, HelpCircle,
-    Box, Globe, LayoutGrid,
+    Box, Globe, LayoutGrid, Crosshair,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -20,6 +20,7 @@ const Sidebar = () => {
         { labelKey: 'user_management', descKey: 'user_mgmt_desc',   to: '/admin/users', icon: Users,          adminOnly: true  },
         { labelKey: 'scan_records',    descKey: 'scan_records_desc', to: '/admin/scans', icon: ScanLine,       adminOnly: true  },
         { labelKey: 'audit_log',       descKey: 'audit_log_desc',    to: '/audit',       icon: ScrollText,     adminOnly: true  },
+        { labelKey: 'bounty_targets',  descKey: 'bounty_targets_desc', to: '/admin/bounty-targets', icon: Crosshair, adminOnly: true  },
         { labelKey: 'my_dashboard',    descKey: 'dashboard_desc',    to: '/dashboard',       icon: LayoutDashboard, adminOnly: false },
         { labelKey: 'scheduled_scans', descKey: 'scheduled_desc',    to: '/scheduled',       icon: Clock,           adminOnly: false },
         { labelKey: 'docker_scan',     descKey: 'docker_scan_desc',  to: '/scan/docker',     icon: Box,             adminOnly: false },

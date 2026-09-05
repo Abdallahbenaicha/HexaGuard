@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
     Activity, ArrowLeft, Globe, Shield,
     AlertTriangle, Terminal, ChevronRight, Layers
@@ -22,7 +22,8 @@ const SEVERITY_COLORS = {
 
 const WebScanPage = () => {
     const { startJob } = useScanJobs();
-    const [target, setTarget] = useState('');
+    const [searchParams] = useSearchParams();
+    const [target, setTarget] = useState(() => searchParams.get('target') || '');
     const [scanMode, setScanMode] = useState('full');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
@@ -32,6 +33,12 @@ const WebScanPage = () => {
     const [analyzing, setAnalyzing] = useState(false);
     const [runInBackground, setRunInBackground] = useState(false);
     const [bgJobQueued, setBgJobQueued] = useState(false);
+
+    // Update target if URL param changes
+    useEffect(() => {
+        const t = searchParams.get('target');
+        if (t) setTarget(t);
+    }, [searchParams]);
 
     const scanModes = [
         { id: 'full',    label: 'Deep Infiltration', desc: 'Comprehensive XSS, SQLi, and misconfiguration scan', icon: Shield },

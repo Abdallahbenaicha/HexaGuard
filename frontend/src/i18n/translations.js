@@ -52,6 +52,8 @@ const translations = {
         dns_scan_desc:    'SPF, DMARC, DKIM, DNSSEC',
         wordpress_scan:   'WordPress Audit',
         wp_scan_desc:     'WordPress security scan',
+        bounty_targets:   'Bug Bounty Targets',
+        bounty_targets_desc: 'Live BB targets — auto-scan OK',
         switch_to_arabic: 'Switch to Arabic',
         switch_to_english:'Switch to English',
 
@@ -253,8 +255,11 @@ const translations = {
         dns_scan_desc:    'SPF، DMARC، DKIM، DNSSEC',
         wordpress_scan:   'تدقيق WordPress',
         wp_scan_desc:     'فحص أمان مواقع WordPress',
+        bounty_targets:   'أهداف Bug Bounty',
+        bounty_targets_desc: 'أهداف BB حية — الفحص مسموح',
         switch_to_arabic: 'التبديل إلى العربية',
         switch_to_english:'Switch to English',
+
 
         // ── Dashboard ─────────────────────────────────────────
         overview:           'نظرة عامة',
