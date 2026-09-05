@@ -4,26 +4,38 @@ Handles both HTML admin panel routes (Jinja2) and the JSON admin API
 consumed by the React frontend.
 """
 
-import logging
-import time
-import threading
-
-import urllib.request
 import json as _json
+import logging
+import threading
+import time
+import urllib.request
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from database import (
-    count_active_admins, count_users, delete_report, get_all_reports,
-    get_all_users, get_audit_log, get_audit_stats, get_system_stats,
-    get_top_vulnerabilities, get_user_by_id, hard_delete_user,
-    log_event, update_user, create_user,
-    get_all_subscriptions, set_subscription, get_monthly_usage_report, PLANS,
+    PLANS,
+    count_active_admins,
+    count_users,
+    create_user,
+    delete_report,
+    get_all_reports,
+    get_all_subscriptions,
+    get_all_users,
+    get_audit_log,
+    get_audit_stats,
+    get_monthly_usage_report,
+    get_system_stats,
+    get_top_vulnerabilities,
+    get_user_by_id,
+    hard_delete_user,
+    log_event,
+    set_subscription,
+    update_user,
 )
 from extensions import limiter
 from forms import check_password_complexity
-from utils import _normalize_target, _UUID_RE, admin_required
+from utils import _UUID_RE, _normalize_target, admin_required
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +321,7 @@ def api_admin_scans():
     filter_type = request.args.get("type", "").strip() or None
     date_from   = request.args.get("date_from", "").strip() or None
     date_to     = request.args.get("date_to", "").strip() or None
-    page        = request.args.get("page", 1, type=int)
+    _page       = request.args.get("page", 1, type=int)  # reserved for future pagination
     per_page    = min(request.args.get("per_page", 50, type=int), 500)
     all_reports = get_all_reports(
         limit=per_page,
@@ -350,7 +362,7 @@ def api_admin_audit():
     logs, total = get_audit_log(user_id=uid, category=category, action=action,
                                 date_from=date_from, date_to=date_to,
                                 page=page, per_page=per_page)
-    return jsonify({"logs": [dict(l) for l in logs], "total": total})
+    return jsonify({"logs": [dict(row) for row in logs], "total": total})
 
 
 @admin_bp.route("/api/admin/ai/clear-all", methods=["POST"])
@@ -594,14 +606,17 @@ def _normalise_bugcrowd(programs: list) -> list:
         # Program-level policy: Bugcrowd uses 'safe_harbor' + top-level description
         prog_brief     = prog.get("brief", "") or ""
         prog_extra     = prog.get("target_groups_extra", "") or ""
-        prog_policy    = (prog_brief + " " + prog_extra).strip() or None
-        prog_policy_obj = _analyse_policy(prog_policy)
+        prog_policy = (prog_brief + " " + prog_extra).strip() or None
         # Max severity from program level
         rewards = prog.get("rewards", {}) or {}
-        if rewards.get("critical"): prog_max_sev = "critical"
-        elif rewards.get("high"):   prog_max_sev = "high"
-        elif rewards.get("medium"): prog_max_sev = "medium"
-        else:                       prog_max_sev = "low"
+        if rewards.get("critical"):
+            prog_max_sev = "critical"
+        elif rewards.get("high"):
+            prog_max_sev = "high"
+        elif rewards.get("medium"):
+            prog_max_sev = "medium"
+        else:
+            prog_max_sev = "low"
         for scope_item in prog.get("targets", {}).get("in_scope", []):
             asset_type = scope_item.get("type", "")
             if asset_type.lower() not in {"website", "web application", "api", "wildcard"}:
@@ -638,11 +653,16 @@ def _normalise_yeswehack(programs: list) -> list:
         prog_policy_text = (prog.get("policy") or prog.get("description") or "").strip() or None
         # Max severity: YesWeHack programs have a 'qualifying_vulnerability' or 'bounty_reward_range'
         reward_grid = prog.get("bounty_reward_range") or {}
-        if reward_grid.get("critical"): prog_max_sev = "critical"
-        elif reward_grid.get("high"):   prog_max_sev = "high"
-        elif reward_grid.get("medium"): prog_max_sev = "medium"
-        elif prog.get("bounty"):        prog_max_sev = "low"
-        else:                           prog_max_sev = "unknown"
+        if reward_grid.get("critical"):
+            prog_max_sev = "critical"
+        elif reward_grid.get("high"):
+            prog_max_sev = "high"
+        elif reward_grid.get("medium"):
+            prog_max_sev = "medium"
+        elif prog.get("bounty"):
+            prog_max_sev = "low"
+        else:
+            prog_max_sev = "unknown"
         for scope_item in prog.get("scopes", []):
             scope_type = scope_item.get("scope_type", "")
             if scope_type.lower() not in {"web-application", "api", "ip-address"}:
