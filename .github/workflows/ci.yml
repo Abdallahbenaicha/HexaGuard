@@ -113,6 +113,8 @@ jobs:
           docker run --rm \
             -e SECRET_KEY=ci-test-secret-key-minimum-32-chars \
             -e FLASK_ENV=production \
+            -e SECURAX_ADMIN_PASSWORD=ci-admin-secure-password-123! \
+            -e SECURAX_ANALYST_PASSWORD=ci-analyst-secure-password-123! \
             --entrypoint python \
             securax-backend:${{ github.sha }} \
             -c "from app import create_app; app = create_app(); print('OK')"
