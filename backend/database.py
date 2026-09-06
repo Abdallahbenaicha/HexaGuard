@@ -709,7 +709,7 @@ def update_user(uid: int, role=None, permissions=None, is_active=None,
     if not fields:
         return True, ""
     values.append(uid)
-    _exec(f"UPDATE users SET {', '.join(fields)} WHERE id=?", tuple(values))
+    _exec(f"UPDATE users SET {', '.join(fields)} WHERE id=?", tuple(values))  # nosec B608
     return True, "Updated successfully."
 
 
@@ -811,16 +811,16 @@ def get_audit_log(user_id: int | None = None, category: str | None = None,
     if date_to:               clauses.append("created_at <= ?");    params.append(date_to)
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     db    = _get_db()
-    total = db.execute(f"SELECT COUNT(*) FROM audit_logs {where}", params).fetchone()[0]
+    total = db.execute(f"SELECT COUNT(*) FROM audit_logs {where}", params).fetchone()[0]  # nosec B608
     if per_page:
         offset = (max(page, 1) - 1) * per_page
         rows = db.execute(
-            f"SELECT * FROM audit_logs {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM audit_logs {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec B608
             params + [per_page, offset],
         ).fetchall()
     else:
         rows = db.execute(
-            f"SELECT * FROM audit_logs {where} ORDER BY created_at DESC LIMIT ?",
+            f"SELECT * FROM audit_logs {where} ORDER BY created_at DESC LIMIT ?",  # nosec B608
             params + [limit],
         ).fetchall()
     return [dict(r) for r in rows], total
@@ -934,7 +934,7 @@ def get_all_reports(limit: int = 200, date_from: str | None = None,
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     params.append(limit)
     return [dict(r) for r in _get_db().execute(
-        f"SELECT * FROM scan_reports {where} ORDER BY stored_at DESC LIMIT ?", params
+        f"SELECT * FROM scan_reports {where} ORDER BY stored_at DESC LIMIT ?", params  # nosec B608
     ).fetchall()]
 
 

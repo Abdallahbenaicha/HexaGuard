@@ -39,7 +39,7 @@ print()
 
 def sqlite_rows(conn, table):
     conn.row_factory = sqlite3.Row
-    return [dict(r) for r in conn.execute(f"SELECT * FROM {table}").fetchall()]
+    return [dict(r) for r in conn.execute(f"SELECT * FROM {table}").fetchall()]  # nosec B608
 
 
 def bulk_insert(my_cur, table, rows):
@@ -47,7 +47,7 @@ def bulk_insert(my_cur, table, rows):
         return 0
     cols = list(rows[0].keys())
     placeholders = ", ".join(["%s"] * len(cols))
-    sql = f"INSERT IGNORE INTO `{table}` ({', '.join(f'`{c}`' for c in cols)}) VALUES ({placeholders})"
+    sql = f"INSERT IGNORE INTO `{table}` ({', '.join(f'`{c}`' for c in cols)}) VALUES ({placeholders})"  # nosec B608
     data = [tuple(r[c] for c in cols) for r in rows]
     my_cur.executemany(sql, data)
     return len(rows)

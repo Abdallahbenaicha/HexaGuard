@@ -80,8 +80,17 @@ def _run_scan(response_headers: dict | None = None, **scan_kwargs):
     mock_sess.get.return_value = resp
     mock_sess.request.return_value = resp
     mock_sess.post.return_value = resp
-    with patch("scanners.web_scanner._make_session", return_value=mock_sess):
-        return web_scanner.run_web_scan("https://example.com", **scan_kwargs)
+    scan_kwargs.setdefault("cve_check", False)
+    scan_kwargs.setdefault("ssl_check", False)
+    with patch("scanners.web_scanner._make_session", return_value=mock_sess), \
+         patch("scanners.web_scanner.ThreadPoolExecutor") as mock_pool:
+        # Mock empty pool so background network tasks don't fire during unit tests
+        mock_instance = MagicMock()
+        mock_instance.__enter__.return_value = mock_instance
+        mock_instance.submit.return_value = MagicMock()
+        mock_pool.return_value = mock_instance
+        with patch("scanners.web_scanner.as_completed", return_value=[]):
+            return web_scanner.run_web_scan("https://example.com", **scan_kwargs)
 
 
 def _scan_web(url: str = "https://example.com", **kwargs):

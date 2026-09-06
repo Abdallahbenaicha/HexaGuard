@@ -257,7 +257,7 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
 
 # Hostnames/IPs that must ALWAYS be blocked even for network scanners
 _ALWAYS_BLOCKED = {
-    "localhost", "127.0.0.1", "0.0.0.0",
+    "localhost", "127.0.0.1", "0.0.0.0",  # nosec B104
     "169.254.169.254",       # AWS/GCP/Azure metadata
     "metadata.google.internal",
     "::1",

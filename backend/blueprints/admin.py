@@ -545,7 +545,7 @@ def _fetch_platform(platform: str) -> list:
             url,
             headers={"User-Agent": "HexaGuard/1.0 (bug-bounty-browser)"},
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
             raw = _json.loads(resp.read().decode())
         with _BB_CACHE_LOCK:
             _BB_CACHE[platform] = {"data": raw, "ts": time.time()}

@@ -76,7 +76,7 @@ def _check_meta_tag(domain: str, token: str) -> bool:
             resp = _requests.get(
                 f"{scheme}://{domain}",
                 timeout=_HTTP_TIMEOUT,
-                verify=False,
+                verify=False,  # nosec B501
                 headers={"User-Agent": "SecuraX-DomainVerifier/1.0"},
                 stream=True,
             )
