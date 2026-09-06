@@ -448,9 +448,9 @@ export default function BountyTargetsPage() {
   // ─ Filter state ────────────────────────────────────────────────────────────
   const [platform,   setPlatform]   = useState('all');
   const [assetType,  setAssetType]  = useState('ALL');
-  const [bountyOnly, setBountyOnly] = useState(false);
-  const [autoOnly,   setAutoOnly]   = useState(true);
-  const [search,     setSearch]     = useState('');
+  const [bountyOnly,   setBountyOnly]   = useState(false);
+  const [policyFilter, setPolicyFilter] = useState('ALLOWED');
+  const [search,       setSearch]       = useState('');
   const [page,       setPage]       = useState(1);
   const PER_PAGE = 24;
 
