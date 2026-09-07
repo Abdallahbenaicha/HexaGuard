@@ -7,6 +7,7 @@ import {
   ChevronRight, Shield, AlertTriangle, CheckCircle,
   XCircle, Crosshair, Calendar, Info, Star,
   HelpCircle, Lock, Unlock, ChevronDown, ChevronUp,
+  Globe, Sliders,
 } from 'lucide-react';
 import {
   PLATFORM_META, SEVERITY_CONFIG, ASSET_TYPE_META, METHODOLOGY,
@@ -99,7 +100,7 @@ const PolicyBadge = ({ policy, expanded, onToggle }) => {
 };
 
 // ─── Target card ──────────────────────────────────────────────────────────────
-const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunchScan, onSchedule }) => {
+const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunchScan, onSchedule, onRecon }) => {
   const assetMeta      = ASSET_TYPE_META[target.asset_type] ?? { icon: '📄', label: target.asset_type };
   const hasMethodology = !!METHODOLOGY[target.asset_type];
   const policy         = target.scan_policy ?? { status: 'UNKNOWN', confidence: 0, signals: [] };
@@ -192,6 +193,17 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
           <Target className="w-3 h-3" /> Hunt Guide
         </button>
 
+        {/* Wildcard Recon (P1.2) */}
+        {(target.asset?.startsWith('*.') || target.asset_type === 'WILDCARD') && (
+          <button
+            onClick={() => onRecon(target)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-800 hover:border-cyan-500 transition-all shadow-sm"
+            title="Discover and probe subdomains"
+          >
+            <Globe className="w-3 h-3" /> Recon
+          </button>
+        )}
+
         {/* Launch Scan — always clickable, gate handled in modal */}
         <button
           onClick={() => onLaunchScan(target)}
@@ -212,22 +224,29 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
   );
 };
 
-// ─── Policy Gate Modal (Fix 5) ────────────────────────────────────────────────
-// Shows before every scan launch; blocks on RESTRICTED/UNKNOWN unless user
-// explicitly acknowledges the policy risk.
+// ─── Policy Gate Modal (P1.1 with Engine & Rate Controls) ──────────────────────
 const PolicyGateModal = ({ target, onClose, onConfirm }) => {
   const policy    = target?.scan_policy ?? { status: 'UNKNOWN', confidence: 0, signals: [] };
   const status    = policy.status;
   const asset     = target?.asset?.replace(/^\*\./, '') ?? '';
   const [checked, setChecked] = useState(false);
 
+  // P1.1: Engine selection and rate limits
+  const [rateLimit, setRateLimit] = useState(status === 'RESTRICTED' ? 5 : 50);
+  const [threads, setThreads] = useState(status === 'RESTRICTED' ? 1 : 3);
+  const [engineNuclei, setEngineNuclei] = useState(true);
+  const [engineZap, setEngineZap] = useState(true);
+  const [engineNikto, setEngineNikto] = useState(true);
+  const [customAttribution, setCustomAttribution] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const isAllowed    = status === 'ALLOWED';
   const isRestricted = status === 'RESTRICTED';
   const isUnknown    = status === 'UNKNOWN';
 
-  // ALLOWED + high confidence → auto-proceed (no modal needed, but we still show briefly)
   const needsCheck   = isRestricted || isUnknown;
-  const canProceed   = isAllowed || checked;
+  const hasEngines   = engineNuclei || engineZap || engineNikto;
+  const canProceed   = (isAllowed || checked) && hasEngines;
 
   const statusConfig = {
     ALLOWED:    { icon: CheckCircle, title: 'Scan Policy: Allowed',    color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30',   msg: 'Automated scanning is explicitly allowed by this program.' },
@@ -237,9 +256,23 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
   const sc = statusConfig[status] ?? statusConfig.UNKNOWN;
   const Ico = sc.icon;
 
+  const handleProceed = () => {
+    const enabledEngines = [];
+    if (engineNuclei) enabledEngines.push('nuclei');
+    if (engineZap)    enabledEngines.push('zap');
+    if (engineNikto)  enabledEngines.push('nikto');
+
+    onConfirm(target, {
+      rateLimit,
+      threads,
+      enabledEngines: enabledEngines.length > 0 ? enabledEngines : ['nuclei'],
+      attributionHeader: customAttribution.trim() || undefined,
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-[9200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className={`flex items-center gap-3 px-6 pt-6 pb-4 rounded-t-2xl border-b border-slate-800`}>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${sc.bg}`}>
@@ -251,7 +284,7 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
           {/* Target */}
           <div className="bg-slate-800 rounded-xl px-4 py-3">
             <div className="text-xs text-slate-500 mb-1">Target</div>
@@ -288,6 +321,102 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
             <ExternalLink className="w-3 h-3" /> Open full program policy
           </a>
 
+          {/* P1.1 Engine & Rate Controls */}
+          <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                Engines & Rate Limits (P1.1)
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(s => !s)}
+                className="text-[11px] text-cyan-400 hover:underline font-semibold"
+              >
+                {showAdvanced ? 'Simple View' : 'Adjust Sliders'}
+              </button>
+            </div>
+
+            {/* Active engines checkboxes */}
+            <div className="flex items-center gap-4 text-xs text-slate-300">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={engineNuclei}
+                  onChange={e => setEngineNuclei(e.target.checked)}
+                  className="accent-cyan-400 rounded"
+                />
+                <span>Nuclei</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={engineZap}
+                  onChange={e => setEngineZap(e.target.checked)}
+                  className="accent-cyan-400 rounded"
+                />
+                <span>ZAP</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={engineNikto}
+                  onChange={e => setEngineNikto(e.target.checked)}
+                  className="accent-cyan-400 rounded"
+                />
+                <span>Nikto</span>
+              </label>
+            </div>
+
+            {showAdvanced && (
+              <div className="pt-2 space-y-3 border-t border-slate-700/50">
+                {/* Rate limit slider */}
+                <div>
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Scan Rate</span>
+                    <span className="font-mono text-cyan-400 font-bold">{rateLimit} req/s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="150"
+                    value={rateLimit}
+                    onChange={e => setRateLimit(Number(e.target.value))}
+                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  />
+                </div>
+
+                {/* Threads slider */}
+                <div>
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Concurrency</span>
+                    <span className="font-mono text-cyan-400 font-bold">{threads} worker(s)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={threads}
+                    onChange={e => setThreads(Number(e.target.value))}
+                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  />
+                </div>
+
+                {/* Attribution Header input */}
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">Researcher Attribution Header (P1.3)</div>
+                  <input
+                    type="text"
+                    value={customAttribution}
+                    onChange={e => setCustomAttribution(e.target.value)}
+                    placeholder="Default: SecuraX-Bounty-Scanner/1.0 (+user: <you>)"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Acknowledgement checkbox for non-ALLOWED */}
           {needsCheck && (
             <label className="flex items-start gap-3 cursor-pointer bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
@@ -305,7 +434,7 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 px-6 pb-6">
+        <div className="flex gap-3 px-6 pb-6 pt-3 border-t border-slate-800">
           <button
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-semibold hover:bg-slate-800 transition-colors"
@@ -313,13 +442,179 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
             Cancel
           </button>
           <button
-            onClick={() => canProceed && onConfirm(target)}
+            onClick={handleProceed}
             disabled={!canProceed}
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-semibold transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Zap className="w-3.5 h-3.5 inline mr-1.5" />
             {isAllowed ? 'Launch Scan' : 'Proceed Anyway'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Wildcard Reconnaissance Modal (P1.2) ──────────────────────────────────────
+const WildcardReconModal = ({ target, onClose, onSelectSubdomain }) => {
+  const isRestricted = target?.scan_policy?.status === 'RESTRICTED' || target?.scan_policy?.status === 'UNKNOWN';
+  const [probeAlive, setProbeAlive] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [subdomains, setSubdomains] = useState([]);
+  const [error, setError] = useState('');
+  const [ranProbe, setRanProbe] = useState(false);
+
+  const fetchSubdomains = async (withProbe) => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = {
+        domain: target.asset,
+        bounty_context: {
+          asset: target.asset,
+          platform: target.platform,
+          program_handle: target.program_handle,
+          scan_policy: target.scan_policy,
+          acknowledged: Boolean(withProbe ? acknowledged : false),
+        },
+        probe_alive: Boolean(withProbe),
+      };
+      const { data } = await axios.post('/api/bounty/recon/subdomains', payload, { withCredentials: true });
+      setSubdomains(data.results || []);
+      setRanProbe(Boolean(withProbe));
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to discover subdomains');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial passive discovery (safe: zero target packets)
+    fetchSubdomains(false);
+  }, [target]);
+
+  return (
+    <div className="fixed inset-0 z-[9300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                Subdomain Recon: <span className="font-mono text-cyan-400">{target.asset}</span>
+              </h3>
+              <p className="text-xs text-slate-400">{target.program_name} ({target.platform})</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4">
+          {/* Controls Bar */}
+          <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-300">
+                Discovery Mode:
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs ${!probeAlive ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>Passive (CT logs)</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={probeAlive}
+                    onChange={e => setProbeAlive(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                </label>
+                <span className={`text-xs ${probeAlive ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>Active (HEAD probe)</span>
+              </div>
+            </div>
+
+            {probeAlive && isRestricted && (
+              <label className="flex items-start gap-2.5 cursor-pointer bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={e => setAcknowledged(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-yellow-400 flex-shrink-0"
+                />
+                <span className="text-xs text-yellow-200">
+                  Target policy is {target.scan_policy?.status}. I confirm I am authorized to send HTTP probes to discovered subdomains.
+                </span>
+              </label>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => fetchSubdomains(probeAlive)}
+                disabled={loading || (probeAlive && isRestricted && !acknowledged)}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                {probeAlive ? 'Run Active Alive-Check' : 'Refresh Passive CT Logs'}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+
+          {/* Results List */}
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span>Discovered Subdomains ({subdomains.length})</span>
+              {ranProbe && <span className="text-green-400">Alive: {subdomains.filter(s => s.alive).length}</span>}
+            </div>
+
+            {loading ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
+                <span className="text-xs">Querying Certificate Transparency & Probing...</span>
+              </div>
+            ) : subdomains.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-500">
+                No subdomains found yet. Try refreshing or checking the base domain.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {subdomains.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 transition-colors">
+                    <div className="min-w-0 flex items-center gap-2.5">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.alive === true ? 'bg-green-400' : item.alive === false ? 'bg-red-400' : 'bg-slate-500'}`} />
+                      <div className="truncate">
+                        <div className="text-xs font-mono font-semibold text-slate-200 truncate">{item.subdomain}</div>
+                        <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                          {item.ip && <span>IP: {item.ip}</span>}
+                          {item.server && <span>Server: {item.server}</span>}
+                          {item.status_code && <span>Status: {item.status_code}</span>}
+                          {item.duplicate_fingerprint && <span className="text-yellow-400">duplicate IP</span>}
+                          {item.status === 'unprobed' && <span className="italic">Unprobed (passive)</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onSelectSubdomain(item.subdomain)}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all ml-3 flex-shrink-0"
+                    >
+                      Scan Subdomain
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -459,6 +754,7 @@ export default function BountyTargetsPage() {
   const [huntTarget,      setHuntTarget]     = useState(null);  // HuntGuideModal
   const [scheduleTarget,  setScheduleTarget] = useState(null);  // ScheduleModal
   const [policyGateTarget,setPolicyGateTarget] = useState(null); // PolicyGateModal
+  const [reconTarget,     setReconTarget]     = useState(null); // WildcardReconModal (P1.2)
   const [showBookmarked,  setShowBookmarked] = useState(false);
   const [refreshing,      setRefreshing]     = useState(false);
   const searchRef = useRef(null);
@@ -513,14 +809,17 @@ export default function BountyTargetsPage() {
     setBookmarkState(updated);
   };
 
-  // ─ Launch Scan → Policy Gate first ─────────────────────────────────────────
+  // ─ Launch Scan → Policy Gate first (or Recon for wildcards) ───────────────
   const handleLaunchScan = (t) => {
-    // Always show policy gate — even ALLOWED targets get a brief confirmation
-    setPolicyGateTarget(t);
+    if (t.asset?.startsWith('*.') || t.asset_type === 'WILDCARD') {
+      setReconTarget(t);
+    } else {
+      setPolicyGateTarget(t);
+    }
   };
 
   // ─ Confirmed through Policy Gate → navigate to WebScanPage ─────────────────
-  const handlePolicyGateConfirm = (t) => {
+  const handlePolicyGateConfirm = (t, config = {}) => {
     setPolicyGateTarget(null);
     const target = t.asset.replace(/^\*\./, '');
     const bountyContext = {
@@ -532,6 +831,10 @@ export default function BountyTargetsPage() {
       scan_policy: t.scan_policy || { status: 'UNKNOWN', confidence: 0, signals: [] },
       instruction: t.instruction || '',
       acknowledged: true,
+      rate_limit: config.rateLimit,
+      threads: config.threads,
+      enabled_engines: config.enabledEngines,
+      attribution_header: config.attributionHeader,
     };
     try {
       sessionStorage.setItem('hexaguard_bounty_context', JSON.stringify(bountyContext));
@@ -754,6 +1057,7 @@ export default function BountyTargetsPage() {
               onHuntGuide={setHuntTarget}
               onLaunchScan={handleLaunchScan}
               onSchedule={setScheduleTarget}
+              onRecon={setReconTarget}
             />
           ))}
         </div>
@@ -823,6 +1127,21 @@ export default function BountyTargetsPage() {
           target={policyGateTarget}
           onClose={() => setPolicyGateTarget(null)}
           onConfirm={handlePolicyGateConfirm}
+        />
+      )}
+      {reconTarget && (
+        <WildcardReconModal
+          target={reconTarget}
+          onClose={() => setReconTarget(null)}
+          onSelectSubdomain={(sub) => {
+            const base = reconTarget;
+            setReconTarget(null);
+            setPolicyGateTarget({
+              ...base,
+              asset: sub,
+              original_wildcard: base.asset,
+            });
+          }}
         />
       )}
     </div>

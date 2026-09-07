@@ -22,11 +22,15 @@ import json
 import logging
 import os
 import re
+import socket
+import ipaddress
 import threading
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
+import requests
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
@@ -681,3 +685,196 @@ def api_bounty_targets_stats():
             "with_bounty":  len(bounty_list),
         }
     return jsonify({"stats": stats})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  WILDCARD RECONNAISSANCE PIPELINE (P1.2)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _fetch_crtsh_subdomains(domain: str, timeout: int = 15) -> list[str]:
+    """Fetch subdomains for a domain from crt.sh Certificate Transparency logs."""
+    clean = re.sub(r"^\*\.", "", domain.strip().lower())
+    url = f"https://crt.sh/?q=%.{clean}&output=json"
+    headers = {"User-Agent": "HexaGuard-Recon/1.0", "Accept": "application/json"}
+    subdomains: set[str] = set()
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+            raw_body = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(raw_body)
+        for entry in data:
+            name_val = entry.get("name_value", "")
+            for line in name_val.splitlines():
+                sub = line.strip().lower().lstrip("*.")
+                if sub and (sub == clean or sub.endswith("." + clean)):
+                    # Avoid wildcards in individual subdomain names
+                    sub = sub.split("@")[-1].strip()
+                    if not any(c in sub for c in (" ", "/", "\\", "*", ":")):
+                        subdomains.add(sub)
+    except Exception as exc:
+        logger.warning("crt.sh fetch error for %s: %s", domain, exc)
+    return sorted(subdomains)
+
+
+def _probe_single_subdomain(subdomain: str, timeout: float = 3.0) -> dict:
+    """Probe a single subdomain: DNS resolution + rapid HTTP HEAD check."""
+    try:
+        ip = socket.gethostbyname(subdomain)
+        # SSRF guard: reject private, loopback, link-local, or reserved IPs
+        addr = ipaddress.ip_address(ip)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            return {
+                "subdomain": subdomain,
+                "alive": False,
+                "error": "Resolves to private/reserved IP",
+                "ip": ip,
+            }
+    except Exception as exc:
+        return {
+            "subdomain": subdomain,
+            "alive": False,
+            "error": f"DNS resolution failed: {exc}",
+            "ip": None,
+        }
+
+    status_code = None
+    server_hdr = None
+    try:
+        resp = requests.head(
+            f"https://{subdomain}",
+            timeout=timeout,
+            allow_redirects=True,
+            verify=False,
+            headers={"User-Agent": "HexaGuard-Recon/1.0"},
+        )
+        status_code = resp.status_code
+        server_hdr = resp.headers.get("Server", "").strip()
+    except Exception:
+        # Fallback to plain http if https connection fails
+        try:
+            resp = requests.head(
+                f"http://{subdomain}",
+                timeout=timeout,
+                allow_redirects=True,
+                headers={"User-Agent": "HexaGuard-Recon/1.0"},
+            )
+            status_code = resp.status_code
+            server_hdr = resp.headers.get("Server", "").strip()
+        except Exception as exc:
+            return {
+                "subdomain": subdomain,
+                "alive": False,
+                "error": f"HTTP probe failed: {exc}",
+                "ip": ip,
+            }
+
+    return {
+        "subdomain": subdomain,
+        "alive": True,
+        "status_code": status_code,
+        "server": server_hdr or "unknown",
+        "ip": ip,
+    }
+
+
+@bounty_bp.route("/api/bounty/recon/subdomains", methods=["POST"])
+@login_required
+@limiter.limit("20/minute")
+@csrf.exempt
+def api_recon_subdomains():
+    """Discover subdomains for wildcard targets.
+
+    CRITICAL SECURITY GUARANTEE:
+    - If probe_alive is True (active HEAD probe): the request MUST pass
+      _enforce_bounty_policy_gate. If the target is RESTRICTED or UNKNOWN
+      and has not been acknowledged, it is blocked with HTTP 403 (POLICY_GATE_BLOCKED).
+    - If probe_alive is False: only passive CT log querying (crt.sh) is performed,
+      sending ZERO packets to the target company.
+    """
+    data = request.get_json(silent=True) or {}
+    raw_domain = (data.get("domain") or (data.get("bounty_context") or {}).get("asset") or "").strip()
+    if not raw_domain:
+        return jsonify({"error": "domain is required."}), 400
+
+    clean_domain = _extract_scan_domain(raw_domain)
+    if not clean_domain:
+        return jsonify({"error": "Invalid domain provided."}), 400
+
+    probe_alive = bool(data.get("probe_alive", False))
+
+    # Security policy gate check for active probing
+    if probe_alive:
+        gate_ok, gate_result = _enforce_bounty_policy_gate(
+            data, current_user.id, current_user.username
+        )
+        if not gate_ok:
+            return gate_result
+
+    # 1. Passive discovery via crt.sh
+    discovered = _fetch_crtsh_subdomains(clean_domain)
+
+    # 2. Alive probing (strictly guarded)
+    results = []
+    if probe_alive and discovered:
+        # Cap at 50 subdomains per scan
+        targets_to_probe = discovered[:50]
+        fingerprints: set[str] = set()
+
+        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="recon") as pool:
+            future_to_sub = {
+                pool.submit(_probe_single_subdomain, sub): sub
+                for sub in targets_to_probe
+            }
+            for fut in as_completed(future_to_sub):
+                try:
+                    res = fut.result()
+                    fp = f"{res.get('ip')}|{res.get('server')}"
+                    if fp in fingerprints and res.get("alive"):
+                        res["duplicate_fingerprint"] = True
+                    else:
+                        res["duplicate_fingerprint"] = False
+                        if res.get("alive") and res.get("ip"):
+                            fingerprints.add(fp)
+                    results.append(res)
+                except Exception as exc:
+                    sub = future_to_sub[fut]
+                    results.append({
+                        "subdomain": sub,
+                        "alive": False,
+                        "error": str(exc),
+                        "ip": None,
+                        "duplicate_fingerprint": False,
+                    })
+
+        results.sort(key=lambda x: (not x.get("alive", False), x.get("subdomain", "")))
+    else:
+        for sub in discovered:
+            results.append({
+                "subdomain": sub,
+                "alive": None,
+                "status": "unprobed",
+                "probe_alive": False,
+                "note": "Passive discovery only (active probe requires policy acknowledgment)",
+            })
+
+    log_event(
+        "bounty_wildcard_recon",
+        current_user.username,
+        current_user.id,
+        category="bounty",
+        resource=clean_domain,
+        status="success",
+        details=json.dumps({
+            "domain": clean_domain,
+            "probe_alive": probe_alive,
+            "total_discovered": len(discovered),
+            "alive_count": sum(1 for r in results if r.get("alive")),
+        }),
+    )
+
+    return jsonify({
+        "domain": clean_domain,
+        "total_discovered": len(discovered),
+        "probe_alive": probe_alive,
+        "results": results,
+    })

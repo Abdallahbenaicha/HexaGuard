@@ -416,6 +416,17 @@ def run_ssl_scan(target: str) -> dict:
             check="ssl_san",
         )
 
+    # ── 11. SSLyze Deep Scan (P1.4 with graceful fallback) ────────────────────
+    try:
+        from scanners.sslyze_scanner import run_sslyze_scan
+        sslyze_vulns, sslyze_meta = run_sslyze_scan(host, port)
+        if sslyze_meta.get("sslyze_available"):
+            vulns.extend(sslyze_vulns)
+        meta_sslyze = sslyze_meta
+    except Exception as exc:
+        logger.debug("SSLyze integration error: %s", exc)
+        meta_sslyze = {"sslyze_available": False, "error": str(exc)}
+
     # ── Build meta ────────────────────────────────────────────────────────────
     issuer_dict  = dict(x[0] for x in cert.get("issuer",  [])) if cert else {}
     subject_dict = dict(x[0] for x in cert.get("subject", [])) if cert else {}
@@ -435,7 +446,8 @@ def run_ssl_scan(target: str) -> dict:
         "trust_verified":          bool(info.get("tls_ok")),
         "scan_time":               datetime.now(timezone.utc).isoformat(),
         "scan_duration_seconds":   round(time.perf_counter() - scan_start, 2),
-        "tools":                   ["python-ssl", "socket"],
+        "tools":                   ["python-ssl", "socket"] + (["sslyze"] if meta_sslyze.get("sslyze_available") else []),
+        "sslyze":                  meta_sslyze,
     }
 
     if not vulns:

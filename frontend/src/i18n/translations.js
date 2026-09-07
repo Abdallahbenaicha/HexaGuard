@@ -54,6 +54,8 @@ const translations = {
         wp_scan_desc:     'WordPress security scan',
         bounty_targets:   'Bug Bounty Targets',
         bounty_targets_desc: 'Live BB targets — auto-scan OK',
+        vuln_library:     'Vulnerability Library',
+        vuln_library_desc: 'Learn all vulnerability types',
         switch_to_arabic: 'Switch to Arabic',
         switch_to_english:'Switch to English',
 
@@ -257,6 +259,8 @@ const translations = {
         wp_scan_desc:     'فحص أمان مواقع WordPress',
         bounty_targets:   'أهداف Bug Bounty',
         bounty_targets_desc: 'أهداف BB حية — الفحص مسموح',
+        vuln_library:     'مكتبة الثغرات',
+        vuln_library_desc: 'تعلّم كل أنواع الثغرات',
         switch_to_arabic: 'التبديل إلى العربية',
         switch_to_english:'Switch to English',
 

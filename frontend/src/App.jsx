@@ -41,6 +41,7 @@ import WordPressScanPage  from './pages/WordPressScanPage';
 import ScannerHubPage    from './pages/ScannerHubPage';
 import ScannerGuard      from './components/ScannerGuard';
 const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
+import VulnLibraryPage from './pages/VulnLibraryPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -210,6 +211,9 @@ function AppInner() {
                         }
                     />
                 )}
+
+                {/* Vulnerability Learning Center */}
+                <Route path="/learn/vulnerabilities" element={<ProtectedRoute element={<VulnLibraryPage />} />} />
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

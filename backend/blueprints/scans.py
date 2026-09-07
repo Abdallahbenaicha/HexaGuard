@@ -354,11 +354,15 @@ def scan_url_bridge():
         return gate_result
     bounty_meta = gate_result  # dict or None
 
-    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    # ── P0.2 & P1.1: Rate-limit and throttle enforcement ───────────────────────
     policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
     enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+    if "rate_limit" in data and isinstance(data["rate_limit"], (int, float)):
+        effective_rate = min(enforced_rate, max(1, int(data["rate_limit"])))
+    else:
+        effective_rate = enforced_rate
 
-    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    # ── P0.4: Auth/session support & P1.3: Researcher attribution header ───────
     auth_cfg      = data.get("auth_config") or {}
     extra_headers: dict = {}
     if auth_cfg.get("cookie"):
@@ -371,6 +375,12 @@ def scan_url_bridge():
             for k, v in auth_cfg["custom_headers"].items()
             if k and v
         })
+    # P1.3: Attribution header scoped strictly to bounty_context scans
+    bounty_ctx = data.get("bounty_context")
+    if bounty_ctx:
+        attr_val = bounty_ctx.get("attribution_header") or f"SecuraX-Bounty-Scanner/1.0 (+user: {current_user.username})"
+        extra_headers["X-Bug-Bounty-Hacker"] = current_user.username
+        extra_headers["User-Agent"] = attr_val
 
     # Auto-detect private IPs: route them to the network scanner instead of
     # returning an SSRF error (handles frontend routing edge cases).
@@ -701,11 +711,22 @@ def scan_dast_bridge():
         return gate_result
     bounty_meta = gate_result  # dict or None
 
-    # ── P0.2: Rate-limit enforcement ──────────────────────────────────────────
+    # ── P0.2 & P1.1: Rate-limit and engine controls ───────────────────────────
     policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
     enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+    if "rate_limit" in data and isinstance(data["rate_limit"], (int, float)):
+        effective_rate = min(enforced_rate, max(1, int(data["rate_limit"])))
+    else:
+        effective_rate = enforced_rate
 
-    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    if "threads" in data and isinstance(data["threads"], (int, float)):
+        effective_threads = min(enforced_threads, max(1, int(data["threads"])))
+    else:
+        effective_threads = enforced_threads
+
+    enabled_engines = data.get("enabled_engines")
+
+    # ── P0.4: Auth/session support & P1.3: Researcher attribution header ───────
     auth_cfg      = data.get("auth_config") or {}
     extra_headers: dict = {}
     if auth_cfg.get("cookie"):
@@ -718,11 +739,18 @@ def scan_dast_bridge():
             for k, v in auth_cfg["custom_headers"].items()
             if k and v
         })
+    # P1.3: Attribution header scoped strictly to bounty_context scans
+    bounty_ctx = data.get("bounty_context")
+    if bounty_ctx:
+        attr_val = bounty_ctx.get("attribution_header") or f"SecuraX-Bounty-Scanner/1.0 (+user: {current_user.username})"
+        extra_headers["X-Bug-Bounty-Hacker"] = current_user.username
+        extra_headers["User-Agent"] = attr_val
 
     from scanners.dast_scanner import DASTConfig
     dast_cfg = DASTConfig(
-        rate_limit=enforced_rate,
-        threads=enforced_threads,
+        rate_limit=effective_rate,
+        threads=effective_threads,
+        enabled_engines=enabled_engines,
         extra_headers=extra_headers or None,
     )
     try:
@@ -890,11 +918,15 @@ def async_scan_web():
         return gate_result
     bounty_meta = gate_result
 
-    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    # ── P0.2 & P1.1: Rate-limit and throttle enforcement ───────────────────────
     policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
     enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+    if "rate_limit" in data and isinstance(data["rate_limit"], (int, float)):
+        effective_rate = min(enforced_rate, max(1, int(data["rate_limit"])))
+    else:
+        effective_rate = enforced_rate
 
-    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    # ── P0.4: Auth/session support & P1.3: Researcher attribution header ───────
     auth_cfg      = data.get("auth_config") or {}
     extra_headers: dict = {}
     if auth_cfg.get("cookie"):
@@ -907,6 +939,12 @@ def async_scan_web():
             for k, v in auth_cfg["custom_headers"].items()
             if k and v
         })
+    # P1.3: Attribution header scoped strictly to bounty_context scans
+    bounty_ctx = data.get("bounty_context")
+    if bounty_ctx:
+        attr_val = bounty_ctx.get("attribution_header") or f"SecuraX-Bounty-Scanner/1.0 (+user: {current_user.username})"
+        extra_headers["X-Bug-Bounty-Hacker"] = current_user.username
+        extra_headers["User-Agent"] = attr_val
 
     ok, err = _check_target_lock(target)
     if not ok:
@@ -1004,11 +1042,22 @@ def async_scan_dast():
         return gate_result
     bounty_meta = gate_result
 
-    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    # ── P0.2 & P1.1: Rate-limit and engine controls ───────────────────────────
     policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
     enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+    if "rate_limit" in data and isinstance(data["rate_limit"], (int, float)):
+        effective_rate = min(enforced_rate, max(1, int(data["rate_limit"])))
+    else:
+        effective_rate = enforced_rate
 
-    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    if "threads" in data and isinstance(data["threads"], (int, float)):
+        effective_threads = min(enforced_threads, max(1, int(data["threads"])))
+    else:
+        effective_threads = enforced_threads
+
+    enabled_engines = data.get("enabled_engines")
+
+    # ── P0.4: Auth/session support & P1.3: Researcher attribution header ───────
     auth_cfg      = data.get("auth_config") or {}
     extra_headers: dict = {}
     if auth_cfg.get("cookie"):
@@ -1021,11 +1070,18 @@ def async_scan_dast():
             for k, v in auth_cfg["custom_headers"].items()
             if k and v
         })
+    # P1.3: Attribution header scoped strictly to bounty_context scans
+    bounty_ctx = data.get("bounty_context")
+    if bounty_ctx:
+        attr_val = bounty_ctx.get("attribution_header") or f"SecuraX-Bounty-Scanner/1.0 (+user: {current_user.username})"
+        extra_headers["X-Bug-Bounty-Hacker"] = current_user.username
+        extra_headers["User-Agent"] = attr_val
 
     from scanners.dast_scanner import DASTConfig
     dast_cfg = DASTConfig(
-        rate_limit=enforced_rate,
-        threads=enforced_threads,
+        rate_limit=effective_rate,
+        threads=effective_threads,
+        enabled_engines=enabled_engines,
         extra_headers=extra_headers or None,
     )
 

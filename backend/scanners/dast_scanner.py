@@ -120,6 +120,8 @@ class DASTConfig:
     threads:        int   = 3     # concurrent engine threads (ThreadPoolExecutor max_workers)
     # P0.4 — authentication / session support
     extra_headers:  dict | None = None  # {"Cookie": "...", "Authorization": "Bearer ..."}
+    # P1.1 — selective engine control (e.g. ["nuclei", "zap", "nikto"])
+    enabled_engines: list[str] | None = None
 
 
 
@@ -766,6 +768,8 @@ def _run_nikto_scan(
 
         if extra_headers and extra_headers.get("Cookie"):
             cmd += ["-cookie", str(extra_headers["Cookie"])]
+        if extra_headers and extra_headers.get("User-Agent"):
+            cmd += ["-useragent", str(extra_headers["User-Agent"])]
         logger.info("DAST(Nikto) target=%s rate_limit=%d", url, rate_limit)
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=_NIKTO_PROC_TIMEOUT,
@@ -830,12 +834,21 @@ def run_dast_scan(target: str, config: DASTConfig | None = None) -> dict:
         list(cfg.extra_headers.keys()) if cfg.extra_headers else [],
     )
 
+    allowed_engines = (
+        [e.lower().strip() for e in cfg.enabled_engines]
+        if cfg.enabled_engines
+        else ["nikto", "zap", "nuclei"]
+    )
+
     with ThreadPoolExecutor(max_workers=effective_threads, thread_name_prefix="dast") as pool:
-        futures = {
-            pool.submit(_run_nikto_scan, url, cfg.rate_limit, cfg.extra_headers):                "nikto",
-            pool.submit(_run_zap_scan, url, cfg.profile, cfg.progress_cb, cfg.extra_headers):  "zap",
-            pool.submit(_run_nuclei_scan, url, cfg.profile, cfg.rate_limit, cfg.extra_headers): "nuclei",
-        }
+        futures = {}
+        if "nikto" in allowed_engines:
+            futures[pool.submit(_run_nikto_scan, url, cfg.rate_limit, cfg.extra_headers)] = "nikto"
+        if "zap" in allowed_engines:
+            futures[pool.submit(_run_zap_scan, url, cfg.profile, cfg.progress_cb, cfg.extra_headers)] = "zap"
+        if "nuclei" in allowed_engines:
+            futures[pool.submit(_run_nuclei_scan, url, cfg.profile, cfg.rate_limit, cfg.extra_headers)] = "nuclei"
+
         results: dict[str, tuple[list, str | None]] = {}
         for fut in as_completed(futures):
             name = futures[fut]
@@ -845,9 +858,9 @@ def run_dast_scan(target: str, config: DASTConfig | None = None) -> dict:
                 results[name] = ([], str(exc))
 
 
-    nikto_vulns,  nikto_error  = results.get("nikto",  ([], None))
-    zap_vulns,    zap_error    = results.get("zap",    ([], None))
-    nuclei_vulns, nuclei_error = results.get("nuclei", ([], None))
+    nikto_vulns,  nikto_error  = results.get("nikto",  ([], None if "nikto" in allowed_engines else "Nikto not enabled"))
+    zap_vulns,    zap_error    = results.get("zap",    ([], None if "zap" in allowed_engines else "ZAP not enabled"))
+    nuclei_vulns, nuclei_error = results.get("nuclei", ([], None if "nuclei" in allowed_engines else "Nuclei not enabled"))
 
     for tool, err in (("Nikto", nikto_error), ("ZAP", zap_error), ("Nuclei", nuclei_error)):
         if err:

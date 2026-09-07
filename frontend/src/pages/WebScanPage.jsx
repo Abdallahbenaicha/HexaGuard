@@ -86,11 +86,16 @@ const WebScanPage = () => {
         if (cookie.trim()) auth_config.cookie = cookie.trim();
         if (bearerToken.trim()) auth_config.bearer_token = bearerToken.trim();
 
-        // Build scan payload (P0.1 + P0.4)
+        // Build scan payload (P0.1 + P0.4 + P1.1)
         const scanPayload = {
             url: scanTarget,
             mode: scanMode,
-            ...(bountyContext ? { bounty_context: bountyContext } : {}),
+            ...(bountyContext ? {
+                bounty_context: bountyContext,
+                ...(bountyContext.rate_limit ? { rate_limit: bountyContext.rate_limit } : {}),
+                ...(bountyContext.threads ? { threads: bountyContext.threads } : {}),
+                ...(bountyContext.enabled_engines ? { enabled_engines: bountyContext.enabled_engines } : {}),
+            } : {}),
             ...(Object.keys(auth_config).length > 0 ? { auth_config } : {}),
         };
 
