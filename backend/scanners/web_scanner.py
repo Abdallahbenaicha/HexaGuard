@@ -219,7 +219,7 @@ _TECH_SIGS: dict[str, list[tuple[str, str]]] = {
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _make_session() -> requests.Session:
+def _make_session(extra_headers: dict | None = None) -> requests.Session:
     sess = requests.Session()
     # Ignore any ambient HTTP_PROXY/HTTPS_PROXY env vars the host platform
     # may inject — this scanner must always reach targets directly.
@@ -234,6 +234,8 @@ def _make_session() -> requests.Session:
     sess.mount("https://", adapter)
     sess.mount("http://",  adapter)
     sess.headers["User-Agent"] = "SecuraX-Security-Scanner/4.2"
+    if extra_headers:
+        sess.headers.update(extra_headers)
     return sess
 
 
@@ -1275,13 +1277,13 @@ def _local_cookies(resp: requests.Response) -> list[dict]:
     return vulns
 
 
-def _local_cors(url: str, initial_headers: dict) -> list[dict]:
+def _local_cors(url: str, initial_headers: dict, extra_headers: dict | None = None) -> list[dict]:
     """
     Check CORS configuration.
     Creates its own session — thread-safe; does NOT share state with other workers.
     """
     vulns: list[dict] = []
-    sess = _make_session()
+    sess = _make_session(extra_headers)
     hl = {k.lower(): v for k, v in initial_headers.items()}
 
     acao = hl.get("access-control-allow-origin", "")
@@ -1343,18 +1345,26 @@ def _local_cors(url: str, initial_headers: dict) -> list[dict]:
     return vulns
 
 
-def _local_sensitive_paths(url: str) -> list[dict]:
+def _local_sensitive_paths(
+    url: str,
+    extra_headers: dict | None = None,
+    rate_limit: int | None = None,
+) -> list[dict]:
     """
     Probe sensitive paths with smart soft-404 fingerprinting.
     Gets a 404 baseline first to avoid false positives.
     Each call creates its own session — thread-safe.
     """
     vulns: list[dict] = []
-    sess  = _make_session()
+    sess  = _make_session(extra_headers)
     base  = url.rstrip("/")
     fp    = _404_fingerprint(base, sess)
 
+    delay = (1.0 / rate_limit) if (rate_limit and rate_limit > 0) else 0.0
+
     for path, severity, description in SENSITIVE_PATHS:
+        if delay > 0:
+            time.sleep(delay)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -1380,10 +1390,10 @@ def _local_sensitive_paths(url: str) -> list[dict]:
     return vulns
 
 
-def _local_http_methods(url: str) -> list[dict]:
+def _local_http_methods(url: str, extra_headers: dict | None = None) -> list[dict]:
     vulns: list[dict] = []
     try:
-        sess = _make_session()
+        sess = _make_session(extra_headers)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             r = sess.options(url, timeout=_PROBE_TO, allow_redirects=False, verify=False)
@@ -1423,13 +1433,13 @@ def _local_response_body(resp: requests.Response) -> list[dict]:
     return vulns
 
 
-def _local_https_redirect(url: str, host: str) -> list[dict]:
+def _local_https_redirect(url: str, host: str, extra_headers: dict | None = None) -> list[dict]:
     """Own session — thread-safe, no shared state with other workers."""
     vulns: list[dict] = []
     if not url.startswith("https://"):
         return vulns
     try:
-        sess = _make_session()
+        sess = _make_session(extra_headers)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             r = sess.get(f"http://{host}", timeout=_PROBE_TO,
@@ -1561,14 +1571,18 @@ def run_web_scan(
     target: str,
     cve_check: bool = True,
     ssl_check: bool = True,
+    extra_headers: dict | None = None,
+    rate_limit: int | None = None,
 ) -> dict:
     """
     Full passive web security scan — local checks + 11 external APIs in parallel.
 
     Args:
-        target:    URL, domain, or IP. http/https added automatically if missing.
-        cve_check: If False, skip Shodan/VirusTotal/AbuseIPDB/GreyNoise reputation APIs.
-        ssl_check: If False, skip SSL Labs and direct SSL probe (faster for HTTP-only targets).
+        target:        URL, domain, or IP. http/https added automatically if missing.
+        cve_check:     If False, skip Shodan/VirusTotal/AbuseIPDB/GreyNoise reputation APIs.
+        ssl_check:     If False, skip SSL Labs and direct SSL probe (faster for HTTP-only targets).
+        extra_headers: Optional custom HTTP headers (Cookie, Authorization, User-Agent, etc.)
+        rate_limit:    Optional rate limit (req/s) for throttling sensitive path probes.
 
     Returns:
         { "scan_type": "web", "vulnerabilities": [...], "meta": {...} }
@@ -1576,7 +1590,7 @@ def run_web_scan(
     url    = _norm_url(target)
     parsed = urlparse(url)
     host   = parsed.hostname or target
-    sess   = _make_session()
+    sess   = _make_session(extra_headers)
     vulns: list[dict] = []
     meta:  dict       = {}
 
@@ -1613,23 +1627,23 @@ def run_web_scan(
 
     # ── Step 4: All external API calls + network probes in parallel ───────────
     tasks: list[tuple] = [
-        ("ssllabs",    _api_ssllabs,          (host,),            True,  ssl_check and parsed.scheme == "https"),
-        ("observatory",_api_observatory,       (host,),            True,  True),
-        ("shodan",     _api_shodan,            (ip,),              True,  cve_check),
-        ("virustotal", _api_virustotal,        (url, ip),          True,  cve_check),
-        ("abuseipdb",  _api_abuseipdb,         (ip,),              True,  cve_check),
-        ("gsb",        _api_google_safebrowsing,(url,),            True,  True),
-        ("urlscan",    _api_urlscan,           (url, host),        True,  cve_check),
-        ("urlhaus",    _api_urlhaus,           (url,),             True,  cve_check),
-        ("greynoise",  _api_greynoise,         (ip,),              True,  cve_check),
-        ("ipinfo",     _api_ipinfo,            (ip,),              True,  True),
-        ("crtsh",      _api_crtsh,             (host,),            True,  True),
-        ("dns",        _api_dns_security,      (host,),            True,  True),
-        ("methods",    _local_http_methods,    (url,),              False, True),
-        ("paths",      _local_sensitive_paths, (url,),              False, True),
-        ("redirect",   _local_https_redirect,  (url, host),         False, True),
-        ("ssl_direct", _local_ssl_direct,      (host,),             False, ssl_check and parsed.scheme == "https"),
-        ("cors",       _local_cors,            (url, dict(resp.headers)), False, True),
+        ("ssllabs",    _api_ssllabs,          (host,),                                     True,  ssl_check and parsed.scheme == "https"),
+        ("observatory",_api_observatory,       (host,),                                     True,  True),
+        ("shodan",     _api_shodan,            (ip,),                                       True,  cve_check),
+        ("virustotal", _api_virustotal,        (url, ip),                                   True,  cve_check),
+        ("abuseipdb",  _api_abuseipdb,         (ip,),                                       True,  cve_check),
+        ("gsb",        _api_google_safebrowsing,(url,),                                     True,  True),
+        ("urlscan",    _api_urlscan,           (url, host),                                 True,  cve_check),
+        ("urlhaus",    _api_urlhaus,           (url,),                                      True,  cve_check),
+        ("greynoise",  _api_greynoise,         (ip,),                                       True,  cve_check),
+        ("ipinfo",     _api_ipinfo,            (ip,),                                       True,  True),
+        ("crtsh",      _api_crtsh,             (host,),                                     True,  True),
+        ("dns",        _api_dns_security,      (host,),                                     True,  True),
+        ("methods",    _local_http_methods,    (url, extra_headers),                         False, True),
+        ("paths",      _local_sensitive_paths, (url, extra_headers, rate_limit),           False, True),
+        ("redirect",   _local_https_redirect,  (url, host, extra_headers),                  False, True),
+        ("ssl_direct", _local_ssl_direct,      (host,),                                     False, ssl_check and parsed.scheme == "https"),
+        ("cors",       _local_cors,            (url, dict(resp.headers), extra_headers),  False, True),
     ]
 
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS, thread_name_prefix="webscan") as pool:

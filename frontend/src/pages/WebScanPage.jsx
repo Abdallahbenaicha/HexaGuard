@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import {
     Activity, ArrowLeft, Globe, Shield,
-    AlertTriangle, Terminal, ChevronRight, Layers
+    AlertTriangle, Terminal, ChevronRight, Layers,
+    ShieldCheck, Key, ChevronDown, ChevronUp
 } from 'lucide-react';
 import ReportExportBar from '../components/ReportExportBar';
 import { useScanJobs } from '../context/ScanJobsContext';
@@ -23,16 +24,38 @@ const SEVERITY_COLORS = {
 const WebScanPage = () => {
     const { startJob } = useScanJobs();
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const [target, setTarget] = useState(() => searchParams.get('target') || '');
+
+    const [bountyContext, setBountyContext] = useState(() => {
+        if (location.state?.bountyContext) return location.state.bountyContext;
+        try {
+            const raw = sessionStorage.getItem('hexaguard_bounty_context');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                const currentTgt = searchParams.get('target') || '';
+                if (!currentTgt || parsed.asset === currentTgt || parsed.asset.includes(currentTgt)) {
+                    return parsed;
+                }
+            }
+        } catch { /* ignore */ }
+        return null;
+    });
+
     const [scanMode, setScanMode] = useState('full');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
-    const [permissionGranted, setPermissionGranted] = useState(false);
+    const [permissionGranted, setPermissionGranted] = useState(() => Boolean(bountyContext));
     const [ariaAnalysis, setAriaAnalysis] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
     const [runInBackground, setRunInBackground] = useState(false);
     const [bgJobQueued, setBgJobQueued] = useState(false);
+
+    // P0.4 Auth & Session Support
+    const [showAuthConfig, setShowAuthConfig] = useState(false);
+    const [cookie, setCookie] = useState('');
+    const [bearerToken, setBearerToken] = useState('');
 
     // Update target if URL param changes
     useEffect(() => {
@@ -58,6 +81,19 @@ const WebScanPage = () => {
         setAriaAnalysis('');
         setBgJobQueued(false);
 
+        // Build auth_config (P0.4)
+        const auth_config = {};
+        if (cookie.trim()) auth_config.cookie = cookie.trim();
+        if (bearerToken.trim()) auth_config.bearer_token = bearerToken.trim();
+
+        // Build scan payload (P0.1 + P0.4)
+        const scanPayload = {
+            url: scanTarget,
+            mode: scanMode,
+            ...(bountyContext ? { bounty_context: bountyContext } : {}),
+            ...(Object.keys(auth_config).length > 0 ? { auth_config } : {}),
+        };
+
         if (runInBackground) {
             try {
                 // Route private IPs to the network scanner (avoids SSRF block)
@@ -66,7 +102,7 @@ const WebScanPage = () => {
                     : '/api/scan/async/web';
                 const bgPayload = isPrivateIP(host)
                     ? { target: host, mode: scanMode }
-                    : { url: scanTarget, mode: scanMode };
+                    : scanPayload;
                 await startJob(bgEndpoint, bgPayload);
                 setBgJobQueued(true);
             } catch (e) {
@@ -88,7 +124,7 @@ const WebScanPage = () => {
             } else {
                 const { data } = await axios.post(
                     '/scan_url',
-                    { url: scanTarget, mode: scanMode },
+                    scanPayload,
                     { withCredentials: true, timeout: 480000 }
                 );
                 if (data.findings?.length > 0) setResults(data);
@@ -144,6 +180,49 @@ const WebScanPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-4 space-y-6">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        {/* Bug Bounty Policy Guard Banner (P0.1) */}
+                        {bountyContext && (
+                            <div className="mb-6 p-4 rounded-xl border bg-cyan-500/10 border-cyan-500/30">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <ShieldCheck className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400">Bounty Safe Harbor</span>
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                    {bountyContext.platform}
+                                                </span>
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                                    bountyContext.scan_policy?.status === 'ALLOWED'
+                                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                                        : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                                }`}>
+                                                    {bountyContext.scan_policy?.status || 'UNKNOWN'}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs font-semibold text-slate-800 dark:text-white mt-1">
+                                                {bountyContext.program_name}
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                Policy acknowledged & audit snapshot frozen. Engine throttled.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setBountyContext(null);
+                                            sessionStorage.removeItem('hexaguard_bounty_context');
+                                        }}
+                                        className="text-[11px] text-slate-400 hover:text-slate-200 px-2 py-1 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                                        title="Clear Bug Bounty Context"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-1.5 mb-6">
                             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Target URL</label>
@@ -154,6 +233,48 @@ const WebScanPage = () => {
                                 placeholder="https://example.com"
                                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow"
                             />
+                        </div>
+
+                        {/* Authentication / Session Headers (P0.4) */}
+                        <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setShowAuthConfig(v => !v)}
+                                className="w-full px-4 py-2.5 flex items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <Key className="w-3.5 h-3.5 text-cyan-500" />
+                                    Auth / Session Headers {cookie || bearerToken ? '(Active)' : '(Optional)'}
+                                </span>
+                                {showAuthConfig ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                            {showAuthConfig && (
+                                <div className="p-4 pt-0 space-y-3 border-t border-slate-200 dark:border-slate-800/60 mt-1">
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        Authenticate this scan to discover high-severity vulnerabilities behind login walls.
+                                    </p>
+                                    <div>
+                                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Session Cookie</label>
+                                        <input
+                                            type="text"
+                                            value={cookie}
+                                            onChange={e => setCookie(e.target.value)}
+                                            placeholder="session=xyz; token=abc"
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-cyan-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Bearer Token / JWT</label>
+                                        <input
+                                            type="text"
+                                            value={bearerToken}
+                                            onChange={e => setBearerToken(e.target.value)}
+                                            placeholder="eyJhbGciOi..."
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-cyan-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-3 mb-6">

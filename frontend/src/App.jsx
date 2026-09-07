@@ -40,7 +40,7 @@ import DnsScanPage        from './pages/DnsScanPage';
 import WordPressScanPage  from './pages/WordPressScanPage';
 import ScannerHubPage    from './pages/ScannerHubPage';
 import ScannerGuard      from './components/ScannerGuard';
-import BountyTargetsPage from './pages/BountyTargetsPage';
+const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -200,8 +200,16 @@ function AppInner() {
                 <Route path="/admin"             element={<Navigate to="/dashboard" replace />} />
                 <Route path="/admin/users"       element={<ProtectedRoute element={<AdminUsersPage />}     adminOnly />} />
                 <Route path="/admin/scans"       element={<ProtectedRoute element={<AdminScansPage />}     adminOnly />} />
-                <Route path="/audit"             element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
-                <Route path="/admin/bounty-targets" element={<ProtectedRoute element={<BountyTargetsPage />} adminOnly />} />
+                {import.meta.env.VITE_ENABLE_BOUNTY === 'true' && (
+                    <Route
+                        path="/admin/bounty-targets"
+                        element={
+                            <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                                <ProtectedRoute element={<BountyTargetsPage />} adminOnly />
+                            </React.Suspense>
+                        }
+                    />
+                )}
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

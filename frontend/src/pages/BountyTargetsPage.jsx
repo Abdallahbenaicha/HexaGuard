@@ -523,17 +523,45 @@ export default function BountyTargetsPage() {
   const handlePolicyGateConfirm = (t) => {
     setPolicyGateTarget(null);
     const target = t.asset.replace(/^\*\./, '');
-    navigate(`/scan/web?target=${encodeURIComponent(target)}`);
+    const bountyContext = {
+      asset: target,
+      platform: t.platform,
+      program_handle: t.program_handle,
+      program_name: t.program_name,
+      program_url: t.program_url,
+      scan_policy: t.scan_policy || { status: 'UNKNOWN', confidence: 0, signals: [] },
+      instruction: t.instruction || '',
+      acknowledged: true,
+    };
+    try {
+      sessionStorage.setItem('hexaguard_bounty_context', JSON.stringify(bountyContext));
+    } catch { /* ignore */ }
+    navigate(`/scan/web?target=${encodeURIComponent(target)}`, { state: { bountyContext } });
   };
 
   // ─ Schedule confirm ────────────────────────────────────────────────────────
   const handleScheduleConfirm = async ({ mode, scanType, cronExpr, target }) => {
+    const bountyContext = scheduleTarget ? {
+      asset: target,
+      platform: scheduleTarget.platform,
+      program_handle: scheduleTarget.program_handle,
+      program_name: scheduleTarget.program_name,
+      program_url: scheduleTarget.program_url,
+      scan_policy: scheduleTarget.scan_policy || { status: 'UNKNOWN', confidence: 0, signals: [] },
+      instruction: scheduleTarget.instruction || '',
+      acknowledged: true,
+    } : null;
+    if (bountyContext) {
+      try {
+        sessionStorage.setItem('hexaguard_bounty_context', JSON.stringify(bountyContext));
+      } catch { /* ignore */ }
+    }
     if (mode === 'now') {
-      navigate(`/scan/${scanType}?target=${encodeURIComponent(target)}`);
+      navigate(`/scan/${scanType}?target=${encodeURIComponent(target)}`, { state: { bountyContext } });
     } else {
       try {
         await axios.post('/api/scheduled-scans',
-          { scan_type: scanType, target, cron_expr: cronExpr },
+          { scan_type: scanType, target, cron_expr: cronExpr, bounty_context: bountyContext },
           { withCredentials: true }
         );
         setScheduleTarget(null);

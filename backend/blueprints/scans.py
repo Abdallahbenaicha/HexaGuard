@@ -17,6 +17,7 @@ from flask_cors import cross_origin
 from flask_login import current_user, login_required
 
 import job_manager
+from blueprints.bounty import _bounty_engine_params, _enforce_bounty_policy_gate
 from database import (
     PLANS,
     check_and_consume_quota,
@@ -99,14 +100,24 @@ def _finalize_bridge_scan(
     has_pii: bool = False,
     has_payment: bool = False,
     exploit_known: bool = False,
+    bounty_meta: "dict | None" = None,
 ) -> tuple:
-    """Attach risk breakdown, persist report, return (result, token)."""
+    """Attach risk breakdown, persist report, return (result, token).
+
+    If *bounty_meta* is supplied (set by the bounty policy gate), it is
+    stored inside the result JSON so the report captures the exact policy
+    state at scan time (immutable audit trail — P0.3).
+    """
     attach_risk_breakdown(result, breakdown)
+    if bounty_meta:
+        result.setdefault("bounty", {}).update(bounty_meta)
     token = store_report(
         result, breakdown.final_score, None,
         current_user.id, current_user.username,
+        bounty_meta=bounty_meta,
     )
     return result, token
+
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -335,6 +346,32 @@ def scan_url_bridge():
     if not target:
         return jsonify({"error": "URL/target required."}), 400
 
+    # ── P0.1: Bounty policy gate (no-op when bounty_context absent) ───────────
+    gate_ok, gate_result = _enforce_bounty_policy_gate(
+        data, current_user.id, current_user.username
+    )
+    if not gate_ok:
+        return gate_result
+    bounty_meta = gate_result  # dict or None
+
+    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
+    enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+
+    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    auth_cfg      = data.get("auth_config") or {}
+    extra_headers: dict = {}
+    if auth_cfg.get("cookie"):
+        extra_headers["Cookie"] = str(auth_cfg["cookie"])
+    if auth_cfg.get("bearer_token"):
+        extra_headers["Authorization"] = f"Bearer {auth_cfg['bearer_token']}"
+    if isinstance(auth_cfg.get("custom_headers"), dict):
+        extra_headers.update({
+            str(k): str(v)
+            for k, v in auth_cfg["custom_headers"].items()
+            if k and v
+        })
+
     # Auto-detect private IPs: route them to the network scanner instead of
     # returning an SSRF error (handles frontend routing edge cases).
     bare = re.sub(r"^https?://", "", target.strip()).split("/")[0].split("?")[0].split(":")[0].lower()
@@ -347,7 +384,9 @@ def scan_url_bridge():
             breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=False,
                                           has_pii=has_pii, has_payment=has_payment,
                                           exploit_known=exploit_known)
-            result, report_token = _finalize_bridge_scan(result, breakdown, target)
+            result, report_token = _finalize_bridge_scan(
+                result, breakdown, target, bounty_meta=bounty_meta
+            )
             findings = vulns_to_findings(result.get("vulnerabilities", []), target)
             recon    = build_network_recon(result)
             return jsonify({
@@ -363,12 +402,18 @@ def scan_url_bridge():
     if not ok:
         return err
     try:
-        result = run_web_scan(target, cve_check=True, ssl_check=True)
+        result = run_web_scan(
+            target, cve_check=True, ssl_check=True,
+            extra_headers=extra_headers or None,
+            rate_limit=enforced_rate,
+        )
         breakdown = calculate_risk_v2(
             result, criticality=1.0, internet_facing=True,
             has_pii=has_pii, has_payment=has_payment, exploit_known=exploit_known,
         )
-        result, report_token = _finalize_bridge_scan(result, breakdown, target)
+        result, report_token = _finalize_bridge_scan(
+            result, breakdown, target, bounty_meta=bounty_meta
+        )
         findings = vulns_to_findings(result.get("vulnerabilities", []), target)
         log_event("scan_completed", current_user.username, current_user.id,
                   category="scan", resource=target, status="success",
@@ -647,8 +692,41 @@ def scan_dast_bridge():
     ok, err = _check_target_lock(target)
     if not ok:
         return err
+
+    # ── P0.1: Bounty policy gate ───────────────────────────────────────────────
+    gate_ok, gate_result = _enforce_bounty_policy_gate(
+        data, current_user.id, current_user.username
+    )
+    if not gate_ok:
+        return gate_result
+    bounty_meta = gate_result  # dict or None
+
+    # ── P0.2: Rate-limit enforcement ──────────────────────────────────────────
+    policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
+    enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+
+    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    auth_cfg      = data.get("auth_config") or {}
+    extra_headers: dict = {}
+    if auth_cfg.get("cookie"):
+        extra_headers["Cookie"] = str(auth_cfg["cookie"])
+    if auth_cfg.get("bearer_token"):
+        extra_headers["Authorization"] = f"Bearer {auth_cfg['bearer_token']}"
+    if isinstance(auth_cfg.get("custom_headers"), dict):
+        extra_headers.update({
+            str(k): str(v)
+            for k, v in auth_cfg["custom_headers"].items()
+            if k and v
+        })
+
+    from scanners.dast_scanner import DASTConfig
+    dast_cfg = DASTConfig(
+        rate_limit=enforced_rate,
+        threads=enforced_threads,
+        extra_headers=extra_headers or None,
+    )
     try:
-        result = run_dast_scan(target)
+        result = run_dast_scan(target, config=dast_cfg)
     except ValueError as exc:
         return jsonify({"error": f"Target blocked by security policy: {exc}"}), 400
     except (RuntimeError, OSError) as exc:
@@ -674,7 +752,9 @@ def scan_dast_bridge():
             result, criticality=1.0, internet_facing=True,
             has_pii=False, has_payment=False, exploit_known=False,
         )
-        result, report_token = _finalize_bridge_scan(result, breakdown, target)
+        result, report_token = _finalize_bridge_scan(
+            result, breakdown, target, bounty_meta=bounty_meta
+        )
         findings = vulns_to_findings(vulns, target)
         log_event("scan_completed", current_user.username, current_user.id,
                   category="scan", resource=target, status="success",
@@ -778,11 +858,13 @@ def scan_dependencies_bridge():
 #  ASYNC SCAN ENDPOINTS  — start in background, poll /api/scan/job/<id>
 # ════════════════════════════════════════════════════════════════════════════
 
-def _ctx_finalize(result, breakdown, target, user_id, username):
+def _ctx_finalize(result, breakdown, target, user_id, username, bounty_meta=None):
     """Finalize a scan result inside a background thread (no Flask context)."""
     from database import store_report as _store
     attach_risk_breakdown(result, breakdown)
-    token = _store(result, breakdown.final_score, None, user_id, username)
+    if bounty_meta:
+        result.setdefault("bounty", {}).update(bounty_meta)
+    token = _store(result, breakdown.final_score, None, user_id, username, bounty_meta=bounty_meta)
     return token
 
 
@@ -799,6 +881,33 @@ def async_scan_web():
     exploit_known = bool(data.get("exploit_known", False))
     if not target:
         return jsonify({"error": "Target required."}), 400
+
+    # ── P0.1: Bounty policy gate ───────────────────────────────────────────────
+    gate_ok, gate_result = _enforce_bounty_policy_gate(
+        data, current_user.id, current_user.username
+    )
+    if not gate_ok:
+        return gate_result
+    bounty_meta = gate_result
+
+    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
+    enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+
+    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    auth_cfg      = data.get("auth_config") or {}
+    extra_headers: dict = {}
+    if auth_cfg.get("cookie"):
+        extra_headers["Cookie"] = str(auth_cfg["cookie"])
+    if auth_cfg.get("bearer_token"):
+        extra_headers["Authorization"] = f"Bearer {auth_cfg['bearer_token']}"
+    if isinstance(auth_cfg.get("custom_headers"), dict):
+        extra_headers.update({
+            str(k): str(v)
+            for k, v in auth_cfg["custom_headers"].items()
+            if k and v
+        })
+
     ok, err = _check_target_lock(target)
     if not ok:
         return err
@@ -809,11 +918,15 @@ def async_scan_web():
               details=f"async=web job={job_id}")
 
     def _run():
-        result    = run_web_scan(target, cve_check=True, ssl_check=True)
+        result    = run_web_scan(
+            target, cve_check=True, ssl_check=True,
+            extra_headers=extra_headers or None,
+            rate_limit=enforced_rate,
+        )
         breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
                                       has_pii=has_pii, has_payment=has_payment,
                                       exploit_known=exploit_known)
-        token     = _ctx_finalize(result, breakdown, target, uid, uname)
+        token     = _ctx_finalize(result, breakdown, target, uid, uname, bounty_meta=bounty_meta)
         findings  = vulns_to_findings(result.get("vulnerabilities", []), target)
         return {
             "findings": findings, "risk": breakdown.risk_level,
@@ -882,6 +995,40 @@ def async_scan_dast():
     target = (data.get("url") or data.get("target") or "").strip()
     if not target:
         return jsonify({"error": "Target URL required."}), 400
+
+    # ── P0.1: Bounty policy gate ───────────────────────────────────────────────
+    gate_ok, gate_result = _enforce_bounty_policy_gate(
+        data, current_user.id, current_user.username
+    )
+    if not gate_ok:
+        return gate_result
+    bounty_meta = gate_result
+
+    # ── P0.2: Enforce engine rate-limits from policy signals ──────────────────
+    policy_snapshot = (data.get("bounty_context") or {}).get("scan_policy") or {}
+    enforced_rate, enforced_threads = _bounty_engine_params(policy_snapshot)
+
+    # ── P0.4: Auth/session support ────────────────────────────────────────────
+    auth_cfg      = data.get("auth_config") or {}
+    extra_headers: dict = {}
+    if auth_cfg.get("cookie"):
+        extra_headers["Cookie"] = str(auth_cfg["cookie"])
+    if auth_cfg.get("bearer_token"):
+        extra_headers["Authorization"] = f"Bearer {auth_cfg['bearer_token']}"
+    if isinstance(auth_cfg.get("custom_headers"), dict):
+        extra_headers.update({
+            str(k): str(v)
+            for k, v in auth_cfg["custom_headers"].items()
+            if k and v
+        })
+
+    from scanners.dast_scanner import DASTConfig
+    dast_cfg = DASTConfig(
+        rate_limit=enforced_rate,
+        threads=enforced_threads,
+        extra_headers=extra_headers or None,
+    )
+
     ok, err = _check_target_lock(target)
     if not ok:
         return err
@@ -893,7 +1040,7 @@ def async_scan_dast():
 
     def _run():
         try:
-            result = run_dast_scan(target)
+            result = run_dast_scan(target, config=dast_cfg)
         except (ValueError, RuntimeError, OSError) as exc:
             result = {
                 "scan_type": "dast", "target": target,
@@ -905,7 +1052,7 @@ def async_scan_dast():
             }
         breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=True,
                                       has_pii=False, has_payment=False, exploit_known=False)
-        token    = _ctx_finalize(result, breakdown, target, uid, uname)
+        token    = _ctx_finalize(result, breakdown, target, uid, uname, bounty_meta=bounty_meta)
         findings = vulns_to_findings(result.get("vulnerabilities", []), target)
         return {
             "findings": findings, "risk": breakdown.risk_level,

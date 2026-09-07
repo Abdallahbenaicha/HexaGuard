@@ -90,6 +90,7 @@ def create_app() -> Flask:
     from blueprints.admin import admin_bp
     from blueprints.ai_routes import ai_bp
     from blueprints.auth import auth_bp
+    from blueprints.bounty import bounty_bp
     from blueprints.domain_verification import domain_bp
     from blueprints.extra_scans import extra_bp
     from blueprints.reports import reports_bp
@@ -104,6 +105,10 @@ def create_app() -> Flask:
     app.register_blueprint(scheduled_bp)
     app.register_blueprint(extra_bp)
     app.register_blueprint(domain_bp)
+
+    # Bug Bounty live scanning blueprint (Feature Flag: enabled locally, 404 in public deploy)
+    if os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "false").lower() in ("true", "1", "yes"):
+        app.register_blueprint(bounty_bp)
 
     # ── DB init ──────────────────────────────────────────────────────────────
     from database import init_db

@@ -184,6 +184,9 @@ _SCHEMA_SQLITE = """
         stored_at        TEXT    NOT NULL,
         share_token      TEXT,
         share_expires_at TEXT,
+        bounty_platform  TEXT,
+        bounty_program_handle TEXT,
+        bounty_asset     TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
     );
     CREATE TABLE IF NOT EXISTS scan_vulnerabilities (
@@ -328,6 +331,9 @@ _SCHEMA_MYSQL = """
         result_json      MEDIUMTEXT   NOT NULL,
         original_content MEDIUMTEXT,
         stored_at        VARCHAR(50)  NOT NULL,
+        bounty_platform       VARCHAR(100),
+        bounty_program_handle VARCHAR(150),
+        bounty_asset          VARCHAR(255),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -470,6 +476,10 @@ def init_db():
         # Public shareable report links (SEC-04)
         "ALTER TABLE scan_reports ADD COLUMN share_token TEXT",
         "ALTER TABLE scan_reports ADD COLUMN share_expires_at TEXT",
+        # Bug bounty audit trail columns (P0.3)
+        "ALTER TABLE scan_reports ADD COLUMN bounty_platform TEXT",
+        "ALTER TABLE scan_reports ADD COLUMN bounty_program_handle TEXT",
+        "ALTER TABLE scan_reports ADD COLUMN bounty_asset TEXT",
     ]:
         try:
             db.execute(migration)
@@ -491,7 +501,13 @@ def _bootstrap_admin():
     """
     import os
 
-    if os.environ.get("FLASK_ENV") == "production":
+    is_prod = (
+        os.environ.get("FLASK_ENV") == "production"
+        or os.environ.get("PRODUCTION") == "1"
+        or os.environ.get("HF_SPACE") == "1"
+        or os.environ.get("SPACE_ID") is not None
+    )
+    if is_prod:
         if not os.environ.get("SECURAX_ADMIN_PASSWORD"):
             raise RuntimeError("SECURAX_ADMIN_PASSWORD must be set in production!")
         if not os.environ.get("SECURAX_ANALYST_PASSWORD"):
@@ -850,22 +866,30 @@ def get_audit_stats() -> dict:
 # ── Report functions ──────────────────────────────────────────────────────────
 
 def store_report(result: dict, risk_score: float, original_content: str | None,
-                 user_id: int, username: str) -> str:
+                 user_id: int, username: str, bounty_meta: dict | None = None) -> str:
     token = uuid.uuid4().hex
     vulns = result.get("vulnerabilities", [])
     c, h, m, l = _count_severities(vulns)
     now = datetime.now(timezone.utc).isoformat()
+    if bounty_meta:
+        result.setdefault("bounty", {}).update(bounty_meta)
+    b_meta = bounty_meta or result.get("bounty") or {}
+    b_platform = b_meta.get("bounty_platform")
+    b_program  = b_meta.get("bounty_program_handle")
+    b_asset    = b_meta.get("bounty_asset")
     db = _get_db()
     try:
         cursor = db.execute(
             "INSERT INTO scan_reports"
             " (token,user_id,username,scan_type,target,risk_score,vuln_count,"
-            "  critical_count,high_count,medium_count,low_count,result_json,original_content,stored_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "  critical_count,high_count,medium_count,low_count,result_json,original_content,stored_at,"
+            "  bounty_platform,bounty_program_handle,bounty_asset)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (token, user_id, username,
              result.get("scan_type", ""), result.get("target", ""),
              risk_score, len(vulns), c, h, m, l,
-             json.dumps(result), original_content, now),
+             json.dumps(result), original_content, now,
+             b_platform, b_program, b_asset),
         )
         report_id = cursor.lastrowid
 

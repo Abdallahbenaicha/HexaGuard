@@ -35,7 +35,12 @@ const Sidebar = () => {
         analyst: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
     };
 
-    const visibleItems = ADMIN_NAV.filter(item => !item.adminOnly || user.role === 'admin');
+    const visibleItems = ADMIN_NAV.filter(item => {
+        if (item.to === '/admin/bounty-targets' && import.meta.env.VITE_ENABLE_BOUNTY !== 'true') {
+            return false;
+        }
+        return !item.adminOnly || user.role === 'admin';
+    });
 
     return (
         <aside

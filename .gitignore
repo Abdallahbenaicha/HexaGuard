@@ -87,6 +87,8 @@ nvd_data/
 datasets/raw/
 
 # ── Personal reports & generated documents (moved to _personal_archive) ─
+_personal_archive/
+*.pdf
 HexaGuard_*.pdf
 HexaGuard_*.md
 HexaGuard_*.html

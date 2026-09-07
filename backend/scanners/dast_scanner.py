@@ -115,6 +115,12 @@ class DASTConfig:
     profile:        Literal["quick", "standard", "deep"] = "standard"
     allow_internal: bool  = False
     progress_cb:    Callable[[str, int], None] | None = None
+    # P0.2 — rate-limit enforcement (set from bounty policy signals)
+    rate_limit:     int   = 50    # requests/second passed to Nuclei -rate-limit
+    threads:        int   = 3     # concurrent engine threads (ThreadPoolExecutor max_workers)
+    # P0.4 — authentication / session support
+    extra_headers:  dict | None = None  # {"Cookie": "...", "Authorization": "Bearer ..."}
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -277,7 +283,12 @@ def _parse_nuclei_jsonl(path: str, fallback_url: str) -> list[dict]:
     return vulns
 
 
-def _run_nuclei_cli(url: str, profile: str) -> tuple[list[dict], str | None]:
+def _run_nuclei_cli(
+    url: str,
+    profile: str,
+    rate_limit: int = 50,
+    extra_headers: dict | None = None,
+) -> tuple[list[dict], str | None]:
     nuclei_cmd = shutil.which("nuclei")
     if not nuclei_cmd:
         return [], (
@@ -300,12 +311,17 @@ def _run_nuclei_cli(url: str, profile: str) -> tuple[list[dict], str | None]:
             "-silent",
             "-no-color",
             "-timeout", "15",
-            "-rate-limit", "50",
+            "-rate-limit", str(rate_limit),
             "-retries", "1",
             "-severity", "critical,high,medium,low",
         ]
-        if profile == "deep":
-            cmd += ["-rate-limit", "100", "-bulk-size", "25"]
+        if profile == "deep" and rate_limit > 50:
+            cmd += ["-bulk-size", "25"]
+
+        if extra_headers:
+            for hk, hv in extra_headers.items():
+                if hk and hv:
+                    cmd += ["-H", f"{hk}: {hv}"]
 
         logger.info("DAST(Nuclei-CLI) target=%s profile=%s", url, profile)
         proc = subprocess.run(
@@ -331,7 +347,11 @@ def _run_nuclei_cli(url: str, profile: str) -> tuple[list[dict], str | None]:
             pass
 
 
-def _run_nuclei_cloud(url: str, profile: str) -> tuple[list[dict], str | None]:
+def _run_nuclei_cloud(
+    url: str,
+    profile: str,
+    extra_headers: dict | None = None,
+) -> tuple[list[dict], str | None]:
     """
     ProjectDiscovery Cloud Platform (PDCP) REST API.
     Free tier available — no credit card required.
@@ -345,6 +365,8 @@ def _run_nuclei_cloud(url: str, profile: str) -> tuple[list[dict], str | None]:
     tags    = _NUCLEI_TAGS.get(profile, _NUCLEI_TAGS["standard"])
     sess    = _make_session()
     headers = {"X-API-Key": api_key, "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update({k: v for k, v in extra_headers.items() if k and v})
 
     try:
         resp = sess.post(
@@ -413,15 +435,20 @@ def _run_nuclei_cloud(url: str, profile: str) -> tuple[list[dict], str | None]:
         return [], f"PDCP API error: {exc}"
 
 
-def _run_nuclei_scan(url: str, profile: str = "standard") -> tuple[list[dict], str | None]:
+def _run_nuclei_scan(
+    url: str,
+    profile: str = "standard",
+    rate_limit: int = 50,
+    extra_headers: dict | None = None,
+) -> tuple[list[dict], str | None]:
     """Try cloud API first (if key set), fall back to CLI."""
     if os.environ.get("PDCP_API_KEY"):
-        vulns, err = _run_nuclei_cloud(url, profile)
+        vulns, err = _run_nuclei_cloud(url, profile, extra_headers)
         if err and "PDCP_API_KEY not set" not in err:
             logger.warning("DAST(Nuclei-Cloud) failed: %s — falling back to CLI", err)
         if vulns:
             return vulns, None
-    return _run_nuclei_cli(url, profile)
+    return _run_nuclei_cli(url, profile, rate_limit, extra_headers)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -435,10 +462,11 @@ class _ZAPClient:
     to prevent leakage in server logs.
     """
 
-    def __init__(self, base: str, api_key: str):
+    def __init__(self, base: str, api_key: str, extra_headers: dict | None = None):
         self._base = base.rstrip("/")
         self._key  = api_key
         self._sess = _make_session()
+        self._extra_headers = extra_headers or {}
 
     # ── low-level ────────────────────────────────────────────────────────────
 
@@ -585,13 +613,14 @@ def _run_zap_scan(
     url: str,
     profile: str = "standard",
     progress_cb: Callable[[str, int], None] | None = None,
+    extra_headers: dict | None = None,
 ) -> tuple[list[dict], str | None]:
     zap_url = os.environ.get("ZAP_URL", "http://127.0.0.1:8080").rstrip("/")
     zap_key = os.environ.get("ZAP_API_KEY", "")
     if os.environ.get("ZAP_ENABLED", "1").lower() in ("0", "false"):
         return [], "ZAP disabled via ZAP_ENABLED=0"
 
-    client = _ZAPClient(zap_url, zap_key)
+    client = _ZAPClient(zap_url, zap_key, extra_headers)
     try:
         ver = client.version()
         logger.info("DAST(ZAP %s) target=%s zap=%s profile=%s", ver, url, zap_url, profile)
@@ -703,7 +732,11 @@ def _parse_nikto_text(stdout: str, base_url: str) -> list[dict]:
     return vulns
 
 
-def _run_nikto_scan(url: str) -> tuple[list[dict], str | None]:
+def _run_nikto_scan(
+    url: str,
+    rate_limit: int = 50,
+    extra_headers: dict | None = None,
+) -> tuple[list[dict], str | None]:
     nikto_cmd = _find_nikto_cmd()
     if not nikto_cmd:
         return [], (
@@ -725,7 +758,15 @@ def _run_nikto_scan(url: str) -> tuple[list[dict], str | None]:
             "-C", "all",
             "-no404",
         ]
-        logger.info("DAST(Nikto) target=%s", url)
+        # P0.2: Enforced rate-limiting for Nikto via -Pause (seconds between tests)
+        if rate_limit <= 5:
+            cmd += ["-Pause", "1"]
+        elif rate_limit <= 10:
+            cmd += ["-Pause", "0.5"]
+
+        if extra_headers and extra_headers.get("Cookie"):
+            cmd += ["-cookie", str(extra_headers["Cookie"])]
+        logger.info("DAST(Nikto) target=%s rate_limit=%d", url, rate_limit)
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=_NIKTO_PROC_TIMEOUT,
         )
@@ -781,11 +822,19 @@ def run_dast_scan(target: str, config: DASTConfig | None = None) -> dict:
     nikto_vulns = zap_vulns = nuclei_vulns = []
     nikto_error = zap_error = nuclei_error = None
 
-    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="dast") as pool:
+    # P0.2 — enforce thread count from policy; P0.4 — pass extra_headers
+    effective_threads = max(1, min(cfg.threads, 3))  # cap at original max of 3
+    logger.info(
+        "DAST run_dast_scan | url=%s profile=%s rate=%d threads=%d auth_headers=%s",
+        url, cfg.profile, cfg.rate_limit, effective_threads,
+        list(cfg.extra_headers.keys()) if cfg.extra_headers else [],
+    )
+
+    with ThreadPoolExecutor(max_workers=effective_threads, thread_name_prefix="dast") as pool:
         futures = {
-            pool.submit(_run_nikto_scan, url):                               "nikto",
-            pool.submit(_run_zap_scan, url, cfg.profile, cfg.progress_cb):  "zap",
-            pool.submit(_run_nuclei_scan, url, cfg.profile):                 "nuclei",
+            pool.submit(_run_nikto_scan, url, cfg.rate_limit, cfg.extra_headers):                "nikto",
+            pool.submit(_run_zap_scan, url, cfg.profile, cfg.progress_cb, cfg.extra_headers):  "zap",
+            pool.submit(_run_nuclei_scan, url, cfg.profile, cfg.rate_limit, cfg.extra_headers): "nuclei",
         }
         results: dict[str, tuple[list, str | None]] = {}
         for fut in as_completed(futures):
@@ -794,6 +843,7 @@ def run_dast_scan(target: str, config: DASTConfig | None = None) -> dict:
                 results[name] = fut.result()
             except Exception as exc:
                 results[name] = ([], str(exc))
+
 
     nikto_vulns,  nikto_error  = results.get("nikto",  ([], None))
     zap_vulns,    zap_error    = results.get("zap",    ([], None))
