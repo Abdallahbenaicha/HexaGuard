@@ -76,6 +76,21 @@ def register_middleware(app) -> None:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
 
+        # Expose CSRF token for SPA clients
+        try:
+            from flask_wtf.csrf import generate_csrf
+            csrf_token = generate_csrf()
+            response.headers["X-CSRFToken"] = csrf_token
+            response.set_cookie(
+                "csrftoken",
+                csrf_token,
+                samesite="Lax",
+                secure=_IS_PRODUCTION,
+                httponly=False,
+            )
+        except Exception:
+            pass
+
         if _IS_PRODUCTION:
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains; preload"
@@ -85,7 +100,8 @@ def register_middleware(app) -> None:
     @app.errorhandler(400)
     def bad_request(e):
         from flask import jsonify
-        return jsonify({"error": "Bad request."}), 400
+        desc = getattr(e, "description", None) or "Bad request."
+        return jsonify({"error": desc}), 400
 
     @app.errorhandler(403)
     def forbidden(e):

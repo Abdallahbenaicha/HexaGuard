@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|
 | **BASELINE** | توثيق الأساس واختبارات pytest الـ 186 القائمة | P0 | منجز ومختبر ✅ | `pytest -q` (186 passed) | خط الأساس سليم 100% بدون أي أخطاء مسبقة |
 | **H-01** | فرض Target-Lock وحماية SSRF على مسار `/start-scan` وتوحيد الحراسة | P0 | منجز ومختبر ✅ | `test_audit_h01_start_scan.py` (4/4 passed) | توحيد حراسة SSRF و target_lock مركزياً في `before_request` وداخل `start_scan` |
-| **H-02** | مراجعة وإلغاء إعفاءات CSRF غير المبررة وتأمين مسارات API | P0 | لم يبدأ ⏳ | `test_csrf_protection_on_scans` | مسارات Session-based ملزمة بـ CSRF؛ مسارات Bearer token محمية بفحص Token صريح |
+| **H-02** | مراجعة وإلغاء إعفاءات CSRF غير المبررة وتأمين مسارات API | P0 | منجز ومختبر ✅ | `test_audit_h02_csrf.py` (3/3 passed) | إزالة كافة إعفاءات `@csrf.exempt` من مسارات الفحص وتفعيل توزيع `X-CSRFToken` و `csrftoken` cookie في `middleware.py` |
 | **H-03** | تقييد التسجيل الذاتي المفتوح وحد المعدل ومنع منح `run_scan` فوراً | P0 | لم يبدأ ⏳ | `test_self_registration_restrictions` | دور `viewer` افتراضي بدون صلاحية فحص لحين موافقة المشرف + حد 3 تسجيلات/ساعة لكل IP |
 | **H-04** | ضبط تزامن الخيوط وسقف الوظائف وحد المعدل المجمع لمنع استنزاف الموارد | P0 | لم يبدأ ⏳ | `test_global_scan_concurrency_cap` | إضافة `BoundedSemaphore` وقفل سقف المهام النشطة وطابور `queued` فعلي |
 | **F-01** | مشغل خلفي حقيقي للفحص المجدول (Background Worker / Scheduler) | P1 | لم يبدأ ⏳ | `test_scheduled_scan_worker_execution` | خيط خلفي يفحص `next_run_at <= now` وينفذ المهمة عبر `job_manager` باحترام سقف H-04 |
@@ -19,3 +19,35 @@
 | **Q-02** | اختبارات واجهة أمامية للمكونات الحرجة (Login, ScanForm) | P2 | لم يبدأ ⏳ | Vitest / Jest tests | اختبارات تأكيد الواجهة وسلوك الاستمارات |
 | **Q-03** | دعم فحص CVE لصور Docker | P2 | لم يبدأ ⏳ | `test_docker_cve_scan` | استدعاء فاحص حاويات وتحليل الحزم |
 | **Q-04** | تفعيل نقاط EPSS في محرك تقييم المخاطر المباشر | P2 | لم يبدأ ⏳ | `test_risk_engine_epss` | دمج EPSS score في حساب خطورة الثغرة أثناء وقت التشغيل |
+
+---
+
+## جدول تدقيق وإلغاء إعفاءات CSRF (معيار القبول H-02)
+
+| المسار (Route) | الطريقة (Method) | المصادقة المستخدمة | حالة الإعفاء السابقة | القرار المتخذ | الدليل والتعليل الأمني |
+|---|---|---|---|---|---|
+| `/scan_url` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | يستدعى من واجهة React عبر الجلسة. أُلغي الإعفاء ويتم إرسال `X-CSRFToken` تلقائياً عبر Axios. |
+| `/scan_network` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | مسار فحص شبكي حي. أُلغي الإعفاء لمنع إطلاق فحوصات غير مصرح بها عبر مواقع خبيثة. |
+| `/analyze_code` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | رفع ملفات وتحليل كود SAST. حماية الإدخال بـ CSRF token إلزامي. |
+| `/fix_config` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | مسار معالجة إعدادات الخادم. محمي بـ CSRF token. |
+| `/scan_server` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص خادم خارجي. أُلغي الإعفاء وتطبيقه على جلسة المستخدم. |
+| `/scan_dast` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | تشغيل أدوات DAST الثقيلة. أُلغي الإعفاء لحماية موارد الخادم من طلبات CSRF. |
+| `/scan_ssl` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص شهادات وتشفير. محمي بـ CSRF token. |
+| `/scan_dependencies` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص تبعيات البرمجيات. محمي بـ CSRF token. |
+| `/api/scan/async/web` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | إنشاء وظيفة فحص ويب غير متزامن. محمي بـ CSRF token. |
+| `/api/scan/async/network` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | إنشاء وظيفة فحص شبكي غير متزامن. محمي بـ CSRF token. |
+| `/api/scan/async/dast` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | إنشاء وظيفة DAST غير متزامنة. محمي بـ CSRF token. |
+| `/api/scan/async/ssl` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | إنشاء وظيفة SSL غير متزامنة. محمي بـ CSRF token. |
+| `/api/scan/async/server` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | إنشاء وظيفة فحص خادم غير متزامنة. محمي بـ CSRF token. |
+| `/api/scan/job/<id>/dismiss` | DELETE | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | حذف حالة الوظيفة. محمي بـ CSRF لمنع مسح تقارير ومهام المستخدم خلسة. |
+| `/api/scan/jobs/errors` | DELETE | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | حذف سجلات الأخطاء. محمي بـ CSRF. |
+| `/scan_docker` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص حاويات دوكر (ملف `extra_scans.py`). أُلغي الإعفاء. |
+| `/scan_dns` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص DNS وسجلات البريد (ملف `extra_scans.py`). أُلغي الإعفاء. |
+| `/scan_wordpress` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | فحص مواقع ووردبريس (ملف `extra_scans.py`). أُلغي الإعفاء. |
+| `/api/bounty/verify-policy` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | مسار التحقق من سياسة الهدف (ملف `bounty.py`). أُلغي الإعفاء. |
+| `/api/bounty/recon/subdomains` | POST | Cookie Session (React) | `@csrf.exempt` | **أُزيل الإعفاء 🔒** | استطلاع النطاقات الفرعية (ملف `bounty.py`). أُلغي الإعفاء. |
+| `/health` | GET | Public Probe | `@csrf.exempt` | **أُزيل (زائد)** | مسار GET آمن بطبيعته ولا يخضع لـ CSRF في معايير HTTP/WTF. |
+| `/api/version` | GET | Public Probe | `@csrf.exempt` | **أُزيل (زائد)** | مسار GET لا يُعدل بيانات ولا يخضع لـ CSRF. |
+| `/api/scan/jobs` | GET | Cookie Session (React) | `@csrf.exempt` | **أُزيل (زائد)** | مسار GET استعلامي. |
+| `/api/scan/job/<id>` | GET | Cookie Session (React) | `@csrf.exempt` | **أُزيل (زائد)** | مسار GET استعلامي. |
+

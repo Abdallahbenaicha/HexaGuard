@@ -154,7 +154,6 @@ def _finalize_bridge_scan(
 # ════════════════════════════════════════════════════════════════════════════
 
 @scans_bp.route("/api/version")
-@csrf.exempt
 @cross_origin(origins="*", supports_credentials=False)
 def api_version():
     """Service metadata — version, available scanners."""
@@ -167,7 +166,6 @@ def api_version():
 
 
 @scans_bp.route("/health", methods=["GET", "OPTIONS"])
-@csrf.exempt
 @cross_origin(origins="*", supports_credentials=False)
 def health():
     """Lightweight liveness probe — called by login page to detect server wake-up."""
@@ -366,12 +364,6 @@ def start_scan():
 @require_scanner("web")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-# CSRF exemption rationale: JSON API bridge consumed by React SPA (useScanner.js)
-# using application/json Content-Type. Protected against cross-origin CSRF via:
-# (1) CORS origin whitelist (ALLOWED_ORIGINS) with preflight required for application/json,
-# (2) @require_permission("run_scan") session authentication check,
-# (3) Rate limiting (5/minute), and (4) Strict target-locking & SSRF validation.
-@csrf.exempt
 def scan_url_bridge():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("url") or data.get("target") or "").strip()
@@ -484,7 +476,6 @@ def scan_url_bridge():
 @require_scanner("network")
 @require_permission("run_scan")
 @limiter.limit(lambda: "1000/minute" if os.environ.get("RATELIMIT_ENABLED", "true").lower() == "false" else "3/minute")
-@csrf.exempt
 def scan_network_bridge():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("target") or "").strip()
@@ -595,7 +586,6 @@ def scan_network_bridge():
 @require_scanner("code")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def analyze_code_bridge():
     upload = request.files.get("file") or request.files.get("source_file")
     ok_val, err = validate_upload(upload, {".zip"})
@@ -636,7 +626,6 @@ def analyze_code_bridge():
 @require_scanner("config")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def fix_config_bridge():
     upload = request.files.get("file") or request.files.get("config_file")
     ok_val, err = validate_upload(upload, {".conf", ".txt"})
@@ -687,7 +676,6 @@ def fix_config_bridge():
 @require_scanner("server")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
-@csrf.exempt
 def scan_server_bridge():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("target") or data.get("url") or "").strip()
@@ -728,7 +716,6 @@ def scan_server_bridge():
 @require_scanner("dast")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def scan_dast_bridge():
     data   = request.get_json(silent=True) or {}
     target = (data.get("url") or data.get("target") or "").strip()
@@ -837,7 +824,6 @@ def scan_dast_bridge():
 @require_scanner("ssl")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def scan_ssl_bridge():
     data   = request.get_json(silent=True) or {}
     target = (data.get("target") or data.get("url") or "").strip()
@@ -875,7 +861,6 @@ def scan_ssl_bridge():
 @require_scanner("deps")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def scan_dependencies_bridge():
     upload = request.files.get("file") or request.files.get("package_file")
     ok_val, err = validate_upload(upload, {".json", ".txt", ".toml"})
@@ -935,7 +920,6 @@ def _ctx_finalize(result, breakdown, target, user_id, username, bounty_meta=None
 @require_scanner("web")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def async_scan_web():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("url") or data.get("target") or "").strip()
@@ -1018,7 +1002,6 @@ def async_scan_web():
 @require_scanner("network")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
-@csrf.exempt
 def async_scan_network():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("target") or "").strip()
@@ -1062,7 +1045,6 @@ def async_scan_network():
 @require_scanner("dast")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def async_scan_dast():
     data   = request.get_json(silent=True) or {}
     target = (data.get("url") or data.get("target") or "").strip()
@@ -1158,7 +1140,6 @@ def async_scan_dast():
 @require_scanner("ssl")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def async_scan_ssl():
     data        = request.get_json(silent=True) or {}
     target      = (data.get("target") or data.get("url") or "").strip()
@@ -1196,7 +1177,6 @@ def async_scan_ssl():
 @require_scanner("server")
 @require_permission("run_scan")
 @limiter.limit("3/minute")
-@csrf.exempt
 def async_scan_server():
     data          = request.get_json(silent=True) or {}
     target        = (data.get("target") or data.get("url") or "").strip()
@@ -1237,7 +1217,6 @@ def async_scan_server():
 
 @scans_bp.route("/api/scan/job/<job_id>")
 @require_permission("run_scan")
-@csrf.exempt
 def get_scan_job(job_id):
     job = job_manager.get_job(job_id)
     if not job:
@@ -1252,7 +1231,6 @@ def get_scan_job(job_id):
 
 @scans_bp.route("/api/scan/jobs")
 @require_permission("run_scan")
-@csrf.exempt
 def list_scan_jobs():
     jobs = job_manager.get_user_jobs(current_user.id)
     return jsonify([
@@ -1263,7 +1241,6 @@ def list_scan_jobs():
 
 @scans_bp.route("/api/scan/job/<job_id>/dismiss", methods=["DELETE"])
 @require_permission("run_scan")
-@csrf.exempt
 def dismiss_scan_job(job_id):
     ok = job_manager.dismiss_job(job_id, current_user.id)
     if not ok:
@@ -1273,7 +1250,6 @@ def dismiss_scan_job(job_id):
 
 @scans_bp.route("/api/scan/jobs/errors", methods=["DELETE"])
 @require_permission("run_scan")
-@csrf.exempt
 def dismiss_all_error_jobs():
     count = job_manager.dismiss_all_errors(current_user.id)
     return jsonify({"ok": True, "removed": count})

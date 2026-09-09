@@ -34,7 +34,7 @@ import requests
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
-from database import log_event
+from database import get_target_scan_history, log_event
 from extensions import csrf, limiter
 from utils import admin_required
 
@@ -564,7 +564,6 @@ def _enforce_bounty_policy_gate(
 @bounty_bp.route("/api/bounty/verify-policy", methods=["POST"])
 @login_required
 @limiter.limit("30/minute")
-@csrf.exempt
 def verify_bounty_policy():
     """Pre-validate a bounty target's policy without launching a scan."""
     data = request.get_json(silent=True) or {}
@@ -592,13 +591,90 @@ def verify_bounty_policy():
     })
 
 
+# ── Safe Harbor & Expected ROI Detection (P3.1 & P3.3) ──────────────────────
+
+_SAFE_HARBOR_KEYWORDS = [
+    "safe harbor", "safe-harbor", "gold standard", "disclose.io",
+    "legal safe harbor", "good faith", "will not initiate legal action",
+    "will not pursue legal action", "authorized security research",
+    "anti-circumvention", "computer fraud and abuse act", "cfaa",
+]
+
+
+def _detect_safe_harbor(target_item: dict) -> dict:
+    """Detect whether a bounty program provides explicit legal Safe Harbor commitments."""
+    text = f"{target_item.get('instruction', '')} {target_item.get('policy', '')} {target_item.get('program_name', '')}".lower()
+    hits = [kw for kw in _SAFE_HARBOR_KEYWORDS if kw in text]
+    has_sh = len(hits) > 0
+    sh_type = "gold_standard" if ("gold standard" in hits or "disclose.io" in hits) else ("standard" if has_sh else "none")
+    return {
+        "has_safe_harbor": has_sh,
+        "type": sh_type,
+        "terms": hits[:5],
+    }
+
+
+def _calculate_expected_roi(target_item: dict) -> float:
+    """Calculate an Expected ROI score (0-100) prioritizing high triage speed and reward potential."""
+    score = 20.0
+    if target_item.get("eligible_bounty"):
+        score += 25.0
+
+    max_sev = (target_item.get("max_severity") or "").lower()
+    if max_sev == "critical":
+        score += 25.0
+    elif max_sev == "high":
+        score += 15.0
+    elif max_sev == "medium":
+        score += 10.0
+    elif max_sev == "low":
+        score += 5.0
+
+    policy = target_item.get("scan_policy", {})
+    if policy.get("status") == "ALLOWED":
+        score += 20.0
+    elif policy.get("status") == "UNKNOWN":
+        score += 5.0
+
+    avg_h = target_item.get("avg_response_h")
+    if avg_h is not None:
+        if avg_h <= 24:
+            score += 10.0
+        elif avg_h <= 72:
+            score += 5.0
+
+    if target_item.get("safe_harbor", {}).get("has_safe_harbor"):
+        score += 5.0
+
+    # Wildcard attack surface bonus
+    if target_item.get("asset", "").startswith("*."):
+        score += 5.0
+
+    return round(min(100.0, max(0.0, score)), 1)
+
+
+@bounty_bp.route("/api/bounty/targets/history")
+@login_required
+@limiter.limit("60/minute")
+def api_target_scan_history():
+    """Retrieve historical scan reports and differential analysis for a target (P2.1)."""
+    asset = request.args.get("asset", "").strip()
+    platform = request.args.get("platform", "all")
+    if not asset:
+        return jsonify({"error": "asset parameter is required."}), 400
+    history = get_target_scan_history(asset, platform=platform)
+    return jsonify(history)
+
+
 @bounty_bp.route("/api/admin/bounty-targets")
 @admin_required
 def api_bounty_targets():
-    """Return paginated, filtered list of bug-bounty targets."""
+    """Return paginated, filtered, and ROI-ranked list of bug-bounty targets."""
     platform   = request.args.get("platform", "all").lower()
     asset_type = request.args.get("asset_type", "all").upper()
     bounty     = request.args.get("bounty", "0") == "1"
+    safe_harbor_filter = request.args.get("safe_harbor", "0") == "1"
+    sort_by    = request.args.get("sort", "").lower().strip()
     policy_filter = request.args.get("policy", "ALLOWED").upper()
     if "auto_only" in request.args and "policy" not in request.args:
         policy_filter = "ALLOWED" if request.args.get("auto_only", "1") != "0" else "ALL"
@@ -616,11 +692,21 @@ def api_bounty_targets():
         raw = fetch_fn(plat)
         all_targets.extend(norm_fn(raw))
 
+    # Enrich with Safe Harbor and Expected ROI scoring (P3.1 & P3.3)
+    for t in all_targets:
+        sh = _detect_safe_harbor(t)
+        t["safe_harbor"] = sh
+        t["has_safe_harbor"] = sh["has_safe_harbor"]
+        t["expected_value_score"] = _calculate_expected_roi(t)
+        t["roi_score"] = t["expected_value_score"]
+
     if policy_filter != "ALL":
         all_targets = [t for t in all_targets
                        if t["scan_policy"]["status"] == policy_filter]
     if bounty:
         all_targets = [t for t in all_targets if t["eligible_bounty"]]
+    if safe_harbor_filter:
+        all_targets = [t for t in all_targets if t["has_safe_harbor"]]
     if asset_type != "ALL":
         all_targets = [t for t in all_targets if t["asset_type"] == asset_type]
     if search:
@@ -628,6 +714,12 @@ def api_bounty_targets():
             t for t in all_targets
             if search in t["asset"].lower() or search in t["program_name"].lower()
         ]
+
+    # Sorting options
+    if sort_by in ("roi", "expected_value"):
+        all_targets.sort(key=lambda t: t.get("expected_value_score", 0), reverse=True)
+    elif sort_by == "response_time":
+        all_targets.sort(key=lambda t: t.get("avg_response_h") if t.get("avg_response_h") is not None else 9999)
 
     total   = len(all_targets)
     start   = (page - 1) * per_page
@@ -780,7 +872,6 @@ def _probe_single_subdomain(subdomain: str, timeout: float = 3.0) -> dict:
 @bounty_bp.route("/api/bounty/recon/subdomains", methods=["POST"])
 @login_required
 @limiter.limit("20/minute")
-@csrf.exempt
 def api_recon_subdomains():
     """Discover subdomains for wildcard targets.
 

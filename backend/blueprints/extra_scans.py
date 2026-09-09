@@ -59,7 +59,6 @@ def _build_response(result: dict, breakdown, report_token: str) -> dict:
 @require_scanner("docker")
 @require_permission("run_scan")
 @limiter.limit("10/minute")
-@csrf.exempt
 def scan_docker():
     """Accept a Dockerfile or docker-compose.yml upload and return security findings."""
     upload = (
@@ -137,7 +136,6 @@ def scan_docker():
 @require_scanner("dns")
 @require_permission("run_scan")
 @limiter.limit("10/minute")
-@csrf.exempt
 def scan_dns():
     """Scan a domain for DNS & email security misconfigurations."""
     data   = request.get_json(silent=True) or {}
@@ -172,7 +170,6 @@ def scan_dns():
 @require_scanner("wordpress")
 @require_permission("run_scan")
 @limiter.limit("5/minute")
-@csrf.exempt
 def scan_wordpress():
     """Scan a WordPress site for security issues."""
     data   = request.get_json(silent=True) or {}
