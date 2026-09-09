@@ -161,7 +161,8 @@ def test_dast_engine_selective_execution():
     )
     with patch("scanners.dast_scanner._run_nuclei_scan", return_value=([], None)) as mock_nuclei, \
          patch("scanners.dast_scanner._run_zap_scan") as mock_zap, \
-         patch("scanners.dast_scanner._run_nikto_scan") as mock_nikto:
+         patch("scanners.dast_scanner._run_nikto_scan") as mock_nikto, \
+         patch("scanners.dast_scanner._check_ssrf", return_value=(True, None)):
 
         res = run_dast_scan("http://example.com", config=cfg)
         assert mock_nuclei.called

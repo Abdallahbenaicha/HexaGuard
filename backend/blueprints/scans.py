@@ -69,13 +69,42 @@ _QUOTA_PATHS = {
 
 
 @scans_bp.before_request
-def enforce_quota():
-    """Block scan-creating POSTs when the user's monthly quota is exhausted."""
+def enforce_scan_guards_and_quota():
+    """Centrally enforce SSRF, target-lock, and quota across all scan endpoints."""
     from flask_login import current_user as _cu
     if request.method != "POST" or not _cu.is_authenticated:
         return None
     if not any(request.path.endswith(p) for p in _QUOTA_PATHS):
         return None
+
+    # 1. Extract target if present
+    target = None
+    scan_type = None
+    internal_net = False
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        target = data.get("target") or data.get("url") or data.get("host") or data.get("domain")
+        scan_type = data.get("scan_type")
+        internal_net = bool(data.get("internal"))
+    elif request.form:
+        target = request.form.get("target") or request.form.get("url") or request.form.get("host") or request.form.get("domain")
+        scan_type = request.form.get("scan_type")
+        internal_net = (scan_type == "network_int")
+
+    non_network_endpoints = {"/analyze_code", "/fix_config", "/scan_dependencies"}
+    non_network_types = {"server_int", "dependencies", "sast"}
+    is_non_network = (
+        any(request.path.endswith(p) for p in non_network_endpoints)
+        or (scan_type in non_network_types)
+    )
+
+    if target and isinstance(target, str) and target.strip() and not is_non_network:
+        is_net = internal_net or (scan_type == "network_int") or request.path.endswith("/scan_network")
+        ok, err_resp = _check_target_lock(target.strip(), network_scan=is_net)
+        if not ok:
+            return err_resp
+
+    # 2. Check quota only if target guard passed
     allowed, used, max_scans = check_and_consume_quota(_cu.id)
     if not allowed:
         sub = get_subscription(_cu.id)
@@ -189,6 +218,12 @@ def start_scan():
     EXTERNAL_TYPES = {"network_ext", "web", "server_ext", "dast"}
     if scan_type in EXTERNAL_TYPES and not form.legal_disclaimer.data:
         return jsonify({"error": "يجب الموافقة على الإقرار القانوني للفحوصات الخارجية."}), 400
+
+    NON_NETWORK_TYPES = {"server_int", "dependencies", "sast"}
+    if scan_type not in NON_NETWORK_TYPES:
+        ok, err_resp = _check_target_lock(target, network_scan=(scan_type == "network_int"))
+        if not ok:
+            return err_resp
 
     scan_start_time = time.perf_counter()
 
