@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { FileText, Table, Code, ArrowLeft, Download, FileDown, Activity } from 'lucide-react';
+import { FileText, Table, Code, ArrowLeft, Download, FileDown, Activity, Shield } from 'lucide-react';
 import ResultsPanel from '../components/ResultsPanel';
 import NetworkReconPanel from '../components/NetworkReconPanel';
 import ReportExportBar from '../components/ReportExportBar';
@@ -99,6 +99,29 @@ const ReportPage = () => {
             alert('Backend offline or no scan run yet.');
         } finally {
             setDownloading(p => ({ ...p, [report.label]: false }));
+        }
+    };
+
+    const handleConsentPdfDownload = async () => {
+        setDownloading(p => ({ ...p, consent: true }));
+        try {
+            const res = await fetch(`/api/reports/${token}/consent-pdf`, { credentials: 'include' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Failed to generate consent PDF.');
+                return;
+            }
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `securax_consent_record_${token?.slice(0, 12)}.pdf`;
+            a.click();
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            alert('Backend offline or error generating consent PDF.');
+        } finally {
+            setDownloading(p => ({ ...p, consent: false }));
         }
     };
 
@@ -222,6 +245,44 @@ const ReportPage = () => {
                     </button>
                 </div>
             </div>
+
+            {/* ── BOUNTY: Legal Consent Record PDF (P3.2) ────────────────── */}
+            {(inlineData?.bounty_platform || inlineData?.bounty?.bounty_platform || inlineData?.result?.bounty) && (
+                <div className="bg-gradient-to-br from-cyan-950/40 to-blue-950/30 border-2 border-cyan-500/30 rounded-2xl p-6 shadow-sm mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 flex items-center justify-center rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400">
+                                <Shield className="w-7 h-7" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <h3 className="text-base font-bold text-white">Legal Consent Record (PDF)</h3>
+                                    <span className="text-[10px] font-bold bg-cyan-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                        P3.2 Audit Proof
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400 max-w-md">
+                                    Cryptographically verified legal audit trail with frozen policy signals, researcher attribution, and SHA-256 anti-tamper hash.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleConsentPdfDownload}
+                            disabled={downloading.consent}
+                            className="w-full sm:w-auto px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {downloading.consent ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                    Generating…
+                                </>
+                            ) : (
+                                <><FileDown className="w-4 h-4" /> Export Consent Record</>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── SECONDARY: other formats ────────────────────────────────── */}
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1 mb-3 mt-6">

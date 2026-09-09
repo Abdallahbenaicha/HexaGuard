@@ -87,8 +87,74 @@ def _cve_list(v: dict) -> list[str]:
     return [str(c).strip() for c in raw if str(c).strip()]
 
 
-def vuln_to_finding(v: dict, target: str = "") -> dict:
-    """Convert backend vulnerability dict to rich frontend finding."""
+SEV_WEIGHTS = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+
+
+def check_severity_cap(vuln_sev: str, program_max_sev: str | None) -> dict:
+    """Check if a vulnerability's severity exceeds the bounty program's reward tier."""
+    if not program_max_sev or str(program_max_sev).lower() in ("unknown", "none", ""):
+        return {"exceeds_program_cap": False, "program_cap_warning": None}
+    v_w = SEV_WEIGHTS.get(str(vuln_sev).lower(), 1)
+    p_w = SEV_WEIGHTS.get(str(program_max_sev).lower(), 4)
+    if v_w > p_w:
+        return {
+            "exceeds_program_cap": True,
+            "program_cap_warning": (
+                f"Program Cap Warning: Finding severity ({str(vuln_sev).upper()}) exceeds program's "
+                f"maximum payout tier ({str(program_max_sev).upper()}). Rewards may be capped or out-of-scope."
+            ),
+        }
+    return {"exceeds_program_cap": False, "program_cap_warning": None}
+
+
+def generate_poc_curl(vuln: dict, target: str = "") -> str:
+    """Generate a copyable, reproduction-ready curl command for a vulnerability."""
+    url = vuln.get("url") or vuln.get("host") or target or "https://example.com"
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = f"https://{url}"
+
+    check = (vuln.get("check") or "").lower()
+    title = (vuln.get("title") or "").lower()
+    evidence = (vuln.get("evidence") or "").strip()
+    path = (vuln.get("path") or "").strip()
+
+    if path:
+        base = url.split("?")[0].rstrip("/")
+        url = f"{base}/{path.lstrip('/')}"
+    elif evidence and evidence.startswith("/"):
+        base = url.split("?")[0].rstrip("/")
+        url = f"{base}{evidence}"
+
+    req_method = (vuln.get("method") or "").upper().strip()
+    if req_method in ("POST", "PUT", "PATCH", "DELETE", "GET"):
+        method = req_method
+    elif any(k in check or k in title for k in ("post", "csrf", "form", "upload", "injection")):
+        method = "POST"
+    else:
+        method = "GET"
+
+    data_flag = ""
+    payload = vuln.get("payload") or vuln.get("data")
+    if method == "POST":
+        if payload:
+            data_flag = f" --data-raw '{payload}'"
+        elif evidence and "=" in evidence and len(evidence) < 200:
+            data_flag = f" --data-raw '{evidence}'"
+        else:
+            data_flag = " --data-raw 'test_payload=1'"
+
+    headers = [
+        "-H 'User-Agent: SecuraX-Bounty-Scanner/1.0'",
+        "-H 'X-Bug-Bounty-Research: SecuraX'",
+        "-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'",
+    ]
+
+    hdr_str = " ".join(headers)
+    return f"curl -i -s -k -X {method} {hdr_str} '{url}'{data_flag}"
+
+
+def vuln_to_finding(v: dict, target: str = "", program_max_severity: str | None = None) -> dict:
+    """Convert backend vulnerability dict to rich frontend finding with triage, PoC and cap check."""
     sev = _norm_sev(v.get("severity")).upper()
     cve_ids = _cve_list(v)
     host = v.get("host") or ""
@@ -115,30 +181,39 @@ def vuln_to_finding(v: dict, target: str = "") -> dict:
     if cve_ids:
         parts.append(f"\n\n**CVE:** {', '.join(cve_ids)}")
 
+    cap_info = check_severity_cap(sev, program_max_severity)
+    poc_curl = v.get("poc_curl") or generate_poc_curl(v, target)
+
     return {
-        "severity":    sev,
-        "code":        v.get("title") or v.get("check") or "Finding",
-        "title":       v.get("title") or v.get("check") or "Finding",
-        "message":     "".join(parts) or desc,
-        "description": desc,
-        "evidence":    evidence,
-        "remediation": remediation,
-        "fix":         v.get("fixed_directive") or remediation,
-        "file":        file_loc,
-        "line":        v.get("line_number"),
-        "cve":         ", ".join(cve_ids),
-        "cve_id":      cve_ids[0] if cve_ids else "",
-        "cve_ids":     cve_ids,
-        "check":       v.get("check", ""),
-        "host":        host,
-        "port":        port,
-        "service":     v.get("service", ""),
-        "version":     v.get("version", ""),
+        "id":                  v.get("id"),
+        "severity":            sev,
+        "code":                v.get("title") or v.get("check") or "Finding",
+        "title":               v.get("title") or v.get("check") or "Finding",
+        "message":             "".join(parts) or desc,
+        "description":         desc,
+        "evidence":            evidence,
+        "remediation":         remediation,
+        "fix":                 v.get("fixed_directive") or remediation,
+        "file":                file_loc,
+        "line":                v.get("line_number"),
+        "cve":                 ", ".join(cve_ids),
+        "cve_id":              cve_ids[0] if cve_ids else "",
+        "cve_ids":             cve_ids,
+        "check":               v.get("check", ""),
+        "host":                host,
+        "port":                port,
+        "service":             v.get("service", ""),
+        "version":             v.get("version", ""),
+        "triage_status":       v.get("triage_status", "New"),
+        "triage_notes":        v.get("triage_notes", ""),
+        "poc_curl":            poc_curl,
+        "exceeds_program_cap": cap_info["exceeds_program_cap"],
+        "program_cap_warning": cap_info["program_cap_warning"],
     }
 
 
-def vulns_to_findings(vulns: list[dict], target: str = "") -> list[dict]:
-    return [vuln_to_finding(v, target) for v in vulns]
+def vulns_to_findings(vulns: list[dict], target: str = "", program_max_severity: str | None = None) -> list[dict]:
+    return [vuln_to_finding(v, target, program_max_severity=program_max_severity) for v in vulns]
 
 
 def build_network_recon(result: dict) -> dict:
@@ -469,6 +544,13 @@ def normalize_api_report(data: dict) -> dict:
     vulns = result.get("vulnerabilities") or []
     scan_type = result.get("scan_type") or data.get("scan_type") or ""
 
+    bounty_meta = result.get("bounty") or {}
+    program_max_sev = (
+        bounty_meta.get("max_severity")
+        or (bounty_meta.get("policy_snapshot") or {}).get("max_severity")
+        or data.get("bounty_max_severity")
+    )
+
     payload: dict[str, Any] = {
         "token":             data.get("token", ""),
         "target":            target,
@@ -479,7 +561,7 @@ def normalize_api_report(data: dict) -> dict:
         "risk_level":        rb.get("risk_level") or risk_level_from_score(float(data.get("risk_score") or 0)),
         "vuln_count":        data.get("vuln_count") or len(vulns),
         "severity_counts":   count_severities(vulns),
-        "findings":          vulns_to_findings(vulns, target),
+        "findings":          vulns_to_findings(vulns, target, program_max_severity=program_max_sev),
         "vulnerabilities":   vulns,
         "result":            result,
         "has_fix":           bool(data.get("original_content")),
@@ -488,6 +570,10 @@ def normalize_api_report(data: dict) -> dict:
         "attack_chains":     rb.get("attack_chains") or [],
         "cisa_kev_findings": rb.get("cisa_kev_findings") or [],
         "executive_summary": executive_summary(data),
+        "bounty_platform":   data.get("bounty_platform") or bounty_meta.get("bounty_platform"),
+        "bounty_program":    data.get("bounty_program_handle") or bounty_meta.get("bounty_program_handle"),
+        "bounty_asset":      data.get("bounty_asset") or bounty_meta.get("bounty_asset"),
+        "bounty":            bounty_meta,
     }
     if str(scan_type).startswith("network"):
         payload["recon"] = build_network_recon(result)

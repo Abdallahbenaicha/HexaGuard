@@ -100,7 +100,7 @@ const PolicyBadge = ({ policy, expanded, onToggle }) => {
 };
 
 // ─── Target card ──────────────────────────────────────────────────────────────
-const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunchScan, onSchedule, onRecon }) => {
+const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunchScan, onSchedule, onRecon, onHistory }) => {
   const assetMeta      = ASSET_TYPE_META[target.asset_type] ?? { icon: '📄', label: target.asset_type };
   const hasMethodology = !!METHODOLOGY[target.asset_type];
   const policy         = target.scan_policy ?? { status: 'UNKNOWN', confidence: 0, signals: [] };
@@ -146,12 +146,29 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
       </div>
 
       {/* Meta row */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <SeverityBadge sev={target.max_severity} />
         <span className="text-xs text-slate-500">{assetMeta.label}</span>
         {target.avg_response_h && (
           <span className="text-xs text-slate-500 flex items-center gap-1">
             <Clock className="w-3 h-3" /> ~{Math.round(target.avg_response_h)}h response
+          </span>
+        )}
+
+        {/* Safe Harbor Badge (P3.1) */}
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+          target.has_safe_harbor
+            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+            : 'bg-slate-800 text-slate-400 border-slate-700'
+        }`}>
+          <Shield className="w-3 h-3 text-emerald-400" />
+          {target.has_safe_harbor ? 'Safe Harbor' : 'No Safe Harbor'}
+        </span>
+
+        {/* Expected ROI Score (P3.3) */}
+        {target.expected_value_score !== undefined && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border bg-indigo-500/10 text-indigo-300 border-indigo-500/30" title="Expected ROI / Value Score">
+            <Zap className="w-3 h-3 text-indigo-400" /> ROI: {target.expected_value_score}/100
           </span>
         )}
       </div>
@@ -203,6 +220,15 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
             <Globe className="w-3 h-3" /> Recon
           </button>
         )}
+
+        {/* History & Diff (P2.1) */}
+        <button
+          onClick={() => onHistory(target)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 transition-colors"
+          title="Scan history & differential analysis"
+        >
+          <Clock className="w-3 h-3 text-indigo-400" /> History
+        </button>
 
         {/* Launch Scan — always clickable, gate handled in modal */}
         <button
@@ -725,6 +751,139 @@ const ScheduleModal = ({ target, onClose, onConfirm }) => {
   );
 };
 
+// ─── Target Scan History & Differential Analysis Modal (P2.1) ─────────────────
+const TargetHistoryModal = ({ target, onClose }) => {
+  const [historyData, setHistoryData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!target) return;
+    setLoading(true);
+    axios.get('/api/bounty/targets/history', {
+      params: { asset: target.asset, platform: target.platform },
+      withCredentials: true,
+    })
+      .then(res => setHistoryData(res.data))
+      .catch(err => setError(err.response?.data?.error || 'Failed to load target history.'))
+      .finally(() => setLoading(false));
+  }, [target]);
+
+  if (!target) return null;
+
+  const diff = historyData?.differential || {};
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                Scan History & Differential Analysis
+              </h3>
+              <p className="text-xs text-slate-400 font-mono">{target.asset}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+        </div>
+
+        <div className="px-6 py-4 overflow-y-auto flex-1 space-y-5">
+          {loading && (
+            <div className="py-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" /> Loading scan history…
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs">{error}</div>
+          )}
+
+          {!loading && !error && historyData && (
+            <>
+              {/* Stats summary row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                  <div className="text-xs text-slate-400">Total Scans</div>
+                  <div className="text-xl font-bold text-white mt-0.5">{historyData.total_scans}</div>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-center">
+                  <div className="text-xs text-emerald-400">New Findings (Diff)</div>
+                  <div className="text-xl font-bold text-emerald-300 mt-0.5">+{diff.new_count || 0}</div>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-center">
+                  <div className="text-xs text-blue-400">Resolved (Diff)</div>
+                  <div className="text-xl font-bold text-blue-300 mt-0.5">✓ {diff.resolved_count || 0}</div>
+                </div>
+              </div>
+
+              {/* New and Resolved Findings details */}
+              {(diff.new_findings?.length > 0 || diff.resolved_findings?.length > 0) && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Differential Insights</h4>
+                  {diff.new_findings?.map((f, idx) => (
+                    <div key={`new-${idx}`} className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-black uppercase">+ NEW</span>
+                        <span className="text-white font-medium">{f.title || f.check}</span>
+                      </div>
+                      <span className="text-slate-400 uppercase text-[10px]">{f.severity}</span>
+                    </div>
+                  ))}
+                  {diff.resolved_findings?.map((f, idx) => (
+                    <div key={`res-${idx}`} className="flex items-center justify-between p-2.5 rounded-lg bg-blue-950/30 border border-blue-500/30 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500 text-white uppercase">✓ RESOLVED</span>
+                        <span className="text-slate-300 line-through">{f.title || f.check}</span>
+                      </div>
+                      <span className="text-slate-500 uppercase text-[10px]">{f.severity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Historical scans list */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Previous Scans ({historyData.scans?.length || 0})</h4>
+                {historyData.scans?.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 text-xs bg-slate-800/40 rounded-xl border border-slate-700/40">
+                    No scan records found for this asset yet. Launch a scan to start tracking history!
+                  </div>
+                ) : (
+                  historyData.scans.map((sc, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:border-slate-600 transition-colors text-xs">
+                      <div>
+                        <div className="text-white font-semibold flex items-center gap-2">
+                          <span>{sc.scan_type?.toUpperCase() || 'SCAN'}</span>
+                          <span className="text-slate-400 font-normal">· {new Date(sc.stored_at).toLocaleString()}</span>
+                        </div>
+                        <div className="text-slate-400 mt-0.5">
+                          Risk: <span className="text-cyan-400 font-mono">{Number(sc.risk_score || 0).toFixed(1)}/10</span> · Vulns: <span className="text-white">{sc.vuln_count}</span> (Critical: {sc.critical_count}, High: {sc.high_count})
+                        </div>
+                      </div>
+                      <a
+                        href={`/report/${sc.token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                      >
+                        View Report →
+                      </a>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -745,6 +904,8 @@ export default function BountyTargetsPage() {
   const [assetType,  setAssetType]  = useState('ALL');
   const [bountyOnly,   setBountyOnly]   = useState(false);
   const [policyFilter, setPolicyFilter] = useState('ALLOWED');
+  const [safeHarborOnly, setSafeHarborOnly] = useState(false);
+  const [sortBy,       setSortBy]       = useState('default');
   const [search,       setSearch]       = useState('');
   const [page,       setPage]       = useState(1);
   const PER_PAGE = 24;
@@ -755,6 +916,7 @@ export default function BountyTargetsPage() {
   const [scheduleTarget,  setScheduleTarget] = useState(null);  // ScheduleModal
   const [policyGateTarget,setPolicyGateTarget] = useState(null); // PolicyGateModal
   const [reconTarget,     setReconTarget]     = useState(null); // WildcardReconModal (P1.2)
+  const [historyTarget,   setHistoryTarget]   = useState(null); // TargetHistoryModal (P2.1)
   const [showBookmarked,  setShowBookmarked] = useState(false);
   const [refreshing,      setRefreshing]     = useState(false);
   const searchRef = useRef(null);
@@ -768,7 +930,9 @@ export default function BountyTargetsPage() {
         platform,
         asset_type:  assetType,
         bounty:      bountyOnly ? 1 : 0,
-        policy:      policyFilter,  // new param — ALLOWED | RESTRICTED | UNKNOWN | ALL
+        policy:      policyFilter,  // ALLOWED | RESTRICTED | UNKNOWN | ALL
+        safe_harbor: safeHarborOnly ? 1 : 0,
+        sort:        sortBy,
         search,
         page,
         per_page:    PER_PAGE,
@@ -783,7 +947,7 @@ export default function BountyTargetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [platform, assetType, bountyOnly, policyFilter, search, page]);
+  }, [platform, assetType, bountyOnly, policyFilter, safeHarborOnly, sortBy, search, page]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -796,7 +960,7 @@ export default function BountyTargetsPage() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [platform, assetType, bountyOnly, policyFilter, search]);
+  useEffect(() => { setPage(1); }, [platform, assetType, bountyOnly, policyFilter, safeHarborOnly, sortBy, search]);
 
   // ─ Bookmark helpers ────────────────────────────────────────────────────────
   const isBookmarked = (t) => bookmarks.some(b => b.id === makeTargetId(t));
@@ -1016,6 +1180,28 @@ export default function BountyTargetsPage() {
           <span className="text-sm text-slate-300">Bounty only</span>
         </label>
 
+        {/* Safe Harbor toggle (P3.1) */}
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={safeHarborOnly}
+            onChange={e => setSafeHarborOnly(e.target.checked)}
+            className="w-4 h-4 accent-emerald-500"
+          />
+          <span className="text-sm text-emerald-400 font-medium">Safe Harbor</span>
+        </label>
+
+        {/* Sort selector (P3.3) */}
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+        >
+          <option value="default">Default Sorting</option>
+          <option value="roi">Highest Expected ROI</option>
+          <option value="response_time">Fastest Response</option>
+        </select>
+
         <div className="text-xs text-slate-500 ml-auto">
           {displayedTotal.toLocaleString()} results
         </div>
@@ -1058,6 +1244,7 @@ export default function BountyTargetsPage() {
               onLaunchScan={handleLaunchScan}
               onSchedule={setScheduleTarget}
               onRecon={setReconTarget}
+              onHistory={setHistoryTarget}
             />
           ))}
         </div>
@@ -1142,6 +1329,12 @@ export default function BountyTargetsPage() {
               original_wildcard: base.asset,
             });
           }}
+        />
+      )}
+      {historyTarget && (
+        <TargetHistoryModal
+          target={historyTarget}
+          onClose={() => setHistoryTarget(null)}
         />
       )}
     </div>

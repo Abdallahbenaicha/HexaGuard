@@ -110,6 +110,15 @@ def create_app() -> Flask:
     if os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "false").lower() in ("true", "1", "yes"):
         app.register_blueprint(bounty_bp)
 
+    @app.route("/api/config/deployment-mode", methods=["GET"])
+    def get_deployment_mode():
+        mode = os.environ.get("DEPLOYMENT_MODE", "cloud").strip().lower()
+        return jsonify({
+            "ok": True,
+            "deployment_mode": mode,
+            "is_local": mode == "local",
+        })
+
     # ── DB init ──────────────────────────────────────────────────────────────
     from database import init_db
     with app.app_context():

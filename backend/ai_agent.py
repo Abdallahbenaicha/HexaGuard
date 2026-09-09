@@ -17,7 +17,7 @@ import os
 import re
 import threading
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 import requests
 

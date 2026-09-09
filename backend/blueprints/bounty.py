@@ -18,6 +18,7 @@ Provides:
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -41,6 +42,32 @@ from utils import admin_required
 logger = logging.getLogger(__name__)
 
 bounty_bp = Blueprint("bounty", __name__)
+
+
+def local_only_required(f):
+    """Decorator requiring DEPLOYMENT_MODE == 'local', otherwise returns 404."""
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        mode = os.environ.get("DEPLOYMENT_MODE", "").strip().lower()
+        if mode != "local":
+            return jsonify({
+                "error": "Endpoint is restricted to local deployment mode only.",
+                "deployment_mode": mode or "cloud",
+            }), 404
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@bounty_bp.before_request
+def enforce_bounty_local_only_gate():
+    """Centrally enforce that all bounty blueprint routes return 404 unless DEPLOYMENT_MODE == 'local'."""
+    mode = os.environ.get("DEPLOYMENT_MODE", "").strip().lower()
+    if mode != "local":
+        return jsonify({
+            "error": "Bug Bounty Radar endpoints are restricted to local deployment mode only.",
+            "deployment_mode": mode or "cloud",
+        }), 404
+    return None
 
 # ════════════════════════════════════════════════════════════════════════════
 #  BUG BOUNTY TARGETS CACHING & FETCHING (arkadiyt/bounty-targets-data)
