@@ -1286,3 +1286,70 @@ def dismiss_scan_job(job_id):
 def dismiss_all_error_jobs():
     count = job_manager.dismiss_all_errors(current_user.id)
     return jsonify({"ok": True, "removed": count})
+
+
+@scans_bp.route("/api/scanners/status", methods=["GET"])
+def api_scanners_status():
+    """Return availability and readiness status of security scanning tools."""
+    import shutil
+    import os
+
+    tools = {
+        "nuclei": {
+            "name": "Nuclei",
+            "available": bool(shutil.which("nuclei") or os.environ.get("PDCP_API_KEY")),
+            "provider": "cloud_api" if os.environ.get("PDCP_API_KEY") else ("cli" if shutil.which("nuclei") else "missing"),
+            "path": shutil.which("nuclei") or ("Cloud API (PDCP)" if os.environ.get("PDCP_API_KEY") else None),
+            "category": "dast",
+            "install_hint": "go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
+        },
+        "nikto": {
+            "name": "Nikto",
+            "available": bool(shutil.which("nikto")),
+            "provider": "cli" if shutil.which("nikto") else "missing",
+            "path": shutil.which("nikto"),
+            "category": "dast",
+            "install_hint": "apt install nikto / brew install nikto",
+        },
+        "zap": {
+            "name": "OWASP ZAP",
+            "available": bool(shutil.which("zap.sh") or shutil.which("zap") or os.environ.get("ZAP_URL")),
+            "provider": "daemon" if os.environ.get("ZAP_URL") else ("cli" if shutil.which("zap.sh") or shutil.which("zap") else "missing"),
+            "path": os.environ.get("ZAP_URL") or shutil.which("zap.sh") or shutil.which("zap"),
+            "category": "dast",
+            "install_hint": "docker run -d -p 8080:8080 zaproxy/zap-stable",
+        },
+        "nmap": {
+            "name": "Nmap",
+            "available": bool(shutil.which("nmap")),
+            "provider": "cli" if shutil.which("nmap") else "missing",
+            "path": shutil.which("nmap"),
+            "category": "network",
+            "install_hint": "apt install nmap / nmap.org",
+        },
+        "trivy": {
+            "name": "Trivy",
+            "available": bool(shutil.which("trivy")),
+            "provider": "cli" if shutil.which("trivy") else "missing",
+            "path": shutil.which("trivy"),
+            "category": "docker",
+            "install_hint": "apt install trivy",
+        },
+        "sslyze": {
+            "name": "SSLyze",
+            "available": bool(shutil.which("sslyze")),
+            "provider": "cli" if shutil.which("sslyze") else "python_fallback",
+            "path": shutil.which("sslyze"),
+            "category": "ssl",
+            "install_hint": "pip install sslyze",
+        },
+    }
+
+    dast_missing = [t["name"] for t in tools.values() if t["category"] == "dast" and not t["available"]]
+    return jsonify({
+        "ok": True,
+        "tools": tools,
+        "dast_ready": len(dast_missing) == 0,
+        "dast_partial": any(t["available"] for t in tools.values() if t["category"] == "dast"),
+        "dast_missing": dast_missing,
+    })

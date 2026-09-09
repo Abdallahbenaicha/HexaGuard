@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import ReportExportBar from '../components/ReportExportBar';
 import {
     Activity, ArrowLeft, Radar, Shield,
-    AlertTriangle, Terminal, ChevronRight
+    AlertTriangle, Terminal, ChevronRight, Wrench, CheckCircle2
 } from 'lucide-react';
 
 const SEVERITY_COLORS = {
@@ -24,6 +24,13 @@ const DastScanPage = () => {
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [ariaAnalysis, setAriaAnalysis] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
+    const [toolStatus, setToolStatus] = useState(null);
+
+    useEffect(() => {
+        axios.get('/api/scanners/status')
+            .then(res => setToolStatus(res.data))
+            .catch(() => {});
+    }, []);
 
     const handleExecuteScan = async () => {
         if (!target.trim() || !permissionGranted) return;
@@ -84,6 +91,20 @@ const DastScanPage = () => {
                     </p>
                 </div>
             </div>
+
+            {/* Tool Readiness Alert Banner */}
+            {toolStatus && !toolStatus.dast_ready && (
+                <div className="mb-6 rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 space-y-1.5 text-xs text-amber-900 dark:text-amber-200 shadow-sm">
+                    <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-400">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <span>DAST Engine Notice: Some External CLI Tools are Missing</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300">
+                        External CLI tools not detected: <strong className="text-amber-700 dark:text-amber-300">{toolStatus.dast_missing.join(', ')}</strong>.
+                        DAST scan will operate using internal fallback checks. For full multi-engine coverage (Nuclei / ZAP / Nikto), install the CLI binaries or configure <code className="bg-slate-200 dark:bg-slate-900 px-1 py-0.5 rounded text-amber-800 dark:text-amber-300">PDCP_API_KEY</code> / <code className="bg-slate-200 dark:bg-slate-900 px-1 py-0.5 rounded text-amber-800 dark:text-amber-300">ZAP_URL</code>.
+                    </p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
