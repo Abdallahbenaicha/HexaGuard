@@ -203,6 +203,8 @@ _SCHEMA_SQLITE = """
         is_fixed    INTEGER NOT NULL DEFAULT 0,
         fixed_at    TEXT,
         found_at    TEXT    NOT NULL,
+        triage_status TEXT  NOT NULL DEFAULT 'New',
+        triage_notes  TEXT,
         FOREIGN KEY (report_id) REFERENCES scan_reports(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -351,6 +353,8 @@ _SCHEMA_MYSQL = """
         is_fixed    TINYINT(1)   NOT NULL DEFAULT 0,
         fixed_at    VARCHAR(50),
         found_at    VARCHAR(50)  NOT NULL,
+        triage_status VARCHAR(50) NOT NULL DEFAULT 'New',
+        triage_notes  TEXT,
         FOREIGN KEY (report_id) REFERENCES scan_reports(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -480,6 +484,9 @@ def init_db():
         "ALTER TABLE scan_reports ADD COLUMN bounty_platform TEXT",
         "ALTER TABLE scan_reports ADD COLUMN bounty_program_handle TEXT",
         "ALTER TABLE scan_reports ADD COLUMN bounty_asset TEXT",
+        # Bug bounty findings triage columns (P2.2)
+        "ALTER TABLE scan_vulnerabilities ADD COLUMN triage_status TEXT NOT NULL DEFAULT 'New'",
+        "ALTER TABLE scan_vulnerabilities ADD COLUMN triage_notes TEXT",
     ]:
         try:
             db.execute(migration)
@@ -623,11 +630,12 @@ def create_user(username: str, password: str, role: str = "analyst",
                 allowed_target: str | None = None,
                 email: str | None = None) -> tuple[bool, str]:
     if permissions is None:
-        permissions = (
-            ["run_scan", "view_reports", "delete_reports", "manage_users", "view_audit"]
-            if role == "admin"
-            else ["run_scan", "view_reports"]
-        )
+        if role == "admin":
+            permissions = ["run_scan", "view_reports", "delete_reports", "manage_users", "view_audit"]
+        elif role == "analyst":
+            permissions = ["run_scan", "view_reports"]
+        else:
+            permissions = ["view_reports"]
     pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     now = datetime.now(timezone.utc).isoformat()
     # allowed_target → stored in locked_target column
@@ -904,11 +912,35 @@ def store_report(result: dict, risk_score: float, original_content: str | None,
                 cve_list = [str(c).strip() for c in raw_cves if str(c).strip()]
             else:
                 cve_list = []
-            db.execute(
+
+            tri_status = (str(vuln.get("triage_status") or "New")).strip() or "New"
+            tri_notes = str(vuln.get("triage_notes") or "")
+
+            # Prior triage inheritance on same target asset
+            if tri_status == "New" and (b_asset or result.get("target")):
+                target_match = b_asset or result.get("target")
+                check_val = str(vuln.get("check") or vuln.get("check_name") or "")
+                title_val = str(vuln.get("title") or "")
+                try:
+                    prior_vuln = db.execute(
+                        "SELECT sv.triage_status, sv.triage_notes FROM scan_vulnerabilities sv "
+                        "JOIN scan_reports sr ON sv.report_id = sr.id "
+                        "WHERE (sr.bounty_asset = ? OR sr.target = ?) "
+                        "AND (sv.title = ? OR (sv.check_name = ? AND sv.check_name != 'unknown_check')) "
+                        "AND sv.triage_status != 'New' ORDER BY sv.id DESC LIMIT 1",
+                        (target_match, target_match, title_val, check_val),
+                    ).fetchone()
+                    if prior_vuln:
+                        tri_status = prior_vuln[0]
+                        tri_notes = prior_vuln[1] or ""
+                except Exception:
+                    pass
+
+            cur_v = db.execute(
                 "INSERT INTO scan_vulnerabilities"
                 " (report_id,check_name,severity,title,description,evidence,"
-                "  remediation,line_number,cve_ids,is_fixed,fixed_at,found_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,0,NULL,?)",
+                "  remediation,line_number,cve_ids,is_fixed,fixed_at,found_at,triage_status,triage_notes)"
+                " VALUES (?,?,?,?,?,?,?,?,?,0,NULL,?,?,?)",
                 (
                     report_id,
                     str(vuln.get("check", "unknown_check")),
@@ -920,8 +952,14 @@ def store_report(result: dict, risk_score: float, original_content: str | None,
                     int(vuln.get("line_number", 0) or 0),
                     json.dumps(cve_list),
                     now,
+                    tri_status,
+                    tri_notes,
                 ),
             )
+            vuln["id"] = getattr(cur_v, "lastrowid", None)
+            vuln["triage_status"] = tri_status
+            vuln["triage_notes"] = tri_notes
+
         db.commit()
     except Exception:
         db.rollback()
@@ -930,12 +968,166 @@ def store_report(result: dict, risk_score: float, original_content: str | None,
 
 
 def get_report(token: str) -> dict | None:
-    row = _get_db().execute("SELECT * FROM scan_reports WHERE token=?", (token,)).fetchone()
+    db = _get_db()
+    row = db.execute("SELECT * FROM scan_reports WHERE token=?", (token,)).fetchone()
     if not row:
         return None
     d = dict(row)
     d["result"] = json.loads(d["result_json"])
+    try:
+        vuln_rows = db.execute(
+            "SELECT id, check_name, severity, title, triage_status, triage_notes, is_fixed, fixed_at "
+            "FROM scan_vulnerabilities WHERE report_id=? ORDER BY id ASC",
+            (d["id"],),
+        ).fetchall()
+        if vuln_rows and "vulnerabilities" in d["result"]:
+            vulns = d["result"]["vulnerabilities"]
+            for idx, v in enumerate(vulns):
+                if idx < len(vuln_rows):
+                    vr = dict(vuln_rows[idx])
+                    v["id"] = vr["id"]
+                    v["triage_status"] = vr.get("triage_status") or "New"
+                    v["triage_notes"] = vr.get("triage_notes") or ""
+                    v["is_fixed"] = bool(vr.get("is_fixed", 0))
+    except Exception as exc:
+        logger.warning("Error enriching report with DB vulnerabilities: %s", exc)
     return d
+
+
+def update_vulnerability_triage(vuln_id: int, triage_status: str, triage_notes: str | None = None) -> bool:
+    """Update finding triage status ('New', 'Reviewing', 'Reported', 'Duplicate', 'False Positive')."""
+    valid_statuses = {"New", "Reviewing", "Reported", "Duplicate", "False Positive"}
+    if triage_status not in valid_statuses:
+        raise ValueError(f"Invalid triage status: {triage_status}. Must be one of {valid_statuses}")
+    db = _get_db()
+    cur = db.execute(
+        "UPDATE scan_vulnerabilities SET triage_status=?, triage_notes=? WHERE id=?",
+        (triage_status, triage_notes or "", vuln_id),
+    )
+    db.commit()
+    return getattr(cur, "rowcount", 0) > 0
+
+
+def get_target_scan_history(target_asset: str, platform: str | None = None, limit: int = 10) -> dict:
+    """Retrieve historical scan reports for a given target asset and compute diffs."""
+    db = _get_db()
+    clean_target = target_asset.strip().lower().lstrip("*.")
+    query = (
+        "SELECT id, token, user_id, username, scan_type, target, risk_score, vuln_count, "
+        "critical_count, high_count, medium_count, low_count, stored_at, "
+        "bounty_platform, bounty_program_handle, bounty_asset, result_json "
+        "FROM scan_reports "
+        "WHERE bounty_asset = ? OR target = ? OR target LIKE ? "
+    )
+    params = [target_asset, target_asset, f"%{clean_target}%"]
+    if platform and platform != "all":
+        query += "AND bounty_platform = ? "
+        params.append(platform)
+    query += "ORDER BY stored_at DESC LIMIT ?"
+    params.append(limit)
+
+    rows = db.execute(query, tuple(params)).fetchall()
+    if not rows:
+        return {
+            "target": target_asset,
+            "total_scans": 0,
+            "scans": [],
+            "differential": {
+                "new_count": 0,
+                "resolved_count": 0,
+                "recurrent_count": 0,
+                "new_findings": [],
+                "resolved_findings": [],
+                "recurrent_findings": [],
+            },
+        }
+
+    scans = []
+    parsed_results = []
+    for r in rows:
+        d = dict(r)
+        res_json = d.pop("result_json", "{}")
+        try:
+            res = json.loads(res_json)
+        except Exception:
+            res = {}
+        parsed_results.append(res)
+        scans.append({
+            "token": d["token"],
+            "stored_at": d["stored_at"],
+            "scan_type": d["scan_type"],
+            "target": d["target"],
+            "risk_score": d["risk_score"],
+            "vuln_count": d["vuln_count"],
+            "critical_count": d["critical_count"],
+            "high_count": d["high_count"],
+            "medium_count": d["medium_count"],
+            "low_count": d["low_count"],
+            "bounty_platform": d.get("bounty_platform"),
+            "bounty_program": d.get("bounty_program_handle"),
+        })
+
+    diff = {
+        "new_count": 0,
+        "resolved_count": 0,
+        "recurrent_count": 0,
+        "new_findings": [],
+        "resolved_findings": [],
+        "recurrent_findings": [],
+    }
+
+    if len(parsed_results) >= 2:
+        latest_vulns = parsed_results[0].get("vulnerabilities", [])
+        prev_vulns = parsed_results[1].get("vulnerabilities", [])
+
+        def _finding_fp(v):
+            return f"{v.get('check', '')}::{v.get('title', '')}::{v.get('severity', '')}"
+
+        prev_fps = {_finding_fp(v): v for v in prev_vulns}
+        latest_fps = {_finding_fp(v): v for v in latest_vulns}
+
+        for fp, v in latest_fps.items():
+            if fp not in prev_fps:
+                diff["new_findings"].append({
+                    "check": v.get("check"),
+                    "title": v.get("title"),
+                    "severity": v.get("severity"),
+                })
+            else:
+                diff["recurrent_findings"].append({
+                    "check": v.get("check"),
+                    "title": v.get("title"),
+                    "severity": v.get("severity"),
+                })
+
+        for fp, v in prev_fps.items():
+            if fp not in latest_fps:
+                diff["resolved_findings"].append({
+                    "check": v.get("check"),
+                    "title": v.get("title"),
+                    "severity": v.get("severity"),
+                })
+
+        diff["new_count"] = len(diff["new_findings"])
+        diff["resolved_count"] = len(diff["resolved_findings"])
+        diff["recurrent_count"] = len(diff["recurrent_findings"])
+    elif len(parsed_results) == 1:
+        latest_vulns = parsed_results[0].get("vulnerabilities", [])
+        diff["new_findings"] = [{
+            "check": v.get("check"),
+            "title": v.get("title"),
+            "severity": v.get("severity"),
+        } for v in latest_vulns]
+        diff["new_count"] = len(diff["new_findings"])
+
+    return {
+        "target": target_asset,
+        "target_asset": target_asset,
+        "total_scans": len(scans),
+        "last_scanned_at": scans[0]["stored_at"] if scans else None,
+        "scans": scans,
+        "differential": diff,
+    }
 
 
 def get_user_reports(user_id: int, limit: int = 100) -> list[dict]:

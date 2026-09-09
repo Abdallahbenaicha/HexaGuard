@@ -5,7 +5,7 @@
 | **BASELINE** | توثيق الأساس واختبارات pytest الـ 186 القائمة | P0 | منجز ومختبر ✅ | `pytest -q` (186 passed) | خط الأساس سليم 100% بدون أي أخطاء مسبقة |
 | **H-01** | فرض Target-Lock وحماية SSRF على مسار `/start-scan` وتوحيد الحراسة | P0 | منجز ومختبر ✅ | `test_audit_h01_start_scan.py` (4/4 passed) | توحيد حراسة SSRF و target_lock مركزياً في `before_request` وداخل `start_scan` |
 | **H-02** | مراجعة وإلغاء إعفاءات CSRF غير المبررة وتأمين مسارات API | P0 | منجز ومختبر ✅ | `test_audit_h02_csrf.py` (3/3 passed) | إزالة كافة إعفاءات `@csrf.exempt` من مسارات الفحص وتفعيل توزيع `X-CSRFToken` و `csrftoken` cookie في `middleware.py` |
-| **H-03** | تقييد التسجيل الذاتي المفتوح وحد المعدل ومنع منح `run_scan` فوراً | P0 | لم يبدأ ⏳ | `test_self_registration_restrictions` | دور `viewer` افتراضي بدون صلاحية فحص لحين موافقة المشرف + حد 3 تسجيلات/ساعة لكل IP |
+| **H-03** | تقييد التسجيل الذاتي المفتوح وحد المعدل ومنع منح `run_scan` فوراً | P0 | منجز ومختبر ✅ | `test_audit_h03_registration.py` (2/2 passed) | تعيين دور `viewer` افتراضياً بدون `run_scan` مع حد 3 تسجيلات/ساعة لكل IP ويتطلب ترقية المشرف |
 | **H-04** | ضبط تزامن الخيوط وسقف الوظائف وحد المعدل المجمع لمنع استنزاف الموارد | P0 | لم يبدأ ⏳ | `test_global_scan_concurrency_cap` | إضافة `BoundedSemaphore` وقفل سقف المهام النشطة وطابور `queued` فعلي |
 | **F-01** | مشغل خلفي حقيقي للفحص المجدول (Background Worker / Scheduler) | P1 | لم يبدأ ⏳ | `test_scheduled_scan_worker_execution` | خيط خلفي يفحص `next_run_at <= now` وينفذ المهمة عبر `job_manager` باحترام سقف H-04 |
 | **F-02** | ربط صفحة الأسعار `PricingPage.jsx` وتدفق ترقية الاشتراك | P1 | لم يبدأ ⏳ | `test_subscription_upgrade_flow` | مسار `/pricing` نشط مع تدفق ترقية الخطة وتحديث الحصة الشهرية |

@@ -394,7 +394,7 @@ def api_token_revoke():
 
 
 @auth_bp.route("/api/auth/register", methods=["POST"])
-@limiter.limit("5/minute")
+@limiter.limit("3/hour")
 def api_register():
     data     = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
@@ -412,7 +412,8 @@ def api_register():
     if not ok:
         return jsonify({"ok": False, "error": msg}), 400
 
-    ok, msg = create_user(username, password, role="analyst",
+    ok, msg = create_user(username, password, role="viewer",
+                          permissions=["view_reports"],
                           created_by="self-registration", email=email or None)
     if not ok:
         status = 409 if "already exists" in msg else 500
@@ -420,6 +421,6 @@ def api_register():
 
     log_event("user_registered", username, category="auth",
               ip_address=request.remote_addr, status="success")
-    logger.info("self-registration | user=%s | email=%s | ip=%s",
+    logger.info("self-registration | user=%s | email=%s | ip=%s | role=viewer",
                 username, email or "—", request.remote_addr)
-    return jsonify({"ok": True, "message": "Account created. You can now log in."}), 201
+    return jsonify({"ok": True, "message": "Account created with viewer access. Contact an administrator to approve scanning permissions."}), 201
