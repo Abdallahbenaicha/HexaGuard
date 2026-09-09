@@ -135,6 +135,54 @@
       "rationale": "CSP default-src self blocks inline script execution.",
       "evidence": "Observed CSP header in response",
       "user_id": 3
+    },
+    {
+      "id": "e3-1788970339378-8d66",
+      "timestamp": "2026-09-09T16:12:19.378200+00:00",
+      "report_token": "11111111-2222-3333-4444-555555555555",
+      "target": "app.test.local",
+      "vuln_type": "sqli",
+      "scanner_id": "dast_zap",
+      "disagreement_type": "false_positive",
+      "rationale": "Parameterized prepared statement verified in backend handler.",
+      "evidence": "Observed safe integer cast",
+      "user_id": 1
+    },
+    {
+      "id": "e3-1788970341646-1d92",
+      "timestamp": "2026-09-09T16:12:21.646679+00:00",
+      "report_token": "442c794fc758472c8c4e47ad43052f42",
+      "target": "example.com",
+      "vuln_type": "xss",
+      "scanner_id": "web_core",
+      "disagreement_type": "false_positive",
+      "rationale": "CSP default-src self blocks inline script execution.",
+      "evidence": "Observed CSP header in response",
+      "user_id": 3
+    },
+    {
+      "id": "e3-1788970676514-e51d",
+      "timestamp": "2026-09-09T16:17:56.514742+00:00",
+      "report_token": "11111111-2222-3333-4444-555555555555",
+      "target": "app.test.local",
+      "vuln_type": "sqli",
+      "scanner_id": "dast_zap",
+      "disagreement_type": "false_positive",
+      "rationale": "Parameterized prepared statement verified in backend handler.",
+      "evidence": "Observed safe integer cast",
+      "user_id": 1
+    },
+    {
+      "id": "e3-1788970681056-190d",
+      "timestamp": "2026-09-09T16:18:01.056409+00:00",
+      "report_token": "7dec7eb45d6c4ce59229de0442abb1d0",
+      "target": "example.com",
+      "vuln_type": "xss",
+      "scanner_id": "web_core",
+      "disagreement_type": "false_positive",
+      "rationale": "CSP default-src self blocks inline script execution.",
+      "evidence": "Observed CSP header in response",
+      "user_id": 3
     }
   ]
 }
