@@ -24,6 +24,7 @@ import NetworkScanPage  from './pages/NetworkScanPage';
 import DastScanPage     from './pages/DastScanPage';
 import DependencyScanPage from './pages/DependencyScanPage';
 import SslScanPage      from './pages/SslScanPage';
+import ServerExtScanPage from './pages/ServerExtScanPage';
 import ProfilePage      from './pages/ProfilePage';
 import ReportPage       from './pages/ReportPage';
 
@@ -42,6 +43,7 @@ import ScannerHubPage    from './pages/ScannerHubPage';
 import ScannerGuard      from './components/ScannerGuard';
 const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
 import VulnLibraryPage from './pages/VulnLibraryPage';
+import PricingPage from './pages/PricingPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -157,6 +159,7 @@ function AppInner() {
                 {/* Public */}
                 <Route path="/"         element={<RootRedirect />} />
                 <Route path="/landing"  element={<LandingPage />} />
+                <Route path="/pricing"  element={<PricingPage />} />
                 <Route path="/login"    element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
@@ -187,7 +190,7 @@ function AppInner() {
 
                 {/* Route aliases */}
                 <Route path="/scan/network-ext"  element={<ProtectedRoute element={<ScannerGuard slug="network" element={<NetworkScanPage />} />} />} />
-                <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ScannerGuard slug="server"  element={<ApacheScanPage />} />} />} />
+                <Route path="/scan/server-ext"   element={<ProtectedRoute element={<ScannerGuard slug="server"  element={<ServerExtScanPage />} />} />} />
 
                 {/* Profile */}
                 <Route path="/profile"           element={<ProtectedRoute element={<ProfilePage />} />} />
