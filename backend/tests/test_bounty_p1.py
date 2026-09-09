@@ -17,6 +17,7 @@ import pytest
 
 os.environ["SECURAX_TESTING"] = "1"
 os.environ["ENABLE_LIVE_BOUNTY_SCANNING"] = "true"
+os.environ["DEPLOYMENT_MODE"] = "local"
 
 from app import create_app
 from blueprints.bounty import _bounty_engine_params, _enforce_bounty_policy_gate
@@ -30,6 +31,7 @@ from scanners.sslyze_scanner import is_sslyze_available, run_sslyze_scan
 def client():
     app = create_app()
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
     with app.app_context():
         init_db()
     with app.test_client() as c:

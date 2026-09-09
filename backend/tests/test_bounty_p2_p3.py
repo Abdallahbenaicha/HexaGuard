@@ -17,6 +17,7 @@ import pytest
 
 os.environ["SECURAX_TESTING"] = "1"
 os.environ["ENABLE_LIVE_BOUNTY_SCANNING"] = "true"
+os.environ["DEPLOYMENT_MODE"] = "local"
 
 from app import create_app
 from blueprints.bounty import _calculate_expected_roi, _detect_safe_harbor

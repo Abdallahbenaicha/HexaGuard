@@ -910,7 +910,7 @@ export default function BountyTargetsPage() {
   const [platform,   setPlatform]   = useState('all');
   const [assetType,  setAssetType]  = useState('ALL');
   const [bountyOnly,   setBountyOnly]   = useState(false);
-  const [policyFilter, setPolicyFilter] = useState('ALLOWED');
+  const [policyFilter, setPolicyFilter] = useState('ALL');
   const [safeHarborOnly, setSafeHarborOnly] = useState(false);
   const [sortBy,       setSortBy]       = useState('default');
   const [search,       setSearch]       = useState('');
@@ -1170,10 +1170,10 @@ export default function BountyTargetsPage() {
           onChange={e => setPolicyFilter(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
         >
+          <option value="ALL">All policies</option>
           <option value="ALLOWED">Scan Allowed only</option>
           <option value="RESTRICTED">Restricted only</option>
           <option value="UNKNOWN">Policy Unknown</option>
-          <option value="ALL">All policies</option>
         </select>
 
         {/* Bounty toggle */}

@@ -782,9 +782,9 @@ def api_bounty_targets():
     bounty     = request.args.get("bounty", "0") == "1"
     safe_harbor_filter = request.args.get("safe_harbor", "0") == "1"
     sort_by    = request.args.get("sort", "").lower().strip()
-    policy_filter = request.args.get("policy", "ALLOWED").upper()
+    policy_filter = request.args.get("policy", "ALL").upper()
     if "auto_only" in request.args and "policy" not in request.args:
-        policy_filter = "ALLOWED" if request.args.get("auto_only", "1") != "0" else "ALL"
+        policy_filter = "ALLOWED" if request.args.get("auto_only", "0") == "1" else "ALL"
     search     = request.args.get("search", "").lower().strip()
     page       = max(1, request.args.get("page", 1, type=int))
     per_page   = min(100, max(1, request.args.get("per_page", 30, type=int)))
