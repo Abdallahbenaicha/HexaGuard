@@ -24,6 +24,9 @@ export const ASSET_TYPE_META = {
   WILDCARD:        { label: 'Wildcard', icon: '🔀', desc: 'All subdomains of a domain' },
   DOMAIN:          { label: 'Domain', icon: '🏠', desc: 'Root domain and all subdomains' },
   WEB_APPLICATION: { label: 'Web App', icon: '⚙️', desc: 'Full web application scope' },
+  CIDR:            { label: 'CIDR Range', icon: '📡', desc: 'Subnet / IP range (e.g. 192.0.2.0/24)' },
+  IP_ADDRESS:      { label: 'IP Address', icon: '💻', desc: 'Single IPv4 or IPv6 target host' },
+  API:             { label: 'API Endpoint', icon: '🔌', desc: 'REST, GraphQL, or gRPC API endpoint' },
 };
 
 export const METHODOLOGY = {
@@ -239,6 +242,202 @@ export const METHODOLOGY = {
       'Try: curl https://<sub>/.git/HEAD to detect exposed git repos.',
       'API gateways on subdomains may lack proper authentication.',
       'Check for HTTP→HTTPS redirect issues that could leak cookies.',
+    ],
+  },
+  CIDR: {
+    summary: 'Testing an assigned network IP range / subnet. Focus on host discovery, port scanning, and exposed infrastructure services.',
+    phases: [
+      {
+        phase: 'recon',
+        steps: [
+          {
+            title: 'Subnet Live Host Discovery',
+            cmd: 'nmap -sn -n <target_cidr> -oG live_hosts.txt\nprips <target_cidr> | fping -a > alive.txt',
+            desc: 'Quickly determine which IP addresses in the CIDR block have live responsive hosts.',
+          },
+          {
+            title: 'Reverse DNS Sweep',
+            cmd: 'dnsrecon -r <target_cidr> -n <dns_server>\namass intel -cidr <target_cidr>',
+            desc: 'Map IP addresses to domain names to reveal internal naming schemes and company assets.',
+          },
+        ],
+      },
+      {
+        phase: 'enum',
+        steps: [
+          {
+            title: 'Fast Full-Port Scan',
+            cmd: 'masscan <target_cidr> -p1-65535 --rate 1000 -oG masscan.txt\nnmap -sV -sC -iL alive.txt -p- --open -T4',
+            desc: 'Identify open TCP/UDP ports, running daemon software, and version fingerprints.',
+          },
+          {
+            title: 'Web Service Detection on Network Range',
+            cmd: 'cat alive.txt | httpx -ports 80,443,8080,8443,8000,8888,9000 -title -status-code -tech-detect',
+            desc: 'Detect hidden HTTP/HTTPS web interfaces running on non-standard ports.',
+          },
+        ],
+      },
+      {
+        phase: 'test',
+        steps: [
+          {
+            title: 'Exposed Management Interfaces & Default Credentials',
+            cmd: '# Check: IPMI (623), RDP (3389), SSH (22), VNC (5900), Kubernetes (6443), Docker (2375)\nnmap -sV --script "default-auth,banner" -iL alive.txt',
+            desc: 'Probe for unauthenticated or default credentials on sensitive admin management consoles.',
+          },
+          {
+            title: 'Unauthenticated Data Stores',
+            cmd: '# Test open ports: Redis (6379), MongoDB (27017), Elasticsearch (9200), Memcached (11211)\nnc -vn <ip> 6379\ncurl http://<ip>:9200/_cat/indices',
+            desc: 'High-severity finding: database and cache servers exposed directly without authentication.',
+          },
+        ],
+      },
+      {
+        phase: 'report',
+        steps: [
+          {
+            title: 'Exposure Matrix & PoC',
+            cmd: '# Provide IP, Port, Banner, and unauthenticated read command output\n# Demonstrate data access without destructive write actions',
+            desc: 'Demonstrate read access to non-sensitive metadata only to establish clear P1/P2 impact.',
+          },
+        ],
+      },
+    ],
+    tips: [
+      'Do not exceed authorized rate limits when scanning broad subnets.',
+      'Check for exposed development databases on ports 5432 (Postgres) and 3306 (MySQL).',
+      'Exposed Docker daemons on 2375 allow complete root container escape.',
+    ],
+  },
+  IP_ADDRESS: {
+    summary: 'Testing a single dedicated server / host. Focus on port scanning, SSL/TLS, virtual hosts, and direct-to-origin bypasses.',
+    phases: [
+      {
+        phase: 'recon',
+        steps: [
+          {
+            title: 'Host & ASN Intelligence',
+            cmd: 'whois <target_ip>\nshodan host <target_ip>',
+            desc: 'Determine ISP, cloud hosting provider (AWS, GCP, DigitalOcean), and historical open ports.',
+          },
+          {
+            title: 'Virtual Host & Certificate Scraping',
+            cmd: 'openssl s_client -connect <target_ip>:443 -servername <target_ip> </dev/null 2>/dev/null | openssl x509 -noout -text | grep DNS:',
+            desc: 'Read SAN (Subject Alternative Names) from SSL certificate to find domains hosted on this IP.',
+          },
+        ],
+      },
+      {
+        phase: 'enum',
+        steps: [
+          {
+            title: 'Comprehensive Service Scan',
+            cmd: 'nmap -sV -sC -p- -T4 <target_ip>',
+            desc: 'Deep enumeration of all 65,535 TCP ports for banners and service capabilities.',
+          },
+        ],
+      },
+      {
+        phase: 'test',
+        steps: [
+          {
+            title: 'Cloudflare / WAF Bypass via Direct Origin',
+            cmd: 'curl -H "Host: targetdomain.com" https://<target_ip>/ -k\n# Compare with response from https://targetdomain.com/',
+            desc: 'Accessing the web app via direct origin IP bypasses Cloudflare WAF, rate limits, and DDoS protection.',
+          },
+          {
+            title: 'SSL/TLS Cipher & Protocol Weaknesses',
+            cmd: 'testssl.sh <target_ip>:443',
+            desc: 'Audit for deprecated TLS 1.0/1.1 protocols, weak ciphers, and certificate mismatches.',
+          },
+        ],
+      },
+      {
+        phase: 'report',
+        steps: [
+          {
+            title: 'Direct Origin Bypass PoC',
+            cmd: '# Show curl command with -H "Host: example.com" reaching internal backend',
+            desc: 'Explain how direct origin access nullifies perimeter protections.',
+          },
+        ],
+      },
+    ],
+    tips: [
+      'Direct-to-IP access often exposes admin portals that are blocked at the CDN edge.',
+      'Check SSH versions for known vulnerabilities if ancient versions like OpenSSH < 7.4 are detected.',
+    ],
+  },
+  API: {
+    summary: 'Testing REST, GraphQL, or RPC API services. Focus on authorization flaws (BOLA, BFLA), parameter tampering, and injection.',
+    phases: [
+      {
+        phase: 'recon',
+        steps: [
+          {
+            title: 'API Documentation & Schema Mining',
+            cmd: '# Check common schema paths:\n# /swagger.json, /swagger/v1/swagger.json, /openapi.json, /api-docs, /v1/api-docs\n# /graphql, /graphiql, /altair',
+            desc: 'Locate formal API specifications which provide full lists of methods, parameters, and types.',
+          },
+          {
+            title: 'Client-Side JavaScript Analysis',
+            cmd: 'cat scripts.js | grep -E "/api/v[0-9]/" | sort -u',
+            desc: 'Extract undocumented API endpoints from frontend React/Vue bundles.',
+          },
+        ],
+      },
+      {
+        phase: 'enum',
+        steps: [
+          {
+            title: 'GraphQL Schema Introspection',
+            cmd: 'clairvoyance https://<target>/graphql -o schema.json\n# Query: {"query":"{__schema{types{name}}}"}',
+            desc: 'Download the entire GraphQL schema if introspection is enabled.',
+          },
+          {
+            title: 'Hidden Parameter & Method Fuzzing',
+            cmd: 'arjun -u https://<target>/api/v1/user -m GET,POST,PUT,PATCH\n# Try switching HTTP verbs (GET → POST, PUT, DELETE)',
+            desc: 'Test for parameter acceptance and method override headers (X-HTTP-Method-Override).',
+          },
+        ],
+      },
+      {
+        phase: 'test',
+        steps: [
+          {
+            title: 'BOLA / IDOR (Broken Object Level Authorization)',
+            cmd: '# User A token:\ncurl -H "Authorization: Bearer <Token_A>" https://<target>/api/v1/orders/1002\n# Attempt to access User B order 1001',
+            desc: 'OWASP API1:2023 — Most critical API bug. Verify that user A cannot view/edit user B objects.',
+            vuln: 'idor',
+          },
+          {
+            title: 'BFLA (Broken Function Level Authorization)',
+            cmd: '# Standard user calling admin endpoints:\ncurl -X POST -H "Authorization: Bearer <Regular_User_Token>" https://<target>/api/admin/users/promote',
+            desc: 'OWASP API5:2023 — Regular user invoking privileged administrative functions.',
+            vuln: 'idor',
+          },
+          {
+            title: 'Mass Assignment / Property Injection',
+            cmd: '# Add unexpected fields in profile update:\n{"username": "test", "is_admin": true, "role": "admin", "verified": true}',
+            desc: 'OWASP API3:2023 — Injecting privileged fields into JSON payloads during object creation/update.',
+          },
+        ],
+      },
+      {
+        phase: 'report',
+        steps: [
+          {
+            title: 'Reproducible Curl Commands',
+            cmd: '# Complete curl commands with test account credentials (token redacted)\n# Side-by-side screenshots showing data from another user',
+            desc: 'Provide crystal clear reproduction steps that the triage team can verify in under 60 seconds.',
+          },
+        ],
+      },
+    ],
+    tips: [
+      'Test both JSON and URL-encoded formats; some backends validate only one format.',
+      'Check for rate limiting on password reset and SMS verification endpoints.',
+      'Try replacing numeric IDs with arrays or strings to trigger type-confusion bugs.',
     ],
   },
 };
