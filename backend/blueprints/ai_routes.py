@@ -6,13 +6,41 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from ai_agent import get_aria
-from database import get_report, log_event
+from database import check_and_consume_ai_quota, get_report, log_event
 from extensions import limiter
 from utils import _UUID_RE, require_permission
 
 logger = logging.getLogger(__name__)
 
 ai_bp = Blueprint("ai", __name__)
+
+
+@ai_bp.route("/api/user/ai-settings", methods=["GET"])
+@login_required
+def get_ai_settings():
+    """Return current user's AI privacy preferences and monthly quota consumption."""
+    from database import get_user_ai_preferences
+    prefs = get_user_ai_preferences(current_user.id)
+    return jsonify({"ok": True, **prefs})
+
+
+@ai_bp.route("/api/user/ai-settings", methods=["PATCH", "POST"])
+@login_required
+def update_ai_settings():
+    """Update current user's AI data sharing opt-out preference."""
+    from database import get_user_ai_preferences, log_event, set_user_ai_opt_out
+    data = request.get_json(silent=True) or {}
+    opt_out = bool(data.get("opt_out", False))
+    set_user_ai_opt_out(current_user.id, opt_out)
+    log_event(
+        "ai_opt_out_changed",
+        current_user.username,
+        current_user.id,
+        category="privacy",
+        details=f"ai_data_sharing_opt_out set to {opt_out}",
+    )
+    prefs = get_user_ai_preferences(current_user.id)
+    return jsonify({"ok": True, "message": "AI settings updated.", **prefs})
 
 
 @ai_bp.route("/api/ai/analyze", methods=["POST"])
@@ -70,6 +98,16 @@ def ai_chat():
     if len(message) > 4000:
         return jsonify({"error": "Message too long (max 4000 chars)."}), 400
 
+    # Quota check
+    allowed, used, max_msgs = check_and_consume_ai_quota(current_user.id)
+    if not allowed:
+        return jsonify({
+            "error": f"AI monthly message quota reached ({used}/{max_msgs}). Please upgrade your subscription plan.",
+            "quota_exceeded": True,
+            "used": used,
+            "max": max_msgs,
+        }), 429
+
     try:
         aria  = get_aria()
         reply = aria.chat(message, context, user_id=str(current_user.id))
@@ -77,6 +115,8 @@ def ai_chat():
             "reply":    reply,
             "provider": aria.provider,
             "ai_mode":  "online" if aria.ai_active else "offline",
+            "messages_used": used,
+            "max_messages": max_msgs,
         })
     except Exception as exc:
         logger.exception("ai_chat error")

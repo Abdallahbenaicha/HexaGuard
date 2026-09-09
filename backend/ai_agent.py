@@ -432,10 +432,27 @@ class ARIA:
             return r.json().get("message", {}).get("content", "")
         except Exception as exc:
             logger.warning("ARIA Ollama error: %s", exc)
+    def _ai_call(self, prompt: str, system: str = "", user_id: Optional[Any] = None,
+                 opt_out: Optional[bool] = None) -> Optional[str]:
+        """Call the highest-priority available AI provider.
+        If user has opted out of AI data sharing (ai_data_sharing_opt_out),
+        cloud LLMs (Gemini) are strictly prohibited; only local Ollama or offline fallback is used.
+        """
+        if opt_out is None and user_id is not None:
+            try:
+                import database as _db
+                uid = int(user_id) if str(user_id).isdigit() else None
+                if uid:
+                    opt_out = _db.get_user_ai_preferences(uid).get("opt_out", False)
+            except Exception:
+                opt_out = False
+
+        if opt_out:
+            # Strictly local: Ollama only. Never transmit data to external cloud LLM.
+            if _OLLAMA_URL:
+                return self._ollama(prompt, system)
             return None
 
-    def _ai_call(self, prompt: str, system: str = "") -> Optional[str]:
-        """Call the highest-priority available AI provider."""
         if self.provider == "ollama":
             result = self._ollama(prompt, system)
             if result:
@@ -500,7 +517,7 @@ class ARIA:
                     f"\n\nActive scan context — target: {ctx.get('target','N/A')} | "
                     f"risk: {ctx.get('risk','N/A')} | findings: {ctx.get('total',0)}"
                 )
-            result = self._ai_call(f"{history}User: {message}{ctx_note}", system=system)
+            result = self._ai_call(f"{history}User: {message}{ctx_note}", system=system, user_id=user_id)
             if result:
                 user_history.append({"q": message, "a": result})
                 # Trim history to limit

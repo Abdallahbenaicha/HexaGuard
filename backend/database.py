@@ -164,7 +164,9 @@ _SCHEMA_SQLITE = """
         created_by       TEXT,
         locked_target    TEXT,
         api_token        TEXT,
-        api_token_created TEXT
+        api_token_created TEXT,
+        ai_data_sharing_opt_out INTEGER NOT NULL DEFAULT 0,
+        ai_messages_used INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS scan_reports (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -487,6 +489,9 @@ def init_db():
         # Bug bounty findings triage columns (P2.2)
         "ALTER TABLE scan_vulnerabilities ADD COLUMN triage_status TEXT NOT NULL DEFAULT 'New'",
         "ALTER TABLE scan_vulnerabilities ADD COLUMN triage_notes TEXT",
+        # AI Opt-Out & Quota tracking (F-03)
+        "ALTER TABLE users ADD COLUMN ai_data_sharing_opt_out INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN ai_messages_used INTEGER NOT NULL DEFAULT 0",
     ]:
         try:
             db.execute(migration)
@@ -1473,11 +1478,12 @@ def delete_scheduled_scan(sched_id: int, user_id: int) -> bool:
 # ── Subscription / Plan Management ───────────────────────────────────────────
 
 PLANS: dict = {
-    "free":     {"label": "Gratuit",  "max_scans_month": 1,    "price_dzd": 0},
-    "starter":  {"label": "Starter",  "max_scans_month": 5,    "price_dzd": 5000},
-    "pro":      {"label": "Pro",      "max_scans_month": 20,   "price_dzd": 12000},
-    "business": {"label": "Business", "max_scans_month": 999,  "price_dzd": 25000},
-    "agency":   {"label": "Agency",   "max_scans_month": 9999, "price_dzd": 40000},
+    "free":       {"label": "Gratuit",    "max_scans_month": 1,     "max_ai_messages": 20,    "price_dzd": 0},
+    "starter":    {"label": "Starter",    "max_scans_month": 5,     "max_ai_messages": 100,   "price_dzd": 5000},
+    "pro":        {"label": "Pro",        "max_scans_month": 20,    "max_ai_messages": 1000,  "price_dzd": 12000},
+    "business":   {"label": "Business",   "max_scans_month": 999,   "max_ai_messages": 5000,  "price_dzd": 25000},
+    "agency":     {"label": "Agency",     "max_scans_month": 9999,  "max_ai_messages": 20000, "price_dzd": 40000},
+    "enterprise": {"label": "Enterprise", "max_scans_month": 99999, "max_ai_messages": 99999, "price_dzd": 79000},
 }
 
 
@@ -1573,6 +1579,72 @@ def check_and_consume_quota(user_id: int) -> tuple[bool, int, int]:
         (new_used, user_id),
     )
     return True, new_used, max_scans
+
+
+def get_user_ai_preferences(user_id: int) -> dict:
+    """Return user's AI data sharing opt-out setting and AI quota usage."""
+    row = _get_db().execute(
+        "SELECT ai_data_sharing_opt_out, ai_messages_used, role FROM users WHERE id=?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return {"opt_out": False, "messages_used": 0, "max_messages": 20, "remaining": 20}
+    r = dict(row)
+    sub = get_subscription(user_id)
+    plan = sub.get("plan", "free")
+    plan_info = PLANS.get(plan, PLANS["free"])
+    max_msgs = plan_info.get("max_ai_messages", 20)
+    if r.get("role") == "admin":
+        max_msgs = 999999
+    used = r.get("ai_messages_used", 0)
+    return {
+        "opt_out": bool(r.get("ai_data_sharing_opt_out", 0)),
+        "messages_used": used,
+        "max_messages": max_msgs,
+        "remaining": max(0, max_msgs - used),
+    }
+
+
+def set_user_ai_opt_out(user_id: int, opt_out: bool) -> bool:
+    """Enable or disable external AI data sharing for a user."""
+    cur = _exec(
+        "UPDATE users SET ai_data_sharing_opt_out=? WHERE id=?",
+        (1 if opt_out else 0, user_id),
+    )
+    return (cur.rowcount if hasattr(cur, "rowcount") else 1) > 0
+
+
+def check_and_consume_ai_quota(user_id: int) -> tuple[bool, int, int]:
+    """
+    Atomically check AI quota and consume one message slot.
+    Returns (allowed, messages_used_after, max_messages).
+    Admins have unlimited quota.
+    """
+    db = _get_db()
+    row = db.execute(
+        "SELECT role, ai_messages_used FROM users WHERE id=?", (user_id,)
+    ).fetchone()
+    if not row:
+        return False, 0, 0
+    r = dict(row)
+    role = r.get("role", "")
+    used = r.get("ai_messages_used", 0)
+
+    if role == "admin":
+        _exec("UPDATE users SET ai_messages_used = ai_messages_used + 1 WHERE id=?", (user_id,))
+        return True, used + 1, 999999
+
+    sub = get_subscription(user_id)
+    plan = sub.get("plan", "free")
+    plan_info = PLANS.get(plan, PLANS["free"])
+    max_msgs = plan_info.get("max_ai_messages", 20)
+
+    if used >= max_msgs:
+        return False, used, max_msgs
+
+    new_used = used + 1
+    _exec("UPDATE users SET ai_messages_used=? WHERE id=?", (new_used, user_id))
+    return True, new_used, max_msgs
 
 
 def get_all_subscriptions() -> list[dict]:
