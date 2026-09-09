@@ -101,6 +101,66 @@ def get_kev_set() -> set[str]:
     return _KEV_CACHE
 
 
+# ── FIRST.org EPSS integration ────────────────────────────────────────────────
+_EPSS_URL = "https://api.first.org/data/v1/epss"
+_EPSS_CACHE: dict[str, float] = {}   # cve_id -> epss score (0.0 to 1.0)
+_EPSS_CACHE_LOCK = threading.Lock()
+
+
+def _fetch_epss_scores_batch(cve_ids: list[str]) -> dict[str, float]:
+    """Fetch EPSS probability scores from FIRST.org API for a list of CVEs."""
+    if not cve_ids:
+        return {}
+    clean_cves = [c.upper().strip() for c in cve_ids if re.match(r"^CVE-\d{4}-\d{4,}$", c.strip(), re.I)]
+    if not clean_cves:
+        return {}
+
+    scores: dict[str, float] = {}
+    missing: list[str] = []
+
+    with _EPSS_CACHE_LOCK:
+        for cve in clean_cves:
+            if cve in _EPSS_CACHE:
+                scores[cve] = _EPSS_CACHE[cve]
+            else:
+                missing.append(cve)
+
+    if not missing:
+        return scores
+
+    try:
+        params = {"cve": ",".join(missing[:80])}
+        r = requests.get(_EPSS_URL, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json().get("data", [])
+            with _EPSS_CACHE_LOCK:
+                for item in data:
+                    cve = item.get("cve")
+                    epss_str = item.get("epss")
+                    if cve and epss_str:
+                        try:
+                            score = float(epss_str)
+                            _EPSS_CACHE[cve] = score
+                            scores[cve] = score
+                        except ValueError:
+                            pass
+    except Exception as exc:
+        logger.warning("EPSS API fetch failed: %s", exc)
+
+    return scores
+
+
+def get_epss_scores(cve_ids: list[str]) -> dict[str, float]:
+    """Public helper: get EPSS probability mapping for a list of CVE IDs."""
+    return _fetch_epss_scores_batch(cve_ids)
+
+
+def get_epss_score_for_cve(cve_id: str) -> float:
+    """Public helper: get EPSS probability score for a single CVE ID."""
+    return _fetch_epss_scores_batch([cve_id]).get(cve_id.upper().strip(), 0.0)
+
+
+
 # ── Base scores (aligned with CVSS v3.1) ─────────────────────────────────────
 # Midpoint values within each CVSS v3.1 severity band:
 #   Critical [9.0–10.0], High [7.0–8.9], Medium [4.0–6.9], Low [0.1–3.9]
@@ -183,6 +243,8 @@ class RiskBreakdown:
     recommendations:    list[str]
     attack_chains:      list[str]        = field(default_factory=list)
     cisa_kev_findings:  list[str]        = field(default_factory=list)  # CVE IDs in KEV
+    epss_scores:        dict[str, float] = field(default_factory=dict)  # CVE ID -> EPSS probability
+    max_epss:           float            = 0.0                          # Max EPSS probability across findings
 
 
 # ── Attack chain detection ────────────────────────────────────────────────────
@@ -291,6 +353,22 @@ def calculate_risk_v2(
     except Exception:
         kev_set = set()
 
+    # ── Step 0: Extract CVE IDs and fetch EPSS probabilities ──────────────────
+    all_cves: list[str] = []
+    for v in vulns:
+        ids = v.get("cve_ids") or v.get("cve_id") or []
+        if isinstance(ids, str):
+            ids = re.findall(r"CVE-\d{4}-\d+", ids, re.IGNORECASE)
+        elif isinstance(ids, list):
+            ids = [str(c) for c in ids]
+        for c in ids:
+            c_up = str(c).upper().strip()
+            if c_up and c_up not in all_cves:
+                all_cves.append(c_up)
+
+    epss_map = _fetch_epss_scores_batch(all_cves)
+    max_epss = max(epss_map.values()) if epss_map else 0.0
+
     # ── Step 1: Per-finding score ─────────────────────────────────────────────
     scored: list[tuple[float, str, dict]] = []
     sev_counts: dict[str, int] = dict(_empty_counts)
@@ -313,18 +391,25 @@ def calculate_risk_v2(
         )
 
         # CISA KEV check — 2.5× if finding has a CVE that's in KEV
-        cve_ids = v.get("cve_ids") or []
+        cve_ids = v.get("cve_ids") or v.get("cve_id") or []
         if isinstance(cve_ids, str):
             cve_ids = re.findall(r"CVE-\d{4}-\d+", cve_ids, re.IGNORECASE)
+        elif isinstance(cve_ids, list):
+            cve_ids = [str(c) for c in cve_ids]
         is_kev = any(str(c).upper() in kev_set for c in cve_ids)
         if is_kev:
             for c in cve_ids:
                 if str(c).upper() in kev_set and str(c).upper() not in kev_cves:
                     kev_cves.append(str(c).upper())
 
-        # Exploit factor: 2.5× for KEV, 1.3× for known exploit otherwise
+        # Exploit factor: 2.5× for KEV, 1.8× for high EPSS, 1.3× for known exploit
+        cve_epss = max([epss_map.get(str(c).upper().strip(), 0.0) for c in cve_ids], default=0.0)
         if is_kev and sev in ("critical", "high"):
             exploit_f = 2.5
+        elif not is_kev and cve_epss >= 0.50 and sev in ("critical", "high"):
+            exploit_f = 1.8
+        elif not is_kev and cve_epss >= 0.20 and sev in ("critical", "high"):
+            exploit_f = 1.4
         elif exploit_known and sev in ("critical", "high"):
             exploit_f = 1.3
         else:
@@ -374,11 +459,20 @@ def calculate_risk_v2(
     #   [CISA-KEV] CISA. Known Exploited Vulnerabilities Catalog. 2021–present.
     #   [Jacobs2021] Jacobs et al. "Improving Vulnerability Remediation..." WEIS 2019.
     #   [Spring2021] Spring et al. "EPSS." IEEE S&P Workshop, 2021.
-    has_cve       = any(v.get("cve_ids") for v in vulns)
+    has_cve       = any(v.get("cve_ids") or v.get("cve_id") for v in vulns)
     temporal_mult = 1.0
     if has_cve:         temporal_mult += 0.05   # CVE formally catalogued
     if kev_cves:        temporal_mult += 0.15   # Actively exploited (CISA KEV)
     elif exploit_known: temporal_mult += 0.10   # Public exploit known
+
+    # EPSS Factor (FIRST.org empirical exploit prediction)
+    if max_epss >= 0.50:
+        temporal_mult += 0.20   # 95th+ percentile: high probability of exploitation
+    elif max_epss >= 0.20:
+        temporal_mult += 0.10   # 85th+ percentile: elevated threat
+    elif max_epss >= 0.05:
+        temporal_mult += 0.05   # moderate exploit likelihood
+
     temporal_score = round(min(base_score * temporal_mult, 10.0), 2)
 
     # ── Step 5: Environmental adjustment ─────────────────────────────────────
@@ -487,6 +581,8 @@ def calculate_risk_v2(
         recommendations  = recommendations,
         attack_chains    = attack_chains,
         cisa_kev_findings = kev_cves,
+        epss_scores      = epss_map,
+        max_epss         = max_epss,
     )
 
 

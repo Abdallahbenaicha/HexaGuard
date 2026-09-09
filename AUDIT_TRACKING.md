@@ -18,7 +18,7 @@
 | **Q-01** | تقسيم الملفات المتضخمة (`database.py`, `web_scanner.py`) | P2 | منجز ومختبر ✅ | regression suite (39/39 passed) | تقسيم modular إلى حزمتي backend/db و backend/scanners/web مع واجهة facade توافقية 100% |
 | **Q-02** | اختبارات واجهة أمامية للمكونات الحرجة (Login, ScanForm) | P2 | لم يبدأ ⏳ | Vitest / Jest tests | اختبارات تأكيد الواجهة وسلوك الاستمارات |
 | **Q-03** | دعم فحص CVE لصور Docker | P2 | منجز ومختبر ✅ | `test_audit_q03_docker_cve.py` (6/6 passed) | استدعاء فاحص صور Docker يدعم Trivy و Grype وقاعدة استخباراتية مدمجة للحزم الأساسية |
-| **Q-04** | تفعيل نقاط EPSS في محرك تقييم المخاطر المباشر | P2 | لم يبدأ ⏳ | `test_risk_engine_epss` | دمج EPSS score في حساب خطورة الثغرة أثناء وقت التشغيل |
+| **Q-04** | تفعيل نقاط EPSS في محرك تقييم المخاطر المباشر | P2 | منجز ومختبر ✅ | `test_audit_q04_risk_epss.py` (4/4 passed) | دمج احتمالية EPSS من FIRST.org مع كاش ذكي ورفع المعدل الزمني للثغرات المهددة بالاستغلال الفعلي |
 
 ---
 
