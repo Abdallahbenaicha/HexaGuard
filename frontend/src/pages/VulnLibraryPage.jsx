@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   BookOpen, Search, ChevronDown, ChevronUp,
-  ExternalLink, Shield, Filter, X, AlertTriangle,
+  ExternalLink, Shield, Filter, X, ShieldAlert,
   Zap, Code, Globe, Lock, Package, Settings,
-  Layers, Mail, Layout,
+  Layers, Mail, Layout, Play, ChevronRight, ChevronsUpDown,
+  Server,
 } from 'lucide-react';
 import {
   SCANNER_TABS,
@@ -15,143 +16,160 @@ import {
 
 // ── Icon map per scanner tab ────────────────────────────────────────────────
 const SCANNER_ICONS = {
-  dast:      Zap,
-  sast:      Code,
-  network:   Globe,
-  ssl:       Lock,
-  deps:      Package,
-  server:    Settings,
-  docker:    Layers,
-  dns:       Mail,
-  wordpress: Layout,
+  web:        Globe,
+  dast:       Zap,
+  sast:       Code,
+  network:    Globe,
+  ssl:        Lock,
+  deps:       Package,
+  server:     Settings,
+  server_ext: Server,
+  docker:     Layers,
+  dns:        Mail,
+  wordpress:  Layout,
 };
 
-// ── Difficulty Badge ─────────────────────────────────────────────────────────
+// ── Difficulty Badge Component ───────────────────────────────────────────────
 function DifficultyBadge({ level }) {
   const meta = DIFFICULTY_META[level] || DIFFICULTY_META.medium;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${meta.color}`}>
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${meta.dot}`} />
-      {level.charAt(0).toUpperCase() + level.slice(1)}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border shadow-sm ${meta.color}`}>
+      <span className={`w-2 h-2 rounded-full shadow-sm ${meta.dot}`} />
+      {meta.label}
     </span>
   );
 }
 
-// ── Resource Link Button ──────────────────────────────────────────────────────
-function ResourceBtn({ href, label, icon }) {
+// ── External Learning Resource Button ────────────────────────────────────────
+function ResourceBtn({ href, label, icon, variant = 'slate' }) {
   if (!href) return null;
+
+  const variants = {
+    purple: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border-purple-500/30 hover:border-purple-500/50 shadow-purple-500/5',
+    amber:  'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 border-amber-500/30 hover:border-amber-500/50 shadow-amber-500/5',
+    cyan:   'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-200 border-cyan-500/30 hover:border-cyan-500/50 shadow-cyan-500/5',
+    red:    'bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border-red-500/30 hover:border-red-500/50 shadow-red-500/5',
+    slate:  'bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border-slate-700 hover:border-slate-600 shadow-slate-900/50',
+  };
+
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 transition-all"
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-150 hover:shadow-md ${variants[variant] || variants.slate}`}
     >
       {icon}
-      {label}
-      <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+      <span>{label}</span>
+      <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
     </a>
   );
 }
 
-// ── Single Vuln Card ──────────────────────────────────────────────────────────
-function VulnCard({ vuln, highlight = '' }) {
-  const [expanded, setExpanded] = useState(false);
-
-  // Highlight matching text
+// ── Single Standalone Vulnerability Card Component ───────────────────────────
+function VulnCard({ vuln, highlight = '', scannerLabel = '' }) {
+  // Highlight matching text helper
   function hl(text) {
-    if (!highlight) return text;
+    if (!highlight || !text) return text;
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
     return parts.map((p, i) =>
       regex.test(p)
-        ? <mark key={i} className="bg-cyan-500/30 text-cyan-200 rounded px-0.5">{p}</mark>
+        ? <mark key={i} className="bg-cyan-500/30 text-cyan-200 rounded px-1">{p}</mark>
         : p
     );
   }
 
   return (
-    <div
-      className={`
-        rounded-xl border transition-all duration-200
-        ${expanded
-          ? 'border-slate-600 bg-slate-800/80'
-          : 'border-slate-700/60 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/70'}
-      `}
-    >
-      {/* Header */}
-      <button
-        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
-        onClick={() => setExpanded(e => !e)}
-        aria-expanded={expanded}
-        aria-label={`Toggle details for ${vuln.label}`}
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Shield className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-          <span className="text-sm font-semibold text-slate-200 truncate">
+    <div className="flex flex-col bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 shadow-lg shadow-black/20 hover:shadow-cyan-500/5 transition-all duration-200">
+      {/* Card Header: Category & Difficulty Badge */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          {scannerLabel && (
+            <span className="text-[11px] font-semibold text-cyan-400 uppercase tracking-wider block mb-1">
+              {scannerLabel}
+            </span>
+          )}
+          <h3 className="text-base font-bold text-white leading-snug">
             {hl(vuln.label)}
-          </span>
+          </h3>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex-shrink-0">
           <DifficultyBadge level={vuln.difficulty} />
-          {expanded
-            ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
-            : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
         </div>
-      </button>
+      </div>
 
-      {/* Expanded body */}
-      {expanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-slate-700/50 pt-3">
-          {/* Arabic summary */}
-          <p className="text-sm text-slate-300 leading-relaxed">{vuln.summary}</p>
+      {/* Card Body: Comprehensive Technical Description */}
+      <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
+        {hl(vuln.summary)}
+      </p>
 
-          {/* Resources */}
-          <div className="flex flex-wrap gap-2">
-            {vuln.portswigger && (
-              <ResourceBtn
-                href={vuln.portswigger}
-                label="PortSwigger"
-                icon={<img src="https://portswigger.net/favicon.ico" className="w-3 h-3" alt="" onError={e => e.target.style.display='none'} />}
-              />
-            )}
-            {vuln.hacktricks && (
-              <ResourceBtn
-                href={vuln.hacktricks}
-                label="HackTricks"
-                icon={<span className="text-xs">🃏</span>}
-              />
-            )}
-            {vuln.owasp && (
-              <ResourceBtn
-                href={vuln.owasp}
-                label="OWASP"
-                icon={<span className="text-xs">🔴</span>}
-              />
-            )}
-            {vuln.extraResource && (
-              <ResourceBtn
-                href={vuln.extraResource.url}
-                label={vuln.extraResource.label}
-                icon={<ExternalLink className="w-3 h-3" />}
-              />
-            )}
-            {vuln.youtube?.map((yt, i) => (
-              <ResourceBtn
-                key={i}
-                href={yt.url}
-                label={yt.title.length > 25 ? yt.title.slice(0, 25) + '…' : yt.title}
-                icon={<span className="text-xs">▶</span>}
-              />
-            ))}
+      {/* Key Remediation Tip */}
+      {vuln.remediation && (
+        <div className="mb-4 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs text-slate-300 flex items-start gap-2.5">
+          <ShieldAlert className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <strong className="text-emerald-300 font-semibold block mb-0.5">Mitigation & Defense:</strong>
+            <span className="text-slate-400 leading-normal">{vuln.remediation}</span>
           </div>
         </div>
       )}
+
+      {/* Card Footer: External Learning Resource Action Buttons */}
+      <div className="pt-3.5 border-t border-slate-800/80 mt-auto">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+          <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Learning References & Labs</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {vuln.portswigger && (
+            <ResourceBtn
+              href={vuln.portswigger}
+              label="PortSwigger Academy"
+              variant="purple"
+              icon={<span className="text-xs font-mono font-bold text-purple-400">PS</span>}
+            />
+          )}
+          {vuln.hacktricks && (
+            <ResourceBtn
+              href={vuln.hacktricks}
+              label="HackTricks"
+              variant="amber"
+              icon={<span className="text-xs">🃏</span>}
+            />
+          )}
+          {vuln.owasp && (
+            <ResourceBtn
+              href={vuln.owasp}
+              label="OWASP Guide"
+              variant="cyan"
+              icon={<Shield className="w-3 h-3 text-cyan-400" />}
+            />
+          )}
+          {vuln.extraResource && (
+            <ResourceBtn
+              href={vuln.extraResource.url}
+              label={vuln.extraResource.label}
+              variant="slate"
+              icon={<ExternalLink className="w-3 h-3 text-slate-400" />}
+            />
+          )}
+          {vuln.youtube?.map((yt, i) => (
+            <ResourceBtn
+              key={i}
+              href={yt.url}
+              label="Video Lab"
+              variant="red"
+              icon={<Play className="w-3 h-3 text-red-400 fill-red-400/20" />}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Scanner Accordion ────────────────────────────────────────────────────────
+// ── Category / Scanner Collapsible Accordion Component ───────────────────────
 function ScannerAccordion({ tab, isOpen, onToggle, filterDifficulty, searchQuery }) {
   const Icon = SCANNER_ICONS[tab.id] || Shield;
   const vulns = useMemo(() => {
@@ -165,64 +183,79 @@ function ScannerAccordion({ tab, isOpen, onToggle, filterDifficulty, searchQuery
   return (
     <div
       className={`
-        rounded-2xl border transition-all duration-200
+        rounded-2xl border transition-all duration-200 overflow-hidden
         ${isOpen
-          ? `border-slate-600 ${tab.bgColor} shadow-lg`
-          : 'border-slate-700/50 bg-slate-800/30 hover:border-slate-600'}
+          ? `border-slate-700 bg-slate-900/60 shadow-xl shadow-black/30`
+          : 'border-slate-800 bg-slate-900/30 hover:border-slate-700 hover:bg-slate-900/50'}
       `}
     >
-      {/* Accordion trigger */}
+      {/* Accordion Trigger Header */}
       <button
-        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left transition-colors"
         onClick={onToggle}
         aria-expanded={isOpen}
         id={`scanner-tab-${tab.id}`}
       >
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl ${tab.bgColor} border ${tab.borderColor}`}>
-            <Icon className={`w-4 h-4 ${tab.textColor}`} />
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={`p-3 rounded-2xl ${tab.bgColor} border ${tab.borderColor} flex-shrink-0`}>
+            <Icon className={`w-5 h-5 ${tab.textColor}`} />
           </div>
-          <div>
-            <div className={`text-sm font-bold ${tab.textColor}`}>{tab.label}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{tab.desc}</div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className={`text-base font-bold ${tab.textColor}`}>{tab.label}</span>
+              <span className="text-slate-500 text-xs hidden sm:inline">•</span>
+              <span className="text-xs text-slate-400 hidden sm:inline">{tab.labelFull}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-1 sm:line-clamp-none">
+              {tab.desc}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-xs text-slate-500 font-mono">{vulns.length} ثغرة</span>
-          {isOpen
-            ? <ChevronUp className="w-4 h-4 text-slate-400" />
-            : <ChevronDown className="w-4 h-4 text-slate-500" />}
+
+        <div className="flex items-center gap-3.5 flex-shrink-0">
+          <span className="text-xs font-mono font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
+            {vulns.length} {vulns.length === 1 ? 'Vulnerability' : 'Vulnerabilities'}
+          </span>
+          <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
         </div>
       </button>
 
-      {/* Accordion content */}
+      {/* Accordion Content: Responsive Card Grid */}
       {isOpen && (
-        <div className="px-4 pb-4 space-y-2 border-t border-slate-700/50 pt-3">
-          <div className="text-xs text-slate-500 mb-3 px-1">
-            {tab.labelFull}
+        <div className="px-6 pb-6 pt-2 border-t border-slate-800/80 bg-slate-950/40">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-3">
+            {vulns.map(v => (
+              <VulnCard
+                key={v.id}
+                vuln={v}
+                highlight={searchQuery}
+                scannerLabel={tab.label}
+              />
+            ))}
           </div>
-          {vulns.map(v => (
-            <VulnCard key={v.id} vuln={v} highlight={searchQuery} />
-          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+// ── Main Vulnerability Library Page Component ────────────────────────────────
 export default function VulnLibraryPage() {
   const [searchQuery, setSearchQuery]           = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
-  const [openScanners, setOpenScanners]         = useState(new Set(['dast']));
+  // Open first 3 scanners by default
+  const [openScanners, setOpenScanners]         = useState(new Set(['dast', 'sast', 'network']));
   const searchRef = useRef(null);
 
-  // Computed: search results (cross-scanner)
+  // Cross-scanner search query
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
     return searchAllVulns(searchQuery);
   }, [searchQuery]);
 
+  // Toggle single scanner accordion
   function toggleScanner(id) {
     setOpenScanners(prev => {
       const next = new Set(prev);
@@ -232,12 +265,21 @@ export default function VulnLibraryPage() {
     });
   }
 
+  // Quick controls: Expand all / Collapse all
+  function expandAll() {
+    setOpenScanners(new Set(SCANNER_TABS.map(t => t.id)));
+  }
+
+  function collapseAll() {
+    setOpenScanners(new Set());
+  }
+
   function clearSearch() {
     setSearchQuery('');
     searchRef.current?.focus();
   }
 
-  // Total vuln count across all scanners
+  // Summary counts
   const totalVulns = Object.values(VULN_LIBRARY).reduce((sum, arr) => sum + arr.length, 0);
   const totalScanners = SCANNER_TABS.length;
 
@@ -245,164 +287,180 @@ export default function VulnLibraryPage() {
     <div className="min-h-screen bg-slate-950 text-slate-50">
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-b border-slate-800">
-        {/* Decorative background */}
+        {/* Ambient background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-6 py-12">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30">
-              <BookOpen className="w-6 h-6 text-cyan-400" />
+        <div className="relative max-w-6xl mx-auto px-6 py-12">
+          {/* Header Title & Icon */}
+          <div className="flex items-center gap-3.5 mb-4">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+              <BookOpen className="w-7 h-7 text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">
+              <div className="text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-0.5">
+                Knowledge & Security Research
+              </div>
+              <h1 className="text-3xl font-black text-white tracking-tight">
                 Vulnerability Learning Center
               </h1>
-              <p className="text-sm text-slate-400 mt-0.5">مكتبة الثغرات الشاملة — مرجع تعليمي موحَّد</p>
             </div>
           </div>
 
-          <p className="text-slate-400 text-sm max-w-2xl leading-relaxed mb-6">
-            مرجع شامل لكل الثغرات التي تكتشفها محركات SecuraX الـ{totalScanners} — مرتبة حسب الفاحص والصعوبة،
-            مع شروح عملية مختصرة وروابط للتعمّق في كل ثغرة.
+          <p className="text-slate-300 text-sm max-w-3xl leading-relaxed mb-6">
+            A comprehensive, curated encyclopedia of vulnerabilities detected across all {totalScanners} SecuraX scanning engines.
+            Organized by engine category and exploitation difficulty, each finding features detailed technical analysis,
+            actionable defense strategies, and direct links to hands-on labs and official documentation.
           </p>
 
-          {/* Stats bar */}
+          {/* Stats Bar */}
           <div className="flex flex-wrap gap-4 mb-8">
             {[
-              { label: 'فئة فاحص', value: totalScanners },
-              { label: 'نوع ثغرة', value: totalVulns },
-              { label: 'مستوى صعوبة', value: 3 },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700">
-                <span className="text-lg font-bold text-cyan-400">{s.value}</span>
-                <span className="text-xs text-slate-400">{s.label}</span>
+              { label: 'Scanner Engines', value: totalScanners },
+              { label: 'Cataloged Vulnerabilities', value: totalVulns },
+              { label: 'Difficulty Tiers', value: '3 (Easy, Med, Hard)' },
+              { label: 'Direct Labs & Resources', value: '75+' },
+            ].map((s, idx) => (
+              <div key={idx} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm">
+                <span className="text-lg font-bold text-cyan-400 font-mono">{s.value}</span>
+                <span className="text-xs text-slate-400 font-medium">{s.label}</span>
               </div>
             ))}
           </div>
 
-          {/* ── Search bar ──────────────────────────────────────────── */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          {/* ── Search Bar ──────────────────────────────────────────── */}
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               ref={searchRef}
               id="vuln-search"
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن ثغرة أو فئة فاحص... (XSS, SSRF, Docker, SSL...)"
+              placeholder="Search by vulnerability name, CVE, scanner type, or keyword (XSS, SQLi, Docker, SSL...)"
               className="
-                w-full pl-10 pr-10 py-3 rounded-xl
-                bg-slate-800 border border-slate-700 text-slate-200
-                placeholder:text-slate-500 text-sm
-                focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30
-                transition-all
+                w-full pl-11 pr-10 py-3.5 rounded-xl
+                bg-slate-800/90 border border-slate-700 text-white
+                placeholder:text-slate-400 text-sm
+                focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20
+                transition-all shadow-inner
               "
             />
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-700 text-slate-500 hover:text-slate-300 transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                 aria-label="Clear search"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* ── Difficulty Filter ────────────────────────────────────── */}
-          <div className="flex items-center gap-3 mt-4">
-            <Filter className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-            <span className="text-xs text-slate-500">فلتر الصعوبة:</span>
-            <div className="flex gap-2">
-              {['', 'easy', 'medium', 'hard'].map(d => {
-                const meta = d ? DIFFICULTY_META[d] : null;
-                const active = filterDifficulty === d;
-                return (
-                  <button
-                    key={d || 'all'}
-                    onClick={() => setFilterDifficulty(d)}
-                    className={`
-                      px-3 py-1 text-xs font-semibold rounded-lg border transition-all
-                      ${active
-                        ? d
-                          ? `${meta.color} ring-1 ring-offset-1 ring-offset-slate-900 ring-current`
-                          : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                        : 'text-slate-500 border-slate-700 hover:border-slate-500 hover:text-slate-300 bg-transparent'}
-                    `}
-                    id={`difficulty-filter-${d || 'all'}`}
-                  >
-                    {d
-                      ? d.charAt(0).toUpperCase() + d.slice(1)
-                      : 'الكل'}
-                  </button>
-                );
-              })}
+          {/* ── Filter Toolbar ───────────────────────────────────────── */}
+          <div className="flex items-center justify-between gap-4 mt-5 flex-wrap">
+            {/* Difficulty Filter */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Filter Difficulty:</span>
+              <div className="flex gap-2">
+                {[
+                  { value: '', label: 'All Levels' },
+                  { value: 'easy', label: 'Easy' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'hard', label: 'Hard' },
+                ].map(d => {
+                  const active = filterDifficulty === d.value;
+                  return (
+                    <button
+                      key={d.value}
+                      onClick={() => setFilterDifficulty(d.value)}
+                      className={`
+                        px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border
+                        ${active
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
+                          : 'bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white hover:border-slate-600'}
+                      `}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Expand / Collapse All */}
+            {!searchResults && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={expandAll}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                >
+                  Expand All
+                </button>
+                <button
+                  onClick={collapseAll}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                >
+                  Collapse All
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Content area ─────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-4">
-
-        {/* ── Search Results Mode ──────────────────────────────────── */}
-        {searchResults !== null ? (
+      {/* ── Main Content Area ────────────────────────────────────────── */}
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* Global Search Results Mode */}
+        {searchResults ? (
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Search className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-semibold text-slate-300">
-                نتائج البحث عن &quot;{searchQuery}&quot;
-              </span>
-              <span className="text-xs text-slate-500 ml-1">
-                — {searchResults.length} نتيجة
-              </span>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>Search Results for</span>
+                <span className="text-cyan-400 font-mono">"{searchQuery}"</span>
+                <span className="text-sm font-normal text-slate-400 font-mono">({searchResults.length} found)</span>
+              </h2>
+              <button
+                onClick={clearSearch}
+                className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
+              >
+                Clear search & view categories
+              </button>
             </div>
 
             {searchResults.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <AlertTriangle className="w-10 h-10 text-slate-600" />
-                <p className="text-slate-400 text-sm">لا توجد نتائج لـ &quot;{searchQuery}&quot;</p>
-                <p className="text-slate-600 text-xs">جرّب كلمة مختلفة مثل: xss، docker، ssl، ssrf</p>
+              <div className="p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800">
+                <div className="text-4xl mb-3">🔍</div>
+                <h3 className="text-base font-bold text-white mb-1">No vulnerabilities matched your search</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                  Try searching with generic terms like "injection", "docker", "ssl", or "xss".
+                </p>
+                <button
+                  onClick={clearSearch}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+                >
+                  View All Vulnerabilities
+                </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {searchResults.map(v => (
-                  <div key={`${v.scannerId}-${v.id}`} className="relative">
-                    {/* Scanner badge above card */}
-                    <div className="absolute -top-2 left-4 z-10">
-                      {(() => {
-                        const tab = SCANNER_TABS.find(t => t.id === v.scannerId);
-                        return tab ? (
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tab.bgColor} ${tab.textColor} border ${tab.borderColor}`}>
-                            {tab.label}
-                          </span>
-                        ) : null;
-                      })()}
-                    </div>
-                    <div className="pt-3">
-                      <VulnCard vuln={v} highlight={searchQuery} />
-                    </div>
-                  </div>
+                  <VulnCard
+                    key={`${v.scannerId}-${v.id}`}
+                    vuln={v}
+                    highlight={searchQuery}
+                    scannerLabel={v.scannerId.toUpperCase()}
+                  />
                 ))}
               </div>
             )}
           </div>
         ) : (
-          /* ── Normal Accordion Mode ──────────────────────────────────── */
-          <>
-            {/* Info banner */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/20 text-xs text-cyan-300">
-              <BookOpen className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <p>
-                الثغرات مرتبة تلقائياً داخل كل فئة من الأسهل للأصعب.
-                انقر على اسم الفئة لعرض ثغراتها. استخدم البحث للعثور على أي ثغرة من أي فئة فوراً.
-              </p>
-            </div>
-
-            {/* Scanner accordions */}
+          /* Normal Accordion Mode by Scanner */
+          <div className="space-y-4">
             {SCANNER_TABS.map(tab => (
               <ScannerAccordion
                 key={tab.id}
@@ -413,7 +471,7 @@ export default function VulnLibraryPage() {
                 searchQuery={searchQuery}
               />
             ))}
-          </>
+          </div>
         )}
       </div>
     </div>

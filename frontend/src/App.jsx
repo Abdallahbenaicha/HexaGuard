@@ -44,6 +44,7 @@ import ScannerGuard      from './components/ScannerGuard';
 const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
 import VulnLibraryPage from './pages/VulnLibraryPage';
 import PricingPage from './pages/PricingPage';
+import ManualHuntPage from './pages/ManualHuntPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -215,8 +216,10 @@ function AppInner() {
                     />
                 )}
 
-                {/* Vulnerability Learning Center */}
+                {/* Vulnerability Learning Center & Manual Hunting */}
+                <Route path="/learn"                 element={<Navigate to="/learn/vulnerabilities" replace />} />
                 <Route path="/learn/vulnerabilities" element={<ProtectedRoute element={<VulnLibraryPage />} />} />
+                <Route path="/hunt/manual"           element={<ProtectedRoute element={<ManualHuntPage />} />} />
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

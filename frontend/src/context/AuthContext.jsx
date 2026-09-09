@@ -14,6 +14,14 @@ export const showToast = (message, type = 'error') => {
     window.dispatchEvent(new CustomEvent('securax-toast', { detail: { message, type, id: now + Math.random() } }));
 };
 
+export const toast = {
+    show: (msg, type) => showToast(msg, type),
+    success: (msg) => showToast(msg, 'success'),
+    error: (msg) => showToast(msg, 'error'),
+    warning: (msg) => showToast(msg, 'warning'),
+    info: (msg) => showToast(msg, 'info'),
+};
+
 export const ToastContainer = () => {
     const [toasts, setToasts] = useState([]);
 

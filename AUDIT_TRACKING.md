@@ -12,9 +12,9 @@
 | **F-03** | حصة استهلاك الذكاء الاصطناعي وخيار عدم مشاركة البيانات (Opt-Out) | P1 | منجز ومختبر ✅ | `test_audit_f03_ai_quota.py` (4/4 passed) | حقل `ai_data_sharing_opt_out` وحظر Gemini السحابي عند تفعيله مع فرض سقف الحصة الشهرية وإرجاع 429 عند النفاد |
 | **F-04** | فصل واجهة فحص الخادم الخارجي `ServerExtScanPage.jsx` عن White-box | P1 | منجز ومختبر ✅ | UI / Route verification | إنشاء `ServerExtScanPage.jsx` وربط مسار `/scan/server-ext` بفاحص الخادم الخارجي المستقل |
 | **F-05** | نقطة فحص جاهزية أدوات DAST وتحذير المستخدم عند غياب أي أداة | P1 | منجز ومختبر ✅ | `test_audit_f05_scanner_status.py` (2/2 passed) | مسار `GET /api/scanners/status` وفحص الأدوات مع شريط تحذيري تفاعلي في واجهة DAST |
-| **T-01** | قيد بيئة محلي صارم (`DEPLOYMENT_MODE=local`) لصفحة Bounty Radar | P0/P1 | لم يبدأ ⏳ | `test_bounty_local_only_gate` | decorator `@local_only_required` يرجع 404 في حال عدم ضبط المتغير على `local` |
-| **T-02** | تدقيق وإتمام دليل الصيد اليدوي وإضافة مسار مستقل والتغطية الكاملة | P1 | لم يبدأ ⏳ | UI / Link verification | تغطية كافة أنواع الأصول (CIDR, IP, API...) وربط تفاعلي مع الموسوعة ومسار يدوي |
-| **T-03** | موسوعة الثغرات التعليمية الشاملة للفاحصات الـ 11 والبحث والفلترة | P1 | لم يبدأ ⏳ | `EncyclopediaPage` Component tests | صفحة تعليمية بحتة بدون إدخال أهداف، مصنفة حسب 11 فاحصاً مع أمثلة تعليمية وروابط معتمدة |
+| **T-01** | قيد بيئة محلي صارم (`DEPLOYMENT_MODE=local`) لصفحة Bounty Radar | P0/P1 | منجز ومختبر ✅ | `test_audit_t01_bounty_gate.py` (3/3 passed) | حراسة مركزية `@bounty_bp.before_request` و decorator يرجع 404 لمنع الوصول سحابياً |
+| **T-02** | تدقيق وإتمام دليل الصيد اليدوي وإضافة مسار مستقل والتغطية الكاملة | P1 | منجز ومختبر ✅ | UI / Link verification | تغطية CIDR و IP_ADDRESS و API وإضافة صفحة `/hunt/manual` مع فحص SSRF وربط بالموسوعة |
+| **T-03** | موسوعة الثغرات التعليمية الشاملة للفاحصات الـ 11 والبحث والفلترة | P1 | منجز ومختبر ✅ | Vite build (2238 modules passed) | صفحة تعليمية مصنفة لـ 11 فاحصاً (بما فيها web و server_ext) مع بحث وفلترة وروابط معتمدة ومسار /learn |
 | **Q-01** | تقسيم الملفات المتضخمة (`database.py`, `web_scanner.py`) | P2 | لم يبدأ ⏳ | regression suite | تقسيم تركيبي modular يحافظ على التوافق التام 100% |
 | **Q-02** | اختبارات واجهة أمامية للمكونات الحرجة (Login, ScanForm) | P2 | لم يبدأ ⏳ | Vitest / Jest tests | اختبارات تأكيد الواجهة وسلوك الاستمارات |
 | **Q-03** | دعم فحص CVE لصور Docker | P2 | لم يبدأ ⏳ | `test_docker_cve_scan` | استدعاء فاحص حاويات وتحليل الحزم |
