@@ -1,12 +1,5 @@
-"""Web Application Scanner (Backward-Compatibility Facade).
-
-This module preserves 100% backward compatibility for all existing callers,
-unit tests, and blueprints by delegating to the modularized `backend.scanners.web` package.
-"""
-
 from __future__ import annotations
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
+"""Modular Web Application Assessment Package for SecuraX."""
 
 try:
     from scanners.web.constants import *

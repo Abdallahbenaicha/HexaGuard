@@ -15,7 +15,7 @@
 | **T-01** | قيد بيئة محلي صارم (`DEPLOYMENT_MODE=local`) لصفحة Bounty Radar | P0/P1 | منجز ومختبر ✅ | `test_audit_t01_bounty_gate.py` (3/3 passed) | حراسة مركزية `@bounty_bp.before_request` و decorator يرجع 404 لمنع الوصول سحابياً |
 | **T-02** | تدقيق وإتمام دليل الصيد اليدوي وإضافة مسار مستقل والتغطية الكاملة | P1 | منجز ومختبر ✅ | UI / Link verification | تغطية CIDR و IP_ADDRESS و API وإضافة صفحة `/hunt/manual` مع فحص SSRF وربط بالموسوعة |
 | **T-03** | موسوعة الثغرات التعليمية الشاملة للفاحصات الـ 11 والبحث والفلترة | P1 | منجز ومختبر ✅ | Vite build (2238 modules passed) | صفحة تعليمية مصنفة لـ 11 فاحصاً (بما فيها web و server_ext) مع بحث وفلترة وروابط معتمدة ومسار /learn |
-| **Q-01** | تقسيم الملفات المتضخمة (`database.py`, `web_scanner.py`) | P2 | لم يبدأ ⏳ | regression suite | تقسيم تركيبي modular يحافظ على التوافق التام 100% |
+| **Q-01** | تقسيم الملفات المتضخمة (`database.py`, `web_scanner.py`) | P2 | منجز ومختبر ✅ | regression suite (39/39 passed) | تقسيم modular إلى حزمتي backend/db و backend/scanners/web مع واجهة facade توافقية 100% |
 | **Q-02** | اختبارات واجهة أمامية للمكونات الحرجة (Login, ScanForm) | P2 | لم يبدأ ⏳ | Vitest / Jest tests | اختبارات تأكيد الواجهة وسلوك الاستمارات |
 | **Q-03** | دعم فحص CVE لصور Docker | P2 | لم يبدأ ⏳ | `test_docker_cve_scan` | استدعاء فاحص حاويات وتحليل الحزم |
 | **Q-04** | تفعيل نقاط EPSS في محرك تقييم المخاطر المباشر | P2 | لم يبدأ ⏳ | `test_risk_engine_epss` | دمج EPSS score في حساب خطورة الثغرة أثناء وقت التشغيل |
