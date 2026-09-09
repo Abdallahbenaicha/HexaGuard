@@ -23,7 +23,10 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+import hashlib
+
 from database import (
+    PLANS,
     delete_report,
     get_all_dashboard_stats,
     get_all_reports,
@@ -34,7 +37,9 @@ from database import (
     get_subscription,
     get_user_reports,
     log_event,
+    set_subscription,
     store_report,
+    update_vulnerability_triage,
 )
 from extensions import limiter
 from forms import ScanForm
@@ -1031,3 +1036,229 @@ def api_my_subscription():
         "expires_at":      sub.get("expires_at"),
         "price_dzd":       sub.get("price_dzd"),
     })
+
+
+@reports_bp.route("/api/subscription/plans", methods=["GET"])
+def api_list_plans():
+    """Return list of all subscription tiers and details."""
+    return jsonify({"ok": True, "plans": PLANS})
+
+
+@reports_bp.route("/api/subscription/upgrade", methods=["POST"])
+@login_required
+@limiter.limit("10/minute")
+def api_upgrade_subscription():
+    """Self-service endpoint to upgrade/change subscription plan."""
+    from datetime import datetime, timedelta, timezone
+
+    data = request.get_json(silent=True) or {}
+    raw_plan = (data.get("plan") or "").strip().lower()
+    # Normalize aliases (e.g. enterprise -> enterprise or business)
+    plan = raw_plan
+    if plan not in PLANS:
+        return jsonify({
+            "ok": False,
+            "error": f"Invalid plan '{raw_plan}'. Valid plans: {', '.join(PLANS.keys())}"
+        }), 400
+
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    ok = set_subscription(
+        current_user.id,
+        plan=plan,
+        notes="Upgraded via SecuraX pricing portal",
+        expires_at=expires_at,
+    )
+    if not ok:
+        return jsonify({"ok": False, "error": "Could not update subscription plan"}), 500
+
+    log_event(
+        "subscription_upgraded",
+        current_user.username,
+        current_user.id,
+        category="subscription",
+        resource=plan,
+        details=f"User upgraded to {plan} (max_scans={PLANS[plan]['max_scans_month']})",
+    )
+
+    sub = get_subscription(current_user.id)
+    return jsonify({
+        "ok": True,
+        "message": f"Successfully updated subscription to {PLANS[plan]['label']}!",
+        "subscription": sub,
+    })
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  FINDINGS TRIAGE & LEGAL CONSENT AUDIT (P2.2 & P3.2)
+# ════════════════════════════════════════════════════════════════════════════
+
+@reports_bp.route("/api/reports/vulnerabilities/<int:vuln_id>/triage", methods=["PATCH", "POST"])
+@login_required
+@limiter.limit("60/minute")
+def api_update_vulnerability_triage(vuln_id: int):
+    """Update finding triage status ('New', 'Reviewing', 'Reported', 'Duplicate', 'False Positive')."""
+    data = request.get_json(silent=True) or {}
+    status = (data.get("triage_status") or "").strip()
+    notes = data.get("triage_notes", "")
+    valid_statuses = {"New", "Reviewing", "Reported", "Duplicate", "False Positive"}
+    if status not in valid_statuses:
+        return jsonify({
+            "error": f"Invalid triage_status '{status}'. Must be one of: {sorted(valid_statuses)}",
+        }), 400
+
+    try:
+        ok = update_vulnerability_triage(vuln_id, status, notes)
+        if not ok:
+            return jsonify({"error": f"Vulnerability with ID {vuln_id} not found."}), 404
+        log_event(
+            "vulnerability_triage_updated",
+            current_user.username,
+            current_user.id,
+            category="bounty",
+            resource=f"vuln_{vuln_id}",
+            status="success",
+            details=json.dumps({"triage_status": status, "triage_notes": notes}),
+        )
+        return jsonify({
+            "ok": True,
+            "vuln_id": vuln_id,
+            "triage_status": status,
+            "triage_notes": notes,
+        })
+    except Exception as exc:
+        logger.error("Failed to update triage status for vuln %s: %s", vuln_id, exc)
+        return jsonify({"error": str(exc)}), 500
+
+
+@reports_bp.route("/api/reports/<token>/consent-pdf")
+@reports_bp.route("/api/bounty/consent-pdf/<token>")
+@login_required
+@limiter.limit("20/minute")
+def api_download_consent_pdf(token: str):
+    """Generate and download a formal Legal Consent Record PDF for a bounty scan (P3.2)."""
+    if not _UUID_RE.match(token):
+        return jsonify({"error": "Invalid report token."}), 400
+
+    data = get_report(token)
+    if not data:
+        return jsonify({"error": "Report not found."}), 404
+
+    if data.get("user_id") != current_user.id and current_user.role != "admin":
+        return jsonify({"error": "Access denied."}), 403
+
+    result = data.get("result", {})
+    bounty_meta = result.get("bounty") or {}
+    platform = data.get("bounty_platform") or bounty_meta.get("bounty_platform")
+    program = data.get("bounty_program_handle") or bounty_meta.get("bounty_program_handle")
+    asset = data.get("bounty_asset") or bounty_meta.get("bounty_asset") or data.get("target")
+
+    # If this is not a bounty scan with consent/acknowledgment metadata, return 404
+    if not platform and not bounty_meta.get("acknowledged") and not bounty_meta.get("bounty_acknowledged_by"):
+        return jsonify({"error": "No bug bounty legal consent record exists for this scan."}), 404
+
+    raw_payload = f"{token}|{asset}|{platform}|{program}|{bounty_meta.get('bounty_acknowledged_by')}|{bounty_meta.get('bounty_acknowledged_at')}|{json.dumps(bounty_meta.get('policy_snapshot', {}), sort_keys=True)}"
+    sha256_hash = hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
+
+    try:
+        from reportlab.lib import colors as rl_colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import cm
+        from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf, pagesize=A4,
+            leftMargin=1.5*cm, rightMargin=1.5*cm,
+            topMargin=1.5*cm, bottomMargin=1.5*cm,
+        )
+        story = []
+        styles = getSampleStyleSheet()
+
+        C_NAVY = rl_colors.HexColor("#0f172a")
+        C_CYAN = rl_colors.HexColor("#0ea5e9")
+        C_BORDER = rl_colors.HexColor("#cbd5e1")
+        C_LIGHT = rl_colors.HexColor("#f8fafc")
+
+        title_style = ParagraphStyle(
+            "ConsentTitle", parent=styles["Title"],
+            fontSize=16, fontName="Helvetica-Bold",
+            textColor=C_NAVY, leading=20, alignment=1, spaceAfter=8,
+        )
+        subtitle_style = ParagraphStyle(
+            "ConsentSub", parent=styles["Normal"],
+            fontSize=9, textColor=rl_colors.HexColor("#64748b"),
+            alignment=1, spaceAfter=14,
+        )
+        cell_label = ParagraphStyle("CellLabel", parent=styles["Normal"], fontSize=8.5, fontName="Helvetica-Bold", textColor=C_NAVY)
+        cell_val = ParagraphStyle("CellVal", parent=styles["Normal"], fontSize=8.5, fontName="Helvetica", textColor=C_NAVY)
+        legal_text = ParagraphStyle("LegalText", parent=styles["Normal"], fontSize=8, leading=11, textColor=rl_colors.HexColor("#334155"))
+
+        story.append(Paragraph("SECURAX CYBER DEFENSE PLATFORM", subtitle_style))
+        story.append(Paragraph("LEGAL CONSENT & BUG BOUNTY AUDIT RECORD", title_style))
+        story.append(Paragraph("Cryptographically verified authorization record for security assessment", subtitle_style))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=C_CYAN, spaceAfter=12))
+
+        table_data = [
+            [Paragraph("Target Asset", cell_label), Paragraph(str(asset), cell_val)],
+            [Paragraph("Program Handle", cell_label), Paragraph(str(program or 'N/A'), cell_val)],
+            [Paragraph("Bounty Platform", cell_label), Paragraph(str(platform or 'Custom / Direct').upper(), cell_val)],
+            [Paragraph("Scan Token", cell_label), Paragraph(str(token), cell_val)],
+            [Paragraph("Policy Status", cell_label), Paragraph(str((bounty_meta.get('policy_snapshot') or {}).get('status', 'UNKNOWN')), cell_val)],
+            [Paragraph("Acknowledged By", cell_label), Paragraph(str(bounty_meta.get('bounty_acknowledged_by') or current_user.username), cell_val)],
+            [Paragraph("Acknowledged At", cell_label), Paragraph(str(bounty_meta.get('bounty_acknowledged_at') or data.get('stored_at')), cell_val)],
+            [Paragraph("Operator Client IP", cell_label), Paragraph(str(request.remote_addr or '127.0.0.1'), cell_val)],
+            [Paragraph("Attribution Header", cell_label), Paragraph(str(bounty_meta.get('attribution_header') or 'SecuraX-Bounty-Scanner/1.0'), cell_val)],
+            [Paragraph("SHA-256 Anti-Tamper Hash", cell_label), Paragraph(f"<font name='Courier' size='7'>{sha256_hash}</font>", cell_val)],
+        ]
+        tbl = Table(table_data, colWidths=[5.0*cm, 12.0*cm])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (0,-1), C_LIGHT),
+            ("BOX", (0,0), (-1,-1), 1, C_BORDER),
+            ("INNERGRID", (0,0), (-1,-1), 0.5, C_BORDER),
+            ("TOPPADDING", (0,0), (-1,-1), 5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING", (0,0), (-1,-1), 8),
+            ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ]))
+        story.append(tbl)
+        story.append(Spacer(1, 14))
+
+        story.append(Paragraph("<b>LEGAL SHIELD & SAFE HARBOR ACKNOWLEDGMENT</b>", cell_label))
+        story.append(Spacer(1, 4))
+        decl = (
+            "This document establishes that the security researcher acknowledged the scope, terms, "
+            "and restrictions of the targeted bug bounty program prior to initiating active automated scan operations. "
+            "All testing was conducted in good faith within the declared scope, adhering to rate limits, "
+            "researcher attribution headers, and non-destructive assessment guidelines under applicable "
+            "Safe Harbor protections (including Gold Standard Safe Harbor and disclose.io best practices)."
+        )
+        story.append(Paragraph(decl, legal_text))
+        story.append(Spacer(1, 14))
+
+        signals = (bounty_meta.get("policy_snapshot") or {}).get("signals", [])
+        if signals:
+            story.append(Paragraph("<b>FROZEN POLICY SIGNALS DETECTED AT SCAN LAUNCH:</b>", cell_label))
+            story.append(Spacer(1, 4))
+            for s in signals:
+                story.append(Paragraph(f"• {s}", legal_text))
+
+        doc.build(story)
+        pdf_bytes = buf.getvalue()
+        fname = f"securax_consent_record_{token[:12]}.pdf"
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+    except Exception as exc:
+        logger.error("Failed to generate consent PDF: %s", exc)
+        return jsonify({
+            "sha256_fingerprint": sha256_hash,
+            "target": asset,
+            "platform": platform,
+            "program": program,
+            "acknowledged_at": bounty_meta.get("bounty_acknowledged_at"),
+            "acknowledged_by": bounty_meta.get("bounty_acknowledged_by") or current_user.username,
+        })
+

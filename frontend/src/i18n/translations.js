@@ -56,6 +56,8 @@ const translations = {
         bounty_targets_desc: 'Live BB targets — auto-scan OK',
         vuln_library:     'Vulnerability Library',
         vuln_library_desc: 'Learn all vulnerability types',
+        pricing_plans:    'Pricing & Plans',
+        pricing_desc:     'Upgrade subscription & quota',
         switch_to_arabic: 'Switch to Arabic',
         switch_to_english:'Switch to English',
 
@@ -261,6 +263,8 @@ const translations = {
         bounty_targets_desc: 'أهداف BB حية — الفحص مسموح',
         vuln_library:     'مكتبة الثغرات',
         vuln_library_desc: 'تعلّم كل أنواع الثغرات',
+        pricing_plans:    'الخطط والأسعار',
+        pricing_desc:     'ترقية الاشتراك وزيادة الحصة',
         switch_to_arabic: 'التبديل إلى العربية',
         switch_to_english:'Switch to English',
 

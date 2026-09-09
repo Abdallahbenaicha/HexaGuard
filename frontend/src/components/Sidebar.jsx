@@ -4,6 +4,7 @@ import {
     Users, ScanLine, ScrollText, LayoutDashboard,
     LogOut, Settings, Clock, HelpCircle,
     Box, Globe, LayoutGrid, Crosshair, GraduationCap,
+    CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -27,6 +28,7 @@ const Sidebar = () => {
         { labelKey: 'dns_scan',        descKey: 'dns_scan_desc',     to: '/scan/dns',            icon: Globe,           adminOnly: false },
         { labelKey: 'wordpress_scan',  descKey: 'wp_scan_desc',      to: '/scan/wordpress',      icon: LayoutGrid,      adminOnly: false },
         { labelKey: 'vuln_library',    descKey: 'vuln_library_desc', to: '/learn/vulnerabilities', icon: GraduationCap, adminOnly: false },
+        { labelKey: 'pricing_plans',   descKey: 'pricing_desc',      to: '/pricing',             icon: CreditCard,    adminOnly: false },
         { labelKey: 'help',            descKey: 'help_desc',         to: '/help',                icon: HelpCircle,      adminOnly: false },
         { labelKey: 'profile_settings',descKey: 'profile_desc',      to: '/profile',             icon: Settings,        adminOnly: false },
     ];

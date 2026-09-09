@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, X, Zap, Shield, Crown } from 'lucide-react';
+import { Check, X, Zap, Shield, Crown, Loader2 } from 'lucide-react';
+import { useAuth, toast } from '../context/AuthContext';
+import axios from 'axios';
 
 const PLANS = {
     monthly: [
@@ -168,7 +171,45 @@ const COLOR_MAP = {
 };
 
 const PricingPage = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
     const [billing, setBilling] = useState('monthly');
+    const [sub, setSub] = useState(null);
+    const [upgrading, setUpgrading] = useState(null);
+
+    useEffect(() => {
+        if (user) {
+            axios.get('/api/subscription')
+                .then(res => setSub(res.data))
+                .catch(() => {});
+        }
+    }, [user]);
+
+    const handleUpgrade = async (plan) => {
+        if (!user) {
+            navigate('/login?redirect=/pricing');
+            return;
+        }
+        const planKey = plan.id;
+        if (sub?.plan === planKey) {
+            toast.info('You are already on this plan.');
+            return;
+        }
+        setUpgrading(plan.id);
+        try {
+            const res = await axios.post('/api/subscription/upgrade', { plan: planKey });
+            if (res.data?.ok) {
+                toast.success(res.data.message || `Upgraded to ${plan.name}!`);
+                setSub(res.data.subscription);
+            } else {
+                toast.error(res.data?.error || 'Upgrade failed');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Error upgrading subscription');
+        } finally {
+            setUpgrading(null);
+        }
+    };
 
     const plans = PLANS.monthly;
 
@@ -440,8 +481,10 @@ const PricingPage = () => {
                                 </div>
 
                                 {/* CTA Button */}
-                                <a
-                                    href={plan.ctaLink}
+                                <button
+                                    type="button"
+                                    onClick={() => handleUpgrade(plan)}
+                                    disabled={sub?.plan === plan.id || upgrading === plan.id}
                                     className={`
                                         w-full py-3 mb-6
                                         font-orbitron font-bold
@@ -449,12 +492,16 @@ const PricingPage = () => {
                                         uppercase rounded-xl
                                         border text-center
                                         transition-all duration-300
-                                        block
-                                        ${colors.button}
+                                        flex items-center justify-center gap-2
+                                        ${sub?.plan === plan.id
+                                            ? 'bg-slate-800 text-gray-400 border-slate-700 cursor-default'
+                                            : colors.button
+                                        }
                                     `}
                                 >
-                                    {plan.cta}
-                                </a>
+                                    {upgrading === plan.id && <Loader2 size={14} className="animate-spin" />}
+                                    {sub?.plan === plan.id ? 'Current Plan' : plan.cta}
+                                </button>
 
                                 {/* Features list */}
                                 <div className="space-y-3
