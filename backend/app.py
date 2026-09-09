@@ -115,6 +115,11 @@ def create_app() -> Flask:
     with app.app_context():
         init_db()
 
+    # ── Background Scheduler ─────────────────────────────────────────────────
+    if os.environ.get("ENABLE_BACKGROUND_SCHEDULER", "true").lower() in ("true", "1", "yes") and not app.config.get("TESTING"):
+        import scheduler
+        scheduler.start_scheduler(app)
+
     return app
 
 

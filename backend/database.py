@@ -1436,6 +1436,17 @@ def get_all_scheduled_scans() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_due_scheduled_scans(now_iso: str | None = None) -> list[dict]:
+    """Return all active scheduled scans where next_run_at <= now."""
+    if not now_iso:
+        now_iso = datetime.now(timezone.utc).isoformat()
+    rows = _get_db().execute(
+        "SELECT * FROM scheduled_scans WHERE is_active=1 AND next_run_at IS NOT NULL AND next_run_at <= ? ORDER BY next_run_at ASC",
+        (now_iso,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def update_scheduled_scan_run(sched_id: int, last_run_at: str, next_run_at: str) -> None:
     _exec(
         "UPDATE scheduled_scans SET last_run_at=?, next_run_at=? WHERE id=?",
