@@ -7,7 +7,7 @@ import {
   ChevronRight, Shield, AlertTriangle, CheckCircle,
   XCircle, Crosshair, Calendar, Info, Star,
   HelpCircle, Lock, Unlock, ChevronDown, ChevronUp,
-  Globe, Sliders,
+  Globe, Sliders, GraduationCap,
 } from 'lucide-react';
 import {
   PLATFORM_META, SEVERITY_CONFIG, ASSET_TYPE_META, METHODOLOGY,
@@ -169,6 +169,13 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
         {target.expected_value_score !== undefined && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border bg-indigo-500/10 text-indigo-300 border-indigo-500/30" title="Expected ROI / Value Score">
             <Zap className="w-3 h-3 text-indigo-400" /> ROI: {target.expected_value_score}/100
+          </span>
+        )}
+
+        {/* Learn & Earn Score (Part 4) */}
+        {target.learn_earn_score !== undefined && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border bg-purple-500/10 text-purple-300 border-purple-500/30" title="Learn & Earn Rank Score">
+            <GraduationCap className="w-3 h-3 text-purple-400" /> Learn+Earn: {target.learn_earn_score}
           </span>
         )}
       </div>
@@ -1191,13 +1198,14 @@ export default function BountyTargetsPage() {
           <span className="text-sm text-emerald-400 font-medium">Safe Harbor</span>
         </label>
 
-        {/* Sort selector (P3.3) */}
+        {/* Sort selector (P3.3 & Part 4) */}
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
         >
           <option value="default">Default Sorting</option>
+          <option value="learn_earn">🎯 Learn & Earn (الأنسب للتعلم+الربح)</option>
           <option value="roi">Highest Expected ROI</option>
           <option value="response_time">Fastest Response</option>
         </select>

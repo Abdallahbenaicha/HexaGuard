@@ -5,6 +5,7 @@ import { FileText, Table, Code, ArrowLeft, Download, FileDown, Activity, Shield 
 import ResultsPanel from '../components/ResultsPanel';
 import NetworkReconPanel from '../components/NetworkReconPanel';
 import ReportExportBar from '../components/ReportExportBar';
+import ShadowManualPanel from '../components/ShadowManualPanel';
 import { REPORT_ENDPOINTS, reportDownloadUrl } from '../utils/reportExport';
 
 const SECONDARY_REPORTS = [
@@ -183,6 +184,11 @@ const ReportPage = () => {
                                 </div>
                             )}
                             {inlineData.recon && <NetworkReconPanel recon={inlineData.recon} />}
+                            <ShadowManualPanel
+                                reportToken={token}
+                                target={inlineData.target}
+                                scanType={inlineData.scan_type}
+                            />
                             <ResultsPanel
                                 findings={inlineData.findings || []}
                                 total={inlineData.vuln_count || (inlineData.findings || []).length}

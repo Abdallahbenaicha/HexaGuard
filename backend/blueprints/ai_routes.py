@@ -108,15 +108,21 @@ def ai_chat():
             "max": max_msgs,
         }), 429
 
+    mentor_mode = bool(
+        data.get("mentor_mode") or
+        (isinstance(context, dict) and (context.get("mentor_mode") or context.get("mentor")))
+    )
+
     try:
         aria  = get_aria()
-        reply = aria.chat(message, context, user_id=str(current_user.id))
+        reply = aria.chat(message, context, user_id=str(current_user.id), mentor_mode=mentor_mode)
         return jsonify({
-            "reply":    reply,
-            "provider": aria.provider,
-            "ai_mode":  "online" if aria.ai_active else "offline",
+            "reply":         reply,
+            "provider":      aria.provider,
+            "ai_mode":       "online" if aria.ai_active else "offline",
+            "mentor_mode":   mentor_mode,
             "messages_used": used,
-            "max_messages": max_msgs,
+            "max_messages":  max_msgs,
         })
     except Exception as exc:
         logger.exception("ai_chat error")
@@ -192,10 +198,18 @@ def chat_bridge():
     context = data.get("context", {})
     if not message:
         return jsonify({"response": "Empty message."}), 400
+    mentor_mode = bool(
+        data.get("mentor_mode") or
+        (isinstance(context, dict) and (context.get("mentor_mode") or context.get("mentor")))
+    )
     try:
         aria  = get_aria()
-        reply = aria.chat(message, context, user_id=str(current_user.id))
-        return jsonify({"response": reply})
+        reply = aria.chat(message, context, user_id=str(current_user.id), mentor_mode=mentor_mode)
+        return jsonify({
+            "response":    reply,
+            "reply":       reply,
+            "mentor_mode": mentor_mode,
+        })
     except Exception as exc:
         logger.exception("chat_bridge error")
         return jsonify({"response": f"AI error: {exc}"}), 200

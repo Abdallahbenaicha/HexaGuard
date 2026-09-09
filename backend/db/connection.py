@@ -102,16 +102,22 @@ def _get_db():
         return _MySQLAdapter(conn)
 
     # ── SQLite path (default) ─────────────────────────────────────────────────
-    if not getattr(_local, "conn", None):
-        import sys as _sys
-        req_path = getattr(_sys.modules.get("database"), "DB_PATH", None) or _os.environ.get("DB_PATH", "securax.db")
-        db_path = _resolve_db_path(req_path)
+    import sys as _sys
+    req_path = _os.environ.get("DB_PATH") or getattr(_sys.modules.get("database"), "DB_PATH", None) or "securax.db"
+    db_path = _resolve_db_path(req_path)
+    if not getattr(_local, "conn", None) or getattr(_local, "conn_path", None) != db_path:
+        if getattr(_local, "conn", None):
+            try:
+                _local.conn.close()
+            except Exception:
+                pass
         conn = sqlite3.connect(db_path, check_same_thread=True)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=5000")
         _local.conn = conn
+        _local.conn_path = db_path
     return _local.conn
 
 
@@ -298,6 +304,48 @@ _SCHEMA_SQLITE = """
         hosts_json  TEXT    NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_nsnap_target ON network_snapshots (target, user_id);
+
+    CREATE TABLE IF NOT EXISTS skill_ledger (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id           INTEGER NOT NULL,
+        vuln_type         TEXT    NOT NULL,
+        status            TEXT    NOT NULL DEFAULT 'theory_only',
+        evidence_ref      TEXT,
+        attempts_count    INTEGER NOT NULL DEFAULT 0,
+        last_practiced_at TEXT,
+        created_at        TEXT    NOT NULL,
+        updated_at        TEXT    NOT NULL,
+        UNIQUE(user_id, vuln_type),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_ledger_user ON skill_ledger (user_id);
+    CREATE INDEX IF NOT EXISTS idx_skill_ledger_vuln ON skill_ledger (user_id, vuln_type);
+
+    CREATE TABLE IF NOT EXISTS shadow_manual_tasks (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_token      TEXT    NOT NULL,
+        user_id           INTEGER,
+        vuln_type         TEXT    NOT NULL,
+        status            TEXT    NOT NULL DEFAULT 'pending',
+        notes             TEXT,
+        created_at        TEXT    NOT NULL,
+        updated_at        TEXT,
+        UNIQUE(report_token, vuln_type),
+        FOREIGN KEY (report_token) REFERENCES scan_reports(token) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_shadow_tasks_token ON shadow_manual_tasks (report_token);
+    CREATE INDEX IF NOT EXISTS idx_shadow_tasks_user  ON shadow_manual_tasks (user_id, status);
+
+    CREATE TABLE IF NOT EXISTS dojo_completions (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL,
+        date_key     TEXT    NOT NULL,
+        vuln_type    TEXT    NOT NULL,
+        completed_at TEXT    NOT NULL,
+        UNIQUE(user_id, date_key),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_dojo_user_date ON dojo_completions (user_id, date_key);
 """
 
 _SCHEMA_MYSQL = """
@@ -446,6 +494,45 @@ _SCHEMA_MYSQL = """
         user_id     INT          NOT NULL,
         scan_time   VARCHAR(50)  NOT NULL,
         hosts_json  MEDIUMTEXT   NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS skill_ledger (
+        id                INT          AUTO_INCREMENT PRIMARY KEY,
+        user_id           INT          NOT NULL,
+        vuln_type         VARCHAR(100) NOT NULL,
+        status            VARCHAR(50)  NOT NULL DEFAULT 'theory_only',
+        evidence_ref      TEXT,
+        attempts_count    INT          NOT NULL DEFAULT 0,
+        last_practiced_at VARCHAR(50),
+        created_at        VARCHAR(50)  NOT NULL,
+        updated_at        VARCHAR(50)  NOT NULL,
+        UNIQUE KEY uq_user_vuln (user_id, vuln_type),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_skill_ledger_user ON skill_ledger (user_id);
+
+    CREATE TABLE IF NOT EXISTS shadow_manual_tasks (
+        id                INT          AUTO_INCREMENT PRIMARY KEY,
+        report_token      VARCHAR(64)  NOT NULL,
+        user_id           INT,
+        vuln_type         VARCHAR(100) NOT NULL,
+        status            VARCHAR(50)  NOT NULL DEFAULT 'pending',
+        notes             TEXT,
+        created_at        VARCHAR(50)  NOT NULL,
+        updated_at        VARCHAR(50),
+        UNIQUE KEY uq_report_vuln (report_token, vuln_type),
+        FOREIGN KEY (report_token) REFERENCES scan_reports(token) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_shadow_tasks_token ON shadow_manual_tasks (report_token);
+
+    CREATE TABLE IF NOT EXISTS dojo_completions (
+        id           INT          AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT          NOT NULL,
+        date_key     VARCHAR(20)  NOT NULL,
+        vuln_type    VARCHAR(100) NOT NULL,
+        completed_at VARCHAR(50)  NOT NULL,
+        UNIQUE KEY uq_dojo_user_date (user_id, date_key),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 """
 

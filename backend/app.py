@@ -96,6 +96,9 @@ def create_app() -> Flask:
     from blueprints.reports import reports_bp
     from blueprints.scans import scans_bp
     from blueprints.scheduled import scheduled_bp
+    from blueprints.skill import skill_bp
+    from blueprints.sandbox import sandbox_bp
+    from blueprints.dojo import dojo_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)
@@ -105,6 +108,9 @@ def create_app() -> Flask:
     app.register_blueprint(scheduled_bp)
     app.register_blueprint(extra_bp)
     app.register_blueprint(domain_bp)
+    app.register_blueprint(skill_bp)
+    app.register_blueprint(sandbox_bp)
+    app.register_blueprint(dojo_bp)
 
     # Bug Bounty live scanning blueprint (Feature Flag: enabled locally, 404 in public deploy)
     if os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "false").lower() in ("true", "1", "yes"):

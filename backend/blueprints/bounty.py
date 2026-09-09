@@ -680,6 +680,86 @@ def _calculate_expected_roi(target_item: dict) -> float:
     return round(min(100.0, max(0.0, score)), 1)
 
 
+def _calculate_learn_earn_score(target_item: dict, user_ledger: list[dict] | None = None) -> float:
+    """Calculate Learn+Earn composite ranking score for Bug Bounty targets.
+
+    Formula:
+        learn_earn_score = automation_factor * payout_factor * skill_gap_factor
+
+    Factors:
+        - automation_factor:
+            ALLOWED    -> 1.0 (Full automated scanning permitted)
+            UNKNOWN    -> 0.5 (Needs caution / manual check)
+            RESTRICTED -> 0.15 (Automated scanning forbidden)
+        - payout_factor:
+            Base 10.0 + (25.0 if eligible_bounty else 5.0)
+            + Critical: 25.0 | High: 18.0 | Medium: 10.0 | Low: 5.0
+        - skill_gap_factor:
+            1.0 + (min(matched_gaps, 5) * 0.3) + (len(unverified_gaps) / 38.0 * 0.4)
+    """
+    policy = target_item.get("scan_policy", {})
+    status = policy.get("status", "UNKNOWN")
+    if status == "ALLOWED":
+        auto_factor = 1.0
+    elif status == "UNKNOWN":
+        auto_factor = 0.5
+    else:
+        auto_factor = 0.15
+
+    payout_factor = 10.0
+    if target_item.get("eligible_bounty"):
+        payout_factor += 25.0
+    else:
+        payout_factor += 5.0
+
+    sev = (target_item.get("max_severity") or "").lower()
+    if sev == "critical":
+        payout_factor += 25.0
+    elif sev == "high":
+        payout_factor += 18.0
+    elif sev == "medium":
+        payout_factor += 10.0
+    elif sev == "low":
+        payout_factor += 5.0
+
+    skill_gap_factor = 1.0
+    if user_ledger:
+        unverified_gaps = [
+            item for item in user_ledger
+            if item.get("status") != "practiced_verified"
+        ]
+        text = f"{target_item.get('instruction', '')} {target_item.get('program_name', '')} {target_item.get('asset', '')} {target_item.get('asset_type', '')}".lower()
+
+        matched_gaps = 0
+        for gap in unverified_gaps:
+            v_type = gap.get("vuln_type", "")
+            terms = [v_type, v_type.replace("_", " ")]
+            if v_type == "sqli":
+                terms.extend(["sql", "injection", "database"])
+            elif v_type == "xss":
+                terms.extend(["cross-site", "scripting"])
+            elif v_type == "csrf":
+                terms.extend(["cross-site request", "csrf"])
+            elif v_type == "rce":
+                terms.extend(["remote code", "command injection"])
+            elif v_type == "ssrf":
+                terms.extend(["server-side request", "ssrf"])
+            elif v_type == "broken_auth":
+                terms.extend(["auth", "login", "session", "oauth", "jwt"])
+            elif v_type == "sensitive_data_exposure":
+                terms.extend(["leak", "disclosure", "token", "secret", "exposure"])
+            elif v_type == "open_redirect":
+                terms.extend(["redirect", "url forward"])
+
+            if any(term in text for term in terms):
+                matched_gaps += 1
+
+        skill_gap_factor = 1.0 + (min(matched_gaps, 5) * 0.3) + (len(unverified_gaps) / 38.0 * 0.4)
+
+    score = auto_factor * payout_factor * skill_gap_factor
+    return round(score, 1)
+
+
 @bounty_bp.route("/api/bounty/targets/history")
 @login_required
 @limiter.limit("60/minute")
@@ -696,7 +776,7 @@ def api_target_scan_history():
 @bounty_bp.route("/api/admin/bounty-targets")
 @admin_required
 def api_bounty_targets():
-    """Return paginated, filtered, and ROI-ranked list of bug-bounty targets."""
+    """Return paginated, filtered, and ROI/Learn-Earn-ranked list of bug-bounty targets."""
     platform   = request.args.get("platform", "all").lower()
     asset_type = request.args.get("asset_type", "all").upper()
     bounty     = request.args.get("bounty", "0") == "1"
@@ -719,13 +799,24 @@ def api_bounty_targets():
         raw = fetch_fn(plat)
         all_targets.extend(norm_fn(raw))
 
-    # Enrich with Safe Harbor and Expected ROI scoring (P3.1 & P3.3)
+    # Fetch user skill ledger for personalized Learn+Earn ranking
+    user_id = getattr(current_user, "id", None)
+    user_ledger = None
+    if user_id:
+        try:
+            from db.skills import get_user_skill_ledger
+            user_ledger = get_user_skill_ledger(user_id)
+        except Exception as exc:
+            logger.debug("Could not load user ledger for bounty ranking: %s", exc)
+
+    # Enrich with Safe Harbor, Expected ROI, and Learn+Earn scoring (Part 4)
     for t in all_targets:
         sh = _detect_safe_harbor(t)
         t["safe_harbor"] = sh
         t["has_safe_harbor"] = sh["has_safe_harbor"]
         t["expected_value_score"] = _calculate_expected_roi(t)
         t["roi_score"] = t["expected_value_score"]
+        t["learn_earn_score"] = _calculate_learn_earn_score(t, user_ledger)
 
     if policy_filter != "ALL":
         all_targets = [t for t in all_targets
@@ -747,6 +838,8 @@ def api_bounty_targets():
         all_targets.sort(key=lambda t: t.get("expected_value_score", 0), reverse=True)
     elif sort_by == "response_time":
         all_targets.sort(key=lambda t: t.get("avg_response_h") if t.get("avg_response_h") is not None else 9999)
+    elif sort_by in ("learn_earn", "learn-earn", "learn"):
+        all_targets.sort(key=lambda t: t.get("learn_earn_score", 0), reverse=True)
 
     total   = len(all_targets)
     start   = (page - 1) * per_page

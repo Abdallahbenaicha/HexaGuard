@@ -45,6 +45,8 @@ const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
 import VulnLibraryPage from './pages/VulnLibraryPage';
 import PricingPage from './pages/PricingPage';
 import ManualHuntPage from './pages/ManualHuntPage';
+import SkillLedgerPage from './pages/SkillLedgerPage';
+import DojoPage from './pages/DojoPage';
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -220,6 +222,8 @@ function AppInner() {
                 <Route path="/learn"                 element={<Navigate to="/learn/vulnerabilities" replace />} />
                 <Route path="/learn/vulnerabilities" element={<ProtectedRoute element={<VulnLibraryPage />} />} />
                 <Route path="/hunt/manual"           element={<ProtectedRoute element={<ManualHuntPage />} />} />
+                <Route path="/skills"                element={<ProtectedRoute element={<SkillLedgerPage />} />} />
+                <Route path="/dojo"                  element={<ProtectedRoute element={<DojoPage />} />} />
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

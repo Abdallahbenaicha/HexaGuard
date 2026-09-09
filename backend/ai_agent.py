@@ -80,6 +80,26 @@ Use markdown. For structured analysis use headers and bullet points. For code fi
 You do not execute code or access external systems. You analyze data provided by SecuraX scanning engines. Never fabricate data. If a request is outside cybersecurity scope, politely redirect.\
 """
 
+_SOCRATIC_MENTOR_SYSTEM_PROMPT = """\
+You are ARIA in Red-Team Socratic Mentor Mode for SecuraX.
+Your mission is to guide security students, researchers, and analysts to discover vulnerabilities and exploitation mechanics on their own through guided Socratic questioning.
+
+## Core Pedagogical Rules:
+1. NEVER provide direct exploit payloads (e.g., `' OR 1=1 --`, `<script>alert(1)</script>`, `cat /etc/passwd`), automated scripts, or copy-paste attack commands.
+2. Ask probing, diagnostic, and conceptual questions that stimulate critical reasoning:
+   - "How does the application parse that input delimiter?"
+   - "What happens if you inject characters that disrupt the SQL syntax structure?"
+   - "Where does user input reflect in the HTTP response body or headers?"
+3. Offer methodology hints, architectural analogies, and verification checkpoints (e.g., observing response latency, inspecting error responses).
+4. OVERRIDE EXCEPTION: If and only if the user explicitly writes an override phrase (such as "اكشف الحل", "reveal solution", "give answer", "الحل المباشر", "show solution"), you MUST bypass the mentor restriction and provide the complete technical explanation and exploit/remediation solution immediately for that request.
+5. Always answer in the language of the user (Arabic if input contains Arabic, English if English).
+"""
+
+_OVERRIDE_PHRASES = [
+    "reveal solution", "اكشف الحل", "show solution", "give answer",
+    "اعطني الحل", "الحل المباشر", "direct solution", "reveal answer",
+]
+
 # ── Severity weights ──────────────────────────────────────────────────────────
 _SEV_WEIGHT = {"critical": 10, "high": 7, "medium": 4, "low": 1, "info": 0}
 
@@ -494,15 +514,120 @@ class ARIA:
 
     # ── Chat ──────────────────────────────────────────────────────────────────
 
+    def _is_override(self, message: str) -> bool:
+        low = (message or "").lower()
+        return any(phrase in low for phrase in _OVERRIDE_PHRASES)
+
+    def _offline_mentor(self, msg: str, ctx: dict, arabic: bool = False) -> str:
+        """Provide guided Socratic questions instead of raw exploit payloads when in offline mode."""
+        is_sqli = any(k in msg for k in ["sql", "sqli", "injection", "حقن"])
+        is_xss  = any(k in msg for k in ["xss", "cross-site", "script", "سكربت"])
+        is_csrf = any(k in msg for k in ["csrf", "cross-site request", "تزوير"])
+        is_rce  = any(k in msg for k in ["rce", "command", "تنفيذ أوامر", "أوامر"])
+        is_auth = any(k in msg for k in ["auth", "login", "session", "مصادقة", "دخول", "جلسة"])
+
+        if arabic:
+            if is_sqli:
+                return (
+                    "🧠 **الموجّه السقراطي (ARIA):**\n\n"
+                    "فكّر في كيفية بناء استعلام قاعدة البيانات في الخلفية:\n"
+                    "1. ما الذي يحدث إذا قمت بكسر سياق النص (String Literal) في الاستعلام؟\n"
+                    "2. ما هي الرموز الخاصة في SQL التي تُستخدم للتعليق (Comments) على باقي الاستعلام؟\n"
+                    "3. جرّب إرسال رمز أحادي ولاحظ رسالة الخطأ أو التغيير في الاستجابة.\n\n"
+                    "💡 *ماذا تعتقد أن الخادم سيفعل إذا أصبح الشرط المنطقي محققاً دائماً (مثل 1=1)؟*\n\n"
+                    "*(ملاحظة: إذا أردت استلام الـ Payload الجاهز والحل كاملاً، اكتب: `اكشف الحل`)*"
+                )
+            if is_xss:
+                return (
+                    "🧠 **الموجّه السقراطي (ARIA):**\n\n"
+                    "لنتتبع مسار المدخلات من المتصفح إلى صفحة الويب:\n"
+                    "1. أين تنعكس مدخلاتك في كود الـ HTML المستلم؟ هل تقع داخل وسم نصي أم خاصية (Attribute)؟\n"
+                    "2. هل يقوم الخادم بترميز (HTML Encoding) للرموز الخاصة مثل `<` و `>` و `\"`؟\n"
+                    "3. هل تفحصت سياسة أمان المحتوى (CSP) في ترويسات الاستجابة؟\n\n"
+                    "💡 *فكّر في كيفية إغلاق السياق الحالي أولاً قبل محاولة تنفيذ كود JavaScript.*\n\n"
+                    "*(ملاحظة: إذا أردت الـ Payload الجاهز والحل كاملاً، اكتب: `اكشف الحل`)*"
+                )
+            if is_rce:
+                return (
+                    "🧠 **الموجّه السقراطي (ARIA):**\n\n"
+                    "تنفيذ الأوامر عن بُعد يعتمد على استغلال صدفة النظام (Shell):\n"
+                    "1. ما هي الفواصل في سطر الأوامر التي تسمح بتسلسل أمرين معاً (مثل `;` أو `|` أو `&&`)؟\n"
+                    "2. جرّب اختبار أمر استكشافي بسيط مثل `whoami` أو `id`.\n\n"
+                    "💡 *ما هي المحددات أو عوامل التصفية التي قد تحجب المسافات؟*\n\n"
+                    "*(ملاحظة: إذا أردت استلام الحل المباشر، اكتب: `اكشف الحل`)*"
+                )
+            if is_auth:
+                return (
+                    "🧠 **الموجّه السقراطي (ARIA):**\n\n"
+                    "في آليات المصادقة وإدارة الجلسات:\n"
+                    "1. أين يُخزن رمز الجلسة (Session Token) وهل يحمل سمات `HttpOnly` و `Secure`؟\n"
+                    "2. هل يتغير معرّف الجلسة بعد نجاح تسجيل الدخول لتفادي Session Fixation؟\n\n"
+                    "💡 *فكّر في ما الذي يحمي الجلسة من التخمين أو التثبيت.*\n\n"
+                    "*(ملاحظة: إذا أردت الحل المباشر، اكتب: `اكشف الحل`)*"
+                )
+            return (
+                "🧠 **الموجّه السقراطي (ARIA):**\n\n"
+                "أهلاً بك في وضع التوجيه السقراطي! لن أقدم لك كود الاستغلال الجاهز مباشرة، بل سأرشدك بالأسئلة والتفكير المنهجي:\n"
+                "- ما هو الهدف المحدد الذي تحاول الوصول إليه؟\n"
+                "- ما هي المدخلات المتاحة وكيف يتفاعل التطبيق معها عند تعديلها؟\n\n"
+                "💡 *صف لي سلوك التطبيق لنوجه الاستقصاء معاً.*\n\n"
+                "*(في حال احتجت الحل الكامل والمباشر، يمكنك كتابة: `اكشف الحل` في أي رسالة)*"
+            )
+        else:
+            if is_sqli:
+                return (
+                    "🧠 **ARIA Socratic Mentor:**\n\n"
+                    "Consider how the database query is assembled on the backend:\n"
+                    "1. What happens when you break the string literal context in the input?\n"
+                    "2. Which characters in SQL are used to comment out the remainder of a query?\n"
+                    "3. What error or timing difference does the server return when you supply a single quote `'`?\n\n"
+                    "💡 *Think about: How would the backend evaluate the WHERE clause if a tautology (like 1=1) is injected?*\n\n"
+                    "*(Tip: To see the direct payload and explanation immediately, type: `reveal solution`)*"
+                )
+            if is_xss:
+                return (
+                    "🧠 **ARIA Socratic Mentor:**\n\n"
+                    "Trace the data flow from your request to the rendered response:\n"
+                    "1. Where does your input reflect in the DOM? Is it inside raw HTML text or an attribute?\n"
+                    "2. Does the application sanitize or HTML-encode special characters such as `<`, `>`, or `\"`?\n"
+                    "3. Does the server enforce a Content-Security-Policy (CSP) that restricts inline script execution?\n\n"
+                    "💡 *Think about: How must you close the current context before an execution tag can be triggered?*\n\n"
+                    "*(Tip: To see the direct payload and solution immediately, type: `reveal solution`)*"
+                )
+            if is_rce:
+                return (
+                    "🧠 **ARIA Socratic Mentor:**\n\n"
+                    "Remote command execution relies on command separators in the shell:\n"
+                    "1. Which operators allow chaining commands in Linux/Windows shells (e.g. `;`, `|`, `&&`)?\n"
+                    "2. How does the application treat spaces or parameter delimiters?\n\n"
+                    "💡 *Try a safe diagnostic command like `whoami` or `id`. What indicates execution?*\n\n"
+                    "*(Tip: To reveal the direct payload immediately, type: `reveal solution`)*"
+                )
+            return (
+                "🧠 **ARIA Socratic Mentor:**\n\n"
+                "Welcome to Socratic Red-Team Mentor mode! Rather than handing over raw exploit payloads, I will guide your technical analysis through strategic questions:\n"
+                "- What parameter or header are you investigating?\n"
+                "- How does the application respond when you manipulate unexpected boundaries?\n\n"
+                "💡 *Describe the input behavior and let's dissect the vulnerability together.*\n\n"
+                "*(Tip: If you want the direct exploit solution at any point, type: `reveal solution`)*"
+            )
+
     def chat(self, message: str, context: Optional[dict] = None,
-             user_id: str = "anonymous") -> str:
+             user_id: str = "anonymous", mentor_mode: bool = False) -> str:
         ctx          = context or {}
+        if not mentor_mode and isinstance(ctx, dict):
+            mentor_mode = bool(ctx.get("mentor_mode") or ctx.get("mentor"))
+
         user_history = self._get_history(str(user_id))
         arabic       = _is_arabic(message)
+        override     = self._is_override(message)
 
         if self.ai_active:
-            # Extend system prompt with language instruction
-            system = _SYSTEM_PROMPT
+            if mentor_mode and not override:
+                system = _SOCRATIC_MENTOR_SYSTEM_PROMPT
+            else:
+                system = _SYSTEM_PROMPT
+
             if arabic:
                 system += "\n\nRespond entirely in Arabic. Use correct Arabic cybersecurity terminology."
 
@@ -515,7 +640,8 @@ class ARIA:
             if ctx:
                 ctx_note = (
                     f"\n\nActive scan context — target: {ctx.get('target','N/A')} | "
-                    f"risk: {ctx.get('risk','N/A')} | findings: {ctx.get('total',0)}"
+                    f"risk: {ctx.get('risk','N/A')} | findings: {ctx.get('total',0)} | "
+                    f"mentor_mode: {mentor_mode}"
                 )
             result = self._ai_call(f"{history}User: {message}{ctx_note}", system=system, user_id=user_id)
             if result:
@@ -526,7 +652,11 @@ class ARIA:
                 return result
 
         # Offline fallback
-        reply = self._offline(message.lower(), ctx, arabic=arabic)
+        if mentor_mode and not override:
+            reply = self._offline_mentor(message.lower(), ctx, arabic=arabic)
+        else:
+            reply = self._offline(message.lower(), ctx, arabic=arabic)
+
         user_history.append({"q": message, "a": reply})
         if len(user_history) > self._HISTORY_LIMIT:
             self._chat_histories[str(user_id)] = user_history[-self._HISTORY_LIMIT:]
@@ -560,6 +690,16 @@ class ARIA:
         for key, kb in _KB.items():
             if key in msg or key.replace(" ", "") in msg.replace(" ", ""):
                 return self._kb_response(key, kb)
+
+        # Common aliases & Arabic terms
+        if any(k in msg for k in ["sql", "sqli", "حقن"]):
+            return self._kb_response("sql injection", _KB["sql injection"])
+        if any(k in msg for k in ["xss", "cross-site", "سكربت"]):
+            return self._kb_response("xss", _KB["xss"])
+        if any(k in msg for k in ["csrf", "تزوير"]):
+            return self._kb_response("csrf", _KB["csrf"])
+        if any(k in msg for k in ["rce", "تنفيذ أوامر"]):
+            return self._kb_response("command injection", _KB["command injection"])
 
         if "owasp" in msg:
             return _OWASP_TOP10

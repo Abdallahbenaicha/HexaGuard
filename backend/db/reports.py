@@ -18,6 +18,11 @@ except ImportError:
         _get_db, _exec, _norm, _count_severities, _UNSET, _local, _resolve_db_path, DB_PATH
     )
 
+try:
+    from vuln_taxonomy import normalize_check_to_vuln_type
+except ImportError:
+    from backend.vuln_taxonomy import normalize_check_to_vuln_type
+
 def store_report(result: dict, risk_score: float, original_content: str | None,
                  user_id: int, username: str, bounty_meta: dict | None = None) -> str:
     token = uuid.uuid4().hex
@@ -46,7 +51,17 @@ def store_report(result: dict, risk_score: float, original_content: str | None,
         )
         report_id = cursor.lastrowid
 
+        unique_vuln_types = set()
+        scan_type = result.get("scan_type", "")
         for vuln in vulns:
+            v_type = normalize_check_to_vuln_type(
+                check=str(vuln.get("check") or vuln.get("check_name") or ""),
+                title=str(vuln.get("title") or ""),
+                scanner=scan_type,
+            )
+            vuln["vuln_type"] = v_type
+            unique_vuln_types.add(v_type)
+
             sev = (str(vuln.get("severity", "low")).strip().lower() or "low")
             if sev not in {"critical", "high", "medium", "low", "info"}:
                 sev = "low"
@@ -104,6 +119,17 @@ def store_report(result: dict, risk_score: float, original_content: str | None,
             vuln["id"] = getattr(cur_v, "lastrowid", None)
             vuln["triage_status"] = tri_status
             vuln["triage_notes"] = tri_notes
+
+        # Generate unique shadow manual tasks for this report
+        for vt in sorted(list(unique_vuln_types)):
+            try:
+                db.execute(
+                    "INSERT INTO shadow_manual_tasks (report_token, user_id, vuln_type, status, created_at) "
+                    "VALUES (?, ?, ?, 'pending', ?)",
+                    (token, user_id, vt, now),
+                )
+            except Exception:
+                pass
 
         db.commit()
     except Exception:

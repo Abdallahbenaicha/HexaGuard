@@ -148,19 +148,42 @@ function MessageBubble({ msg }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
-    const [messages, setMessages] = useState([{
-        role: 'assistant',
-        content: (
-            'Hello! I\'m **ARIA** — SecuraX\'s AI security expert.\n\n' +
-            'I can help you:\n' +
-            '• Understand vulnerabilities from your scans\n' +
-            '• Explain attack techniques & real-world impact\n' +
-            '• Recommend specific code fixes\n' +
-            '• Answer any cybersecurity question\n\n' +
-            'Pick a topic on the left or ask me anything!'
-        ),
-        time: null,
-    }]);
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialMentor = searchParams.get('mentor') === 'true' || searchParams.get('context') === 'dojo' || searchParams.get('context') === 'shadow';
+    const initialVuln = searchParams.get('vuln_type');
+    const initialTarget = searchParams.get('target');
+
+    const [mentorMode, setMentorMode] = useState(initialMentor);
+    const [messages, setMessages] = useState(() => {
+        if (initialMentor) {
+            return [{
+                role: 'assistant',
+                content: (
+                    `🧠 **ARIA Red-Team Socratic Mentor** ✦\n\n` +
+                    `أهلاً بك في وضع **الموجّه السقراطي**! ` +
+                    (initialVuln ? `أنا هنا لمساعدتك في فحص وفهم ثغرة: **${initialVuln}**${initialTarget ? ` على الهدف: **${initialTarget}**` : ''}.\n\n` : `\n\n`) +
+                    `• لن أقدم لك كود الاستغلال الجاهز (Payload) مباشرة.\n` +
+                    `• سأطرح عليك أسئلة استكشافية وتوجيهات منهجية لتكتشف آلية الثغرة بنفسك.\n` +
+                    `• اسألني عن كيفية اختبار المدخلات، أو تحليل استجابة الخادم.\n\n` +
+                    `*(ملاحظة: إذا احتجت الحل الكامل والمباشر في أي وقت، اكتب: **"اكشف الحل"** أو **"reveal solution"**)*`
+                ),
+                time: null,
+            }];
+        }
+        return [{
+            role: 'assistant',
+            content: (
+                'Hello! I\'m **ARIA** — SecuraX\'s AI security expert.\n\n' +
+                'I can help you:\n' +
+                '• Understand vulnerabilities from your scans\n' +
+                '• Explain attack techniques & real-world impact\n' +
+                '• Recommend specific code fixes\n' +
+                '• Answer any cybersecurity question\n\n' +
+                'Pick a topic on the left or ask me anything!'
+            ),
+            time: null,
+        }];
+    });
     const [input,      setInput]     = useState('');
     const [loading,    setLoading]   = useState(false);
     const [ariaStatus, setAriaStatus] = useState(null);
@@ -194,6 +217,7 @@ export default function ChatPage() {
             const { data } = await axios.post('/api/ai/chat', {
                 message: msg,
                 context: activeCtx?.context ?? {},
+                mentor_mode: mentorMode,
             }, { withCredentials: true });
             const reply    = data.reply || data.response || '…';
             const provider = data.provider || data.ai_mode || 'offline';
@@ -345,9 +369,23 @@ export default function ChatPage() {
                             </p>
                         </div>
                     </div>
-                    <span className="text-xs text-slate-400 tabular-nums">
-                        {Math.max(0, messages.length - 1)} msg{messages.length !== 2 ? 's' : ''}
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setMentorMode(v => !v)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                                mentorMode
+                                    ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/40 shadow-sm'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                            title="Toggle ARIA Socratic Mentor Mode"
+                        >
+                            <span>🧠</span>
+                            <span>{mentorMode ? 'الموجّه السقراطي (نشط)' : 'تفعيل الموجّه السقراطي'}</span>
+                        </button>
+                        <span className="text-xs text-slate-400 tabular-nums">
+                            {Math.max(0, messages.length - 1)} msg{messages.length !== 2 ? 's' : ''}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Messages */}

@@ -40,6 +40,9 @@ from database import (
     set_subscription,
     store_report,
     update_vulnerability_triage,
+    get_shadow_tasks_for_report,
+    complete_shadow_task,
+    get_user_shadow_backlog,
 )
 from extensions import limiter
 from forms import ScanForm
@@ -905,6 +908,127 @@ def api_dashboard():
 
     stats_dict = dict(stats) if stats else {}
     return jsonify({"stats": stats_dict, "reports": reports_list})
+
+
+@reports_bp.route("/api/dashboard/shadow-backlog", methods=["GET"])
+@login_required
+def api_shadow_backlog():
+    """Retrieve all pending shadow manual hunting tasks across all user reports."""
+    backlog = get_user_shadow_backlog(current_user.id)
+    return jsonify({"ok": True, "backlog": backlog, "count": len(backlog)})
+
+
+@reports_bp.route("/api/reports/<token>/shadow", methods=["GET"])
+@login_required
+def api_report_shadow_tasks(token: str):
+    """Retrieve pending/completed shadow manual tasks for a specific report."""
+    if not _UUID_RE.match(token):
+        return jsonify({"ok": False, "error": "Invalid report token format."}), 400
+    report = get_report(token)
+    if not report:
+        return jsonify({"ok": False, "error": "Report not found."}), 404
+    if current_user.role != "admin" and report.get("user_id") != current_user.id:
+        return jsonify({"ok": False, "error": "Access denied."}), 403
+
+    tasks = get_shadow_tasks_for_report(token)
+    return jsonify({"ok": True, "token": token, "tasks": tasks})
+
+
+@reports_bp.route("/api/reports/<token>/shadow/<vuln_type>/complete", methods=["POST"])
+@login_required
+def api_complete_shadow_task(token: str, vuln_type: str):
+    """Mark a shadow manual task as completed (self-reported), updating the Skill Ledger."""
+    if not _UUID_RE.match(token):
+        return jsonify({"ok": False, "error": "Invalid report token format."}), 400
+    report = get_report(token)
+    if not report:
+        return jsonify({"ok": False, "error": "Report not found."}), 404
+    if current_user.role != "admin" and report.get("user_id") != current_user.id:
+        return jsonify({"ok": False, "error": "Access denied."}), 403
+
+    data = request.get_json(silent=True) or {}
+    notes = str(data.get("notes", "")).strip()
+
+    res = complete_shadow_task(
+        report_token=token,
+        vuln_type=vuln_type,
+        user_id=current_user.id,
+        notes=notes,
+        verified=False,
+    )
+    return jsonify({
+        "ok": True,
+        "message": f"Successfully marked {vuln_type} as completed self-reported.",
+        "task": res,
+    })
+
+
+@reports_bp.route("/api/reports/<token>/disagreement", methods=["POST"])
+@login_required
+def api_report_disagreement(token: str):
+    """Log a human analyst disagreement (e.g. False Positive) into the E3 research dataset."""
+    if not _UUID_RE.match(token):
+        return jsonify({"ok": False, "error": "Invalid report token format."}), 400
+    report = get_report(token)
+    if not report:
+        return jsonify({"ok": False, "error": "Report not found."}), 404
+    if current_user.role != "admin" and report.get("user_id") != current_user.id:
+        return jsonify({"ok": False, "error": "Access denied."}), 403
+
+    data = request.get_json(silent=True) or {}
+    vuln_type = str(data.get("vuln_type", "")).strip()
+    disagreement_type = str(data.get("disagreement_type", "false_positive")).strip()
+    scanner_id = str(data.get("scanner_id", "manual")).strip()
+    rationale = str(data.get("rationale", "")).strip()
+    evidence = str(data.get("evidence", "")).strip()
+    target = str(report.get("result", {}).get("target") or report.get("target") or "")
+
+    if not vuln_type:
+        return jsonify({"ok": False, "error": "vuln_type is required."}), 400
+    if not rationale:
+        return jsonify({"ok": False, "error": "rationale is required explaining the disagreement."}), 400
+
+    try:
+        from research_loop import record_human_disagreement
+        entry = record_human_disagreement(
+            report_token=token,
+            vuln_type=vuln_type,
+            disagreement_type=disagreement_type,
+            scanner_id=scanner_id,
+            rationale=rationale,
+            evidence=evidence,
+            target=target,
+            user_id=current_user.id,
+        )
+        log_event(
+            "research_disagreement_logged",
+            current_user.username,
+            current_user.id,
+            category="research",
+            details=f"{disagreement_type} for {vuln_type} in {token}",
+        )
+        return jsonify({
+            "ok": True,
+            "message": "Disagreement successfully logged to E3 dataset.",
+            "record": entry,
+        })
+    except Exception as exc:
+        logger.exception("Failed to record research disagreement")
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@reports_bp.route("/api/research/disagreements", methods=["GET"])
+@login_required
+def api_get_research_disagreements():
+    """Return summary and recent human disagreements from the E3 dataset."""
+    try:
+        from research_loop import get_human_disagreements
+        limit = min(200, max(1, request.args.get("limit", 50, type=int)))
+        res = get_human_disagreements(limit=limit)
+        return jsonify({"ok": True, **res})
+    except Exception as exc:
+        logger.exception("Failed to fetch research disagreements")
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @reports_bp.route("/api/reports")
