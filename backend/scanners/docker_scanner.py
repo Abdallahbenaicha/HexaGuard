@@ -25,8 +25,11 @@ Checks performed:
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+import shutil
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -319,3 +322,288 @@ def run_docker_scan(content: str, filename: str = "Dockerfile") -> dict:
         "counts":       counts,
         "meta":         meta,
     }
+
+
+# ── Container Image CVE Scanning (Trivy / Grype / Fallback) ───────────────────
+
+_KNOWN_IMAGE_CVES: dict[str, list[dict]] = {
+    "node:14": [
+        {
+            "cve_id": "CVE-2021-22918",
+            "pkg_name": "libuv",
+            "installed_version": "1.38.0",
+            "fixed_version": "1.41.1",
+            "severity": "high",
+            "title": "libuv Out-of-bounds Read in Buffer Parsing",
+            "description": "Node.js v14 contains an out-of-bounds read vulnerability in libuv during string conversions.",
+            "recommendation": "Upgrade base image to node:18-alpine or node:20-bookworm-slim.",
+        },
+        {
+            "cve_id": "CVE-2020-8203",
+            "pkg_name": "lodash",
+            "installed_version": "4.17.15",
+            "fixed_version": "4.17.19",
+            "severity": "high",
+            "title": "Prototype Pollution in lodash",
+            "description": "Prototype pollution vulnerability in lodash before 4.17.19 allows attackers to modify object prototypes.",
+            "recommendation": "Upgrade lodash to 4.17.19 or higher.",
+        },
+        {
+            "cve_id": "CVE-2021-37714",
+            "pkg_name": "tar",
+            "installed_version": "6.1.0",
+            "fixed_version": "6.1.9",
+            "severity": "medium",
+            "title": "Arbitrary File Creation via Hardlink in tar",
+            "description": "Arbitrary file overwrite vulnerability during extraction in node-tar.",
+            "recommendation": "Upgrade tar package to 6.1.9+.",
+        },
+    ],
+    "python:3.7": [
+        {
+            "cve_id": "CVE-2022-45061",
+            "pkg_name": "python",
+            "installed_version": "3.7.12",
+            "fixed_version": "3.7.16",
+            "severity": "high",
+            "title": "Python CPU Denial of Service via IDNA Decoding",
+            "description": "Quadratic time complexity in Python IDNA decoding permits CPU exhaustion denial of service.",
+            "recommendation": "Upgrade base image to python:3.11-slim or python:3.12-slim.",
+        },
+        {
+            "cve_id": "CVE-2021-3177",
+            "pkg_name": "python",
+            "installed_version": "3.7.9",
+            "fixed_version": "3.7.10",
+            "severity": "critical",
+            "title": "Python Buffer Overflow in PyCArg_repr",
+            "description": "Buffer overflow in PyCArg_repr in _ctypes/callproc.c allows remote attackers to execute arbitrary code.",
+            "recommendation": "Rebuild container with patched Python release (>= 3.7.10).",
+        },
+    ],
+    "alpine:3.12": [
+        {
+            "cve_id": "CVE-2021-36159",
+            "pkg_name": "apk-tools",
+            "installed_version": "2.10.5-r1",
+            "fixed_version": "2.10.7-r0",
+            "severity": "critical",
+            "title": "apk-tools Out-of-bounds Read during Package Extraction",
+            "description": "Out of bounds memory access in libfetch/http.c permits denial of service or arbitrary code execution.",
+            "recommendation": "Upgrade to alpine:3.19 or newer.",
+        },
+        {
+            "cve_id": "CVE-2020-28928",
+            "pkg_name": "musl",
+            "installed_version": "1.1.24-r9",
+            "fixed_version": "1.1.24-r10",
+            "severity": "medium",
+            "title": "musl libc wcsnrtombs Out-of-bounds Read",
+            "description": "Character conversion buffer flaw in musl libc allows read out-of-bounds.",
+            "recommendation": "Update musl packages via apk upgrade.",
+        },
+    ],
+    "ubuntu:18.04": [
+        {
+            "cve_id": "CVE-2021-3449",
+            "pkg_name": "openssl",
+            "installed_version": "1.1.1-1ubuntu2.1",
+            "fixed_version": "1.1.1-1ubuntu2.18",
+            "severity": "high",
+            "title": "OpenSSL NULL Pointer Dereference in Signature Verification",
+            "description": "TLS server crashes with a NULL pointer dereference if TLSv1.2 renegotiation is requested.",
+            "recommendation": "Upgrade OpenSSL to patched release.",
+        },
+        {
+            "cve_id": "CVE-2021-3156",
+            "pkg_name": "sudo",
+            "installed_version": "1.8.21p2-3ubuntu1",
+            "fixed_version": "1.8.21p2-3ubuntu1.4",
+            "severity": "critical",
+            "title": "Baron Samedit: Heap-based Buffer Overflow in Sudo",
+            "description": "Heap-based buffer overflow in sudo allows privilege escalation to root.",
+            "recommendation": "Update sudo via apt-get update && apt-get install --only-upgrade sudo.",
+        },
+    ],
+}
+
+
+def _scan_image_with_trivy(image_name: str) -> tuple[list[dict], dict]:
+    """Execute Trivy CLI and parse container image CVE findings."""
+    trivy_bin = shutil.which("trivy")
+    if not trivy_bin:
+        raise FileNotFoundError("trivy binary not found")
+
+    cmd = [trivy_bin, "image", "--format", "json", "--quiet", image_name]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+    if proc.returncode != 0 and not proc.stdout.strip():
+        raise RuntimeError(f"Trivy scan failed: {proc.stderr.strip()[:200]}")
+
+    data = json.loads(proc.stdout)
+    vulns: list[dict] = []
+    meta = {"scanner": "trivy", "image": image_name, "results_count": 0}
+
+    results = data.get("Results", [])
+    for res in results:
+        target_name = res.get("Target", image_name)
+        for v in res.get("Vulnerabilities", []):
+            sev_raw = v.get("Severity", "UNKNOWN").lower()
+            sev_map = {
+                "critical": "critical",
+                "high": "high",
+                "medium": "medium",
+                "low": "low",
+            }
+            sev = sev_map.get(sev_raw, "info")
+            vulns.append({
+                "title": f"[{v.get('VulnerabilityID', 'CVE')}] {v.get('PkgName', 'package')} ({v.get('InstalledVersion', '')})",
+                "cve_id": v.get("VulnerabilityID"),
+                "pkg_name": v.get("PkgName"),
+                "installed_version": v.get("InstalledVersion"),
+                "fixed_version": v.get("FixedVersion"),
+                "severity": sev,
+                "description": v.get("Description", v.get("Title", "Container package CVE")),
+                "recommendation": f"Upgrade {v.get('PkgName')} to {v.get('FixedVersion')}" if v.get("FixedVersion") else "Update base image",
+                "target": target_name,
+                "primary_url": v.get("PrimaryURL"),
+            })
+
+    meta["results_count"] = len(vulns)
+    return vulns, meta
+
+
+def _scan_image_with_grype(image_name: str) -> tuple[list[dict], dict]:
+    """Execute Grype CLI and parse container image CVE findings."""
+    grype_bin = shutil.which("grype")
+    if not grype_bin:
+        raise FileNotFoundError("grype binary not found")
+
+    cmd = [grype_bin, image_name, "-o", "json"]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+    if proc.returncode != 0 and not proc.stdout.strip():
+        raise RuntimeError(f"Grype scan failed: {proc.stderr.strip()[:200]}")
+
+    data = json.loads(proc.stdout)
+    vulns: list[dict] = []
+    meta = {"scanner": "grype", "image": image_name, "results_count": 0}
+
+    matches = data.get("matches", [])
+    for m in matches:
+        v = m.get("vulnerability", {})
+        art = m.get("artifact", {})
+        sev_raw = v.get("severity", "unknown").lower()
+        sev_map = {
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+        }
+        sev = sev_map.get(sev_raw, "info")
+        fix_versions = v.get("fix", {}).get("versions", [])
+        fixed_version = fix_versions[0] if fix_versions else None
+
+        vulns.append({
+            "title": f"[{v.get('id', 'CVE')}] {art.get('name', 'package')} ({art.get('version', '')})",
+            "cve_id": v.get("id"),
+            "pkg_name": art.get("name"),
+            "installed_version": art.get("version"),
+            "fixed_version": fixed_version,
+            "severity": sev,
+            "description": v.get("description", "Vulnerability detected in container package"),
+            "recommendation": f"Upgrade {art.get('name')} to {fixed_version}" if fixed_version else "Update base image",
+            "target": image_name,
+        })
+
+    meta["results_count"] = len(vulns)
+    return vulns, meta
+
+
+def _scan_image_fallback(image_name: str) -> tuple[list[dict], dict]:
+    """Fallback CVE detection using local curated container CVE intelligence."""
+    norm = image_name.strip().lower()
+    vulns: list[dict] = []
+    meta = {"scanner": "built-in-intelligence", "image": image_name, "results_count": 0}
+
+    # Match exact or prefix
+    for key, cve_list in _KNOWN_IMAGE_CVES.items():
+        if key in norm or norm in key:
+            for item in cve_list:
+                vulns.append({
+                    "title": f"[{item['cve_id']}] {item['pkg_name']} ({item['installed_version']}): {item['title']}",
+                    "cve_id": item["cve_id"],
+                    "pkg_name": item["pkg_name"],
+                    "installed_version": item["installed_version"],
+                    "fixed_version": item["fixed_version"],
+                    "severity": item["severity"],
+                    "description": item["description"],
+                    "recommendation": item["recommendation"],
+                    "target": image_name,
+                })
+            break
+
+    # If unpinned tag (:latest or no tag)
+    if ":" not in norm or norm.endswith(":latest"):
+        vulns.append({
+            "title": "Unpinned Image Tag: Mutable Base Image",
+            "severity": "medium",
+            "description": f"Container image '{image_name}' does not specify an immutable digest or version tag.",
+            "recommendation": "Pin container image tag to an immutable sha256 digest or release tag.",
+            "target": image_name,
+        })
+
+    meta["results_count"] = len(vulns)
+    return vulns, meta
+
+
+def scan_docker_image(image_name: str, preferred_engine: str = "auto") -> dict:
+    """
+    Public entrypoint to scan a Docker container image for known CVEs.
+    
+    Tries in order:
+      1. Trivy CLI (if available and preferred_engine != 'grype')
+      2. Grype CLI (if available and preferred_engine != 'trivy')
+      3. Curated offline CVE database fallback
+    """
+    if not image_name or not image_name.strip():
+        raise ValueError("image_name is required")
+
+    image_name = image_name.strip()
+    vulns: list[dict] = []
+    meta: dict = {}
+    engine_used = "fallback"
+
+    if preferred_engine in ("auto", "trivy") and shutil.which("trivy"):
+        try:
+            vulns, meta = _scan_image_with_trivy(image_name)
+            engine_used = "trivy"
+        except Exception as exc:
+            logger.warning("Trivy scan failed for %s, falling back: %s", image_name, exc)
+
+    if not vulns and preferred_engine in ("auto", "grype") and shutil.which("grype"):
+        try:
+            vulns, meta = _scan_image_with_grype(image_name)
+            engine_used = "grype"
+        except Exception as exc:
+            logger.warning("Grype scan failed for %s, falling back: %s", image_name, exc)
+
+    if not vulns and engine_used == "fallback":
+        vulns, meta = _scan_image_fallback(image_name)
+        engine_used = meta.get("scanner", "fallback")
+
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    vulns.sort(key=lambda v: sev_order.get(v.get("severity", "info"), 99))
+
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    for v in vulns:
+        s = v.get("severity", "info")
+        counts[s] = counts.get(s, 0) + 1
+
+    return {
+        "scan_type":       "docker_image_cve",
+        "target":          image_name,
+        "engine":          engine_used,
+        "vulnerabilities": vulns,
+        "counts":          counts,
+        "meta":            meta,
+    }
+
