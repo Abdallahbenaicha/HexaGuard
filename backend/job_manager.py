@@ -157,9 +157,13 @@ def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
     """Launch fn(*args, **kwargs) in a daemon thread and track its lifecycle with semaphore gating."""
 
     def _worker():
-        # Retain queued state until a concurrency slot becomes available
+        # Snapshot the semaphore into a local variable BEFORE acquire().
+        # This guarantees that the same object is used for both acquire() and
+        # release() even if set_concurrency_limit() replaces the global
+        # _scan_semaphore while this thread is mid-flight (race condition fix).
+        sem = _scan_semaphore
         update_job(job_id, status="queued", progress=0, message="Waiting in queue…")
-        _scan_semaphore.acquire()
+        sem.acquire()
         try:
             update_job(job_id, status="running", progress=15, message="Scanning…")
             result = fn(*args, **kwargs)
@@ -184,7 +188,7 @@ def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
                 completed_at=_now(),
             )
         finally:
-            _scan_semaphore.release()
+            sem.release()
 
     t = threading.Thread(target=_worker, daemon=True, name=f"scan-{job_id[:8]}")
     t.start()

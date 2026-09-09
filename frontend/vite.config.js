@@ -50,5 +50,25 @@ export default defineConfig({
             // ── Legacy Flask HTML routes (kept for compatibility) ──────────
             '/start-scan':            proxy(480000),
         }
-    }
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    // Core React runtime → vendor chunk (cached aggressively)
+                    if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+                        return 'vendor';
+                    }
+                    // Routing
+                    if (id.includes('node_modules/react-router-dom/') || id.includes('node_modules/react-router/')) {
+                        return 'router';
+                    }
+                    // Charting (recharts is large)
+                    if (id.includes('node_modules/recharts/') || id.includes('node_modules/d3')) {
+                        return 'charts';
+                    }
+                },
+            },
+        },
+    },
 })

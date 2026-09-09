@@ -111,18 +111,19 @@ def enforce_scan_guards_and_quota():
         }), 429
 
     # 1. Extract target if present
+    # NOTE: is_net is determined ONLY by the request path and scan_type — never by
+    # a user-supplied "internal" field in the JSON body. This prevents a user from
+    # escalating SSRF classification (check_ssrf → check_ssrf_network) by injecting
+    # {"internal": true} into any scan request (SSRF classification bypass fix).
     target = None
     scan_type = None
-    internal_net = False
     if request.is_json:
         data = request.get_json(silent=True) or {}
         target = data.get("target") or data.get("url") or data.get("host") or data.get("domain")
         scan_type = data.get("scan_type")
-        internal_net = bool(data.get("internal"))
     elif request.form:
         target = request.form.get("target") or request.form.get("url") or request.form.get("host") or request.form.get("domain")
         scan_type = request.form.get("scan_type")
-        internal_net = (scan_type == "network_int")
 
     non_network_endpoints = {"/analyze_code", "/fix_config", "/scan_dependencies"}
     non_network_types = {"server_int", "dependencies", "sast"}
@@ -132,7 +133,7 @@ def enforce_scan_guards_and_quota():
     )
 
     if target and isinstance(target, str) and target.strip() and not is_non_network:
-        is_net = internal_net or (scan_type == "network_int") or request.path.endswith("/scan_network")
+        is_net = (scan_type == "network_int") or request.path.endswith("/scan_network")
         ok, err_resp = _check_target_lock(target.strip(), network_scan=is_net)
         if not ok:
             return err_resp
@@ -442,31 +443,21 @@ def scan_url_bridge():
         extra_headers["X-Bug-Bounty-Hacker"] = current_user.username
         extra_headers["User-Agent"] = attr_val
 
-    # Auto-detect private IPs: route them to the network scanner instead of
-    # returning an SSRF error (handles frontend routing edge cases).
+    # RBAC safety: do NOT auto-route private IPs to nmap from this endpoint.
+    # scan_url_bridge is guarded by @require_scanner("web") only — silently
+    # running nmap here would bypass the separate "network" scanner permission.
+    # Users who wish to scan internal network targets must use /scan_network
+    # (which requires @require_scanner("network") explicitly).
     bare = re.sub(r"^https?://", "", target.strip()).split("/")[0].split("?")[0].split(":")[0].lower()
     if _is_private_ip(bare):
-        ok, err = _check_target_lock(target, network_scan=True)
-        if not ok:
-            return err
-        try:
-            result    = run_nmap_scan(target, deep=True, internal=True)
-            breakdown = calculate_risk_v2(result, criticality=1.0, internet_facing=False,
-                                          has_pii=has_pii, has_payment=has_payment,
-                                          exploit_known=exploit_known)
-            result, report_token = _finalize_bridge_scan(
-                result, breakdown, target, bounty_meta=bounty_meta
-            )
-            findings = vulns_to_findings(result.get("vulnerabilities", []), target)
-            recon    = build_network_recon(result)
-            return jsonify({
-                "findings": findings, "recon": recon,
-                "risk": breakdown.risk_level, "risk_score": breakdown.final_score,
-                "report_token": report_token, "recommendations": breakdown.recommendations,
-            })
-        except Exception as exc:
-            logger.exception("scan_url_bridge → network fallback error")
-            return jsonify({"error": str(exc)}), 500
+        return jsonify({
+            "error": (
+                "Web scanner cannot target private/internal IP addresses. "
+                "To scan internal network targets, use the Network Scanner (/scan_network) "
+                "which requires the appropriate network scanner permission."
+            ),
+            "ssrf_blocked": True,
+        }), 403
 
     ok, err = _check_target_lock(target)
     if not ok:
