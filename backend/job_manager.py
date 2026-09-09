@@ -5,6 +5,7 @@ survive server restarts.  An in-memory mirror is kept for fast reads.
 """
 
 import logging
+import os
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,25 @@ logger = logging.getLogger(__name__)
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
 _TTL_MINUTES = 60
+
+# Concurrency cap (default 3 simultaneous scans to prevent memory/CPU starvation)
+MAX_CONCURRENT_SCANS = int(os.environ.get("MAX_CONCURRENT_SCANS", "3"))
+_scan_semaphore = threading.BoundedSemaphore(MAX_CONCURRENT_SCANS)
+
+
+def set_concurrency_limit(limit: int) -> None:
+    """Dynamically set concurrency limit (useful for testing or scaling)."""
+    global MAX_CONCURRENT_SCANS, _scan_semaphore
+    MAX_CONCURRENT_SCANS = max(1, limit)
+    _scan_semaphore = threading.BoundedSemaphore(MAX_CONCURRENT_SCANS)
+
+
+def get_active_jobs_stats() -> dict:
+    """Return count of currently running and queued jobs."""
+    with _lock:
+        running = sum(1 for j in _jobs.values() if j.get("status") == "running")
+        queued = sum(1 for j in _jobs.values() if j.get("status") == "queued")
+    return {"running": running, "queued": queued, "max_concurrent": MAX_CONCURRENT_SCANS}
 
 
 def _now() -> str:
@@ -134,11 +154,14 @@ def dismiss_all_errors(user_id: int) -> int:
 
 
 def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
-    """Launch fn(*args, **kwargs) in a daemon thread and track its lifecycle."""
+    """Launch fn(*args, **kwargs) in a daemon thread and track its lifecycle with semaphore gating."""
 
     def _worker():
-        update_job(job_id, status="running", progress=15, message="Scanning…")
+        # Retain queued state until a concurrency slot becomes available
+        update_job(job_id, status="queued", progress=0, message="Waiting in queue…")
+        _scan_semaphore.acquire()
         try:
+            update_job(job_id, status="running", progress=15, message="Scanning…")
             result = fn(*args, **kwargs)
             update_job(
                 job_id,
@@ -160,6 +183,8 @@ def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
                 error=str(exc),
                 completed_at=_now(),
             )
+        finally:
+            _scan_semaphore.release()
 
     t = threading.Thread(target=_worker, daemon=True, name=f"scan-{job_id[:8]}")
     t.start()

@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 import time
 
 from flask import Blueprint, jsonify, render_template, request
@@ -68,14 +69,46 @@ _QUOTA_PATHS = {
 }
 
 
+_user_scan_history: dict[int, list[float]] = {}
+_history_lock = threading.Lock()
+
+
+def reset_aggregate_scan_history() -> None:
+    """Reset aggregate scan rate limit history (primarily for tests)."""
+    with _history_lock:
+        _user_scan_history.clear()
+
+
+def _check_aggregate_rate_limit(user_id: int) -> bool:
+    limit = int(os.environ.get("AGGREGATE_SCAN_LIMIT_PER_MINUTE", "10"))
+    now = time.time()
+    cutoff = now - 60.0
+    with _history_lock:
+        timestamps = _user_scan_history.get(user_id, [])
+        valid = [t for t in timestamps if t > cutoff]
+        if len(valid) >= limit:
+            _user_scan_history[user_id] = valid
+            return False
+        valid.append(now)
+        _user_scan_history[user_id] = valid
+        return True
+
+
 @scans_bp.before_request
 def enforce_scan_guards_and_quota():
-    """Centrally enforce SSRF, target-lock, and quota across all scan endpoints."""
+    """Centrally enforce SSRF, target-lock, aggregate rate limits, and quota across all scan endpoints."""
     from flask_login import current_user as _cu
     if request.method != "POST" or not _cu.is_authenticated:
         return None
     if not any(request.path.endswith(p) for p in _QUOTA_PATHS):
         return None
+
+    # Check aggregate rate limit across all scan endpoints
+    if not _check_aggregate_rate_limit(_cu.id):
+        return jsonify({
+            "error": "Aggregate scan rate limit exceeded across all scanners. Please wait a moment before launching another scan.",
+            "rate_limited": True,
+        }), 429
 
     # 1. Extract target if present
     target = None
