@@ -4,7 +4,7 @@ import {
     Users, ScanLine, ScrollText, LayoutDashboard,
     LogOut, Settings, Clock, HelpCircle,
     Box, Globe, LayoutGrid, Crosshair, GraduationCap,
-    CreditCard, Award, Flame,
+    CreditCard, Award, Flame, Compass, ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -30,6 +30,8 @@ const Sidebar = () => {
         { labelKey: 'vuln_library',    descKey: 'vuln_library_desc', to: '/learn/vulnerabilities', icon: GraduationCap, adminOnly: false },
         { labelKey: 'skill_ledger',    descKey: 'skill_ledger_desc', to: '/skills',              icon: Award,         adminOnly: false },
         { labelKey: 'daily_dojo',      descKey: 'daily_dojo_desc',   to: '/dojo',                icon: Flame,         adminOnly: false },
+        { labelKey: 'learning_tracks', descKey: 'learning_tracks_desc', to: '/tracks',          icon: Compass,       adminOnly: false },
+        { labelKey: 'case_files',      descKey: 'case_files_desc',   to: '/casefiles',           icon: ShieldAlert,   adminOnly: false },
         { labelKey: 'pricing_plans',   descKey: 'pricing_desc',      to: '/pricing',             icon: CreditCard,    adminOnly: false },
         { labelKey: 'help',            descKey: 'help_desc',         to: '/help',                icon: HelpCircle,      adminOnly: false },
         { labelKey: 'profile_settings',descKey: 'profile_desc',      to: '/profile',             icon: Settings,        adminOnly: false },

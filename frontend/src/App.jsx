@@ -47,6 +47,9 @@ import PricingPage from './pages/PricingPage';
 import ManualHuntPage from './pages/ManualHuntPage';
 import SkillLedgerPage from './pages/SkillLedgerPage';
 import DojoPage from './pages/DojoPage';
+import TracksPage from './pages/TracksPage';
+import CaseFilesPage from './pages/CaseFilesPage';
+
 
 
 // ── Error Boundary ─────────────────────────────────────────────────────────
@@ -224,6 +227,9 @@ function AppInner() {
                 <Route path="/hunt/manual"           element={<ProtectedRoute element={<ManualHuntPage />} />} />
                 <Route path="/skills"                element={<ProtectedRoute element={<SkillLedgerPage />} />} />
                 <Route path="/dojo"                  element={<ProtectedRoute element={<DojoPage />} />} />
+                <Route path="/tracks"                element={<ProtectedRoute element={<TracksPage />} />} />
+                <Route path="/casefiles"             element={<ProtectedRoute element={<CaseFilesPage />} />} />
+
 
                 {/* Scheduled Scans & Help */}
                 <Route path="/scheduled"         element={<ProtectedRoute element={<ScheduledScansPage />} />} />

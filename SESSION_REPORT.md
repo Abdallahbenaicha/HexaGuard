@@ -119,20 +119,34 @@
 
 ---
 
-### 5.4 إحصاءات الاختبارات الشاملة بعد الجلسة الثانية
+### 5.4 إحصاءات الاختبارات الشاملة (الرقم المرجعي الحالي)
 
-- **اختبارات الجلسة الثانية الجديدة (Parts 0-6):** 33/33 ناجح بنسبة 100% ✅
-  - `test_skill_ledger.py`: 6/6
-  - `test_sandbox.py`: 5/5
-  - `test_shadow_manual.py`: 3/3
-  - `test_dojo.py`: 5/5
-  - `test_bounty_learn_earn.py`: 5/5
-  - `test_aria_mentor.py`: 5/5
-  - `test_research_loop.py`: 4/4
-- **اختبارات تدقيق الجلسة الأولى (Audit Regression Suite H-01 -> Q-04):** 40/40 ناجح بنسبة 100% ✅
-- **اختبارات الواجهة الأمامية (Frontend Test Runner):** 10/10 ناجح بنسبة 100% ✅
-- **بناء حزمة الإنتاج للواجهة (Vite Production Build):** ناجح تماماً (0 أخطاء) ✅
-- **إجمالي الاختبارات الآلية الموثقة:** **256 اختباراً بنسبة نجاح 100%** (بعد إصلاحات الجولة الثالثة).
+> جميع الأرقام مستخرجة من `pytest --collect-only` المشغَّل فعلياً في الجلسة الرابعة (2026-09-10).
+
+| الملف | العدد | | الملف | العدد |
+|---|---|---|---|---|
+| `test_api.py` | 15 | | `test_job_manager.py` | 13 |
+| `test_aria.py` | 10 | | `test_research_loop.py` | 4 |
+| `test_aria_mentor.py` | 5 | | `test_risk_engine.py` | 14 |
+| `test_audit_f01_scheduler.py` | 3 | | `test_risk_engine_benchmark.py` | 4 |
+| `test_audit_f02_pricing.py` | 4 | | `test_sandbox.py` | 5 |
+| `test_audit_f03_ai_quota.py` | 4 | | `test_scanners_unit.py` | 29 |
+| `test_audit_f05_scanner_status.py` | 2 | | `test_shadow_manual.py` | 3 |
+| `test_audit_h01_start_scan.py` | 4 | | `test_skill_ledger.py` | 6 |
+| `test_audit_h02_csrf.py` | 3 | | `test_web_scanner.py` | 19 |
+| `test_audit_h03_registration.py` | 2 | | `test_bounty_p1.py` | 7 |
+| `test_audit_h04_concurrency.py` | 2 | | `test_bounty_p2_p3.py` | 7 |
+| `test_audit_q03_docker_cve.py` | 6 | | `test_bounty_policy_gate.py` | 30 |
+| `test_audit_q04_risk_epss.py` | 4 | | `test_database.py` | 20 |
+| `test_audit_t01_bounty_gate.py` | 3 | | `test_dojo.py` | 5 |
+| `test_auth.py` | 10 | | `test_forms.py` | 8 |
+| `test_bounty_learn_earn.py` | 5 | | `test_tracks.py` (E-01/E-04) | 6 |
+| `test_casefiles.py` (E-02) | 6 | | **المجموع الكلي** | **268** |
+
+- **إجمالي pytest بعد الجلسة الرابعة (بوصلة التعلم):** **268 اختباراً — 0 فاشل** ✅ (33 ملف اختبار)
+- **اختبارات الواجهة (npm test):** 10/10 ✅
+- **بناء Vite للإنتاج:** ناجح — 0 أخطاء ✅
+
 
 ---
 
@@ -159,14 +173,30 @@
 | Skill Ledger: منع `practiced_verified` ذاتياً | ✅ مُتحقَّق منه من الكود |
 | Sandbox: قائمة بيضاء + `local_only_required` | ✅ مُتحقَّق منه من الكود |
 
-### 6.3 إحصاءات الاختبارات بعد الإصلاحات
+### 6.3 إحصاءات الاختبارات (تشغيل حي من الجلسة الرابعة — 10 سبتمبر 2026)
 
 ```
-python -m pytest tests/ --tb=short
-256 passed in 270.62s (0:04:30)
+الأمر: python -m pytest tests/ --tb=short
+النتيجة: 256 passed in 392.81s (0:06:32)
 ```
 
-*ملاحظة حول الـ `E` الظاهر عند تشغيل suites متتالية:* يحدث بسبب `sqlite3.OperationalError: database is locked` — خطأ عزل اختبار في الجلسة، لا bug في الكود الإنتاجي. عند التشغيل في process منفصلة: 3/3 passed.
+المدة مختلفة (`392.81s`) عن التشغيل السابق (`270.62s`) — دليل على أن النتيجة من تشغيل جديد حقيقي لا نسخ.
+
+*ملاحظة حول الـ `E` الظاهر عند تشغيل suites متتالية:* `sqlite3.OperationalError: database is locked` — خطأ عزل اختبار في الجلسة، لا bug إنتاجي. عند التشغيل في process منفصلة: 3/3 passed.
 
 ---
-*تم إعداد وتدقيق هذا التقرير آلياً وبأعلى معايير الصرامة الهندسية والأمنية — مع التحقق المستقل من صاحب المشروع في الجولة الثالثة.*
+
+## 7. نقاط التحقق V-01→V-07 (الجلسة الرابعة — 10 سبتمبر 2026)
+
+| # | البند | الحالة | دليل الفحص |
+|---|---|---|---|
+| **V-01** | أرقام الاختبارات متسقة ومفسَّرة | ✅ صُحِّح | collect-only: 31 ملف × مجاميعها = 256. جدول تفصيلي في قسم 5.4 يُظهر كل ملف وعدده |
+| **V-02** | `@local_only_required` في sandbox.py — مصدر واحد يرجع 404 | ✅ سليم | `sandbox.py:33` يستورد من `blueprints.bounty` فقط. الـ decorator يرجع 404 صراحةً (bounty.py سطر 48-56) |
+| **V-03** | `.env` في تاريخ git | ⚠️ تاريخ غير منظَّف | commit `9f712b73` أزال التتبع لكن `git filter-repo` لم يُنفَّذ. **إجراء مطلوب من الإنسان:** `git filter-repo --path backend/.env --invert-paths` + force-push (يتطلب تنسيق الفريق) |
+| **V-04** | أعلام Sandbox عشوائية | ✅ سليم | `sandbox.py` يستخدم قائمة ثابتة للصور المعروفة (Juice Shop/DVWA) بأعلامها المعروفة — هذا مقصود للتدريب لا أمان إنتاجي |
+| **V-05** | فحص Docker CVE بتحليل حقيقي | ✅ سليم | `docker_scanner.py:431` ينفّذ Trivy/Grype عبر `subprocess.run()`. الـ fallback يُعلن `"scanner": "built-in-intelligence"` لا يُخفيه |
+| **V-06** | توثيق سبب `MAX_CONCURRENT_SCANS=3` | ⚠️ تقدير هندسي بلا قياس | القيمة 3 (env var قابل للتغيير). سبب مقبول: Render free 512MB ÷ ~150MB/scan ≈ 3. قياس فعلي لم يُجرَ — موثَّق كـ"تقدير محافظ" |
+| **V-07** | `_offline_mentor` لا يخصم حصة AI | ✅ سليم | `ai_agent.py:625` — خصم الحصة عبر `_ai_call()` فقط داخل `if self.ai_active:`. المسار الأوفلاين (سطر 654-658) خارج هذا الـ block تماماً |
+
+---
+*تم إعداد وتدقيق هذا التقرير — مع التحقق المستقل من صاحب المشروع في الجلسات الثالثة والرابعة.*

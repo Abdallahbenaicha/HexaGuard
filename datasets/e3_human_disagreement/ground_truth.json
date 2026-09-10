@@ -183,6 +183,30 @@
       "rationale": "CSP default-src self blocks inline script execution.",
       "evidence": "Observed CSP header in response",
       "user_id": 3
+    },
+    {
+      "id": "e3-1788995776270-4db8",
+      "timestamp": "2026-09-09T23:16:16.270907+00:00",
+      "report_token": "11111111-2222-3333-4444-555555555555",
+      "target": "app.test.local",
+      "vuln_type": "sqli",
+      "scanner_id": "dast_zap",
+      "disagreement_type": "false_positive",
+      "rationale": "Parameterized prepared statement verified in backend handler.",
+      "evidence": "Observed safe integer cast",
+      "user_id": 1
+    },
+    {
+      "id": "e3-1788995785789-9a72",
+      "timestamp": "2026-09-09T23:16:25.789982+00:00",
+      "report_token": "1249298dfb3047629697218c8b5a3b43",
+      "target": "example.com",
+      "vuln_type": "xss",
+      "scanner_id": "web_core",
+      "disagreement_type": "false_positive",
+      "rationale": "CSP default-src self blocks inline script execution.",
+      "evidence": "Observed CSP header in response",
+      "user_id": 3
     }
   ]
 }
