@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 // ── Scanner catalogue ──────────────────────────────────────────────────────────
 const SCANNER_GROUPS = [
@@ -260,6 +261,11 @@ export default function ScannerHubPage() {
                         </span>
                     </div>
                 </motion.div>
+
+                {/* Universal Assessment Methodology Guidance */}
+                <div className="mb-10">
+                    <AssessmentMethodologyBanner />
+                </div>
 
                 {/* Groups */}
                 {SCANNER_GROUPS.map((group, gi) => (

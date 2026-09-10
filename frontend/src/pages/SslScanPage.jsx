@@ -7,6 +7,7 @@ import {
     Clock, Server, Key, Globe, AlertTriangle, CheckCircle, Info,
 } from 'lucide-react';
 import ResultsPanel from '../components/ResultsPanel';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const SEVERITY_COLORS = {
     critical: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20',
@@ -87,6 +88,10 @@ const SslScanPage = () => {
                             <p className="text-xs text-slate-500">Certificate, protocol & cipher analysis</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="mb-6">
+                    <AssessmentMethodologyBanner compact />
                 </div>
 
                 {/* Input card */}

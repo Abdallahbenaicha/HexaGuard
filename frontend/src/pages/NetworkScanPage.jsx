@@ -9,6 +9,7 @@ import {
 import ResultsPanel from '../components/ResultsPanel';
 import NetworkReconPanel from '../components/NetworkReconPanel';
 import ReportExportBar from '../components/ReportExportBar';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const NetworkScanPage = () => {
     const [target, setTarget] = useState('');
@@ -116,6 +117,10 @@ const NetworkScanPage = () => {
                     <Server className="w-6 h-6 text-primary-500" />
                     Scan Network
                 </h1>
+            </div>
+
+            <div className="mb-6">
+                <AssessmentMethodologyBanner compact />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

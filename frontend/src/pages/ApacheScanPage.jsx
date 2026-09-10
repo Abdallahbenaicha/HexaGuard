@@ -9,6 +9,7 @@ import {
     ChevronDown, ChevronUp, Hash, Info
 } from 'lucide-react';
 import ReportExportBar from '../components/ReportExportBar';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const SEV_STYLES = {
     CRITICAL: { badge: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20', dot: 'bg-red-500' },
@@ -381,6 +382,10 @@ const ApacheScanPage = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            <div className="mb-6">
+                <AssessmentMethodologyBanner compact />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

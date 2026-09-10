@@ -7,6 +7,7 @@ import {
     AlertTriangle, Info, ShieldAlert, ExternalLink,
     ChevronDown, ChevronUp, Search,
 } from 'lucide-react';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const SEV_STYLES = {
     critical: { badge: 'bg-red-500/10 text-red-400 border-red-500/30',    dot: 'bg-red-500',    bar: 'bg-red-500'    },
@@ -151,6 +152,8 @@ const DnsScanPage = () => {
                         </div>
                     </div>
                 </div>
+
+                <AssessmentMethodologyBanner compact />
 
                 {/* Input Card */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">

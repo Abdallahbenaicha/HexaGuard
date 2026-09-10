@@ -39,6 +39,11 @@ from database import get_target_scan_history, log_event
 from extensions import csrf, limiter
 from utils import admin_required
 
+try:
+    from assessment_methodology import get_base_recon_steps
+except ImportError:
+    from backend.assessment_methodology import get_base_recon_steps
+
 logger = logging.getLogger(__name__)
 
 bounty_bp = Blueprint("bounty", __name__)
@@ -916,29 +921,7 @@ def _build_manual_hunt_guide(t: dict) -> dict:
     is_wildcard = asset.startswith("*.") or asset_type == "WILDCARD"
     policy_status = (t.get("scan_policy") or {}).get("status", "UNKNOWN")
 
-    recon_steps = [
-        {
-            "phase": "Passive Recon",
-            "action": "OSINT & Surface Mapping",
-            "guidance": f"Query crt.sh, Shodan, and Censys for {asset} without initiating active port probes.",
-        },
-        {
-            "phase": "Traffic Inspection",
-            "action": "Burp Suite Manual Proxying",
-            "guidance": "Walk normal business flows (registration, search, profile, checkout) through Burp Suite proxy.",
-        },
-        {
-            "phase": "Client-side Audit",
-            "action": "JavaScript Analysis",
-            "guidance": "Extract endpoints and internal path patterns from app bundles and source maps.",
-        },
-    ]
-    if is_wildcard:
-        recon_steps.insert(1, {
-            "phase": "Subdomain Discovery",
-            "action": "Passive CT Query",
-            "guidance": "Use HexaGuard Recon (crt.sh) to identify staging, test, and regional subdomains.",
-        })
+    recon_steps = get_base_recon_steps(is_wildcard=is_wildcard, asset=asset)
 
     testing_focus = [
         {

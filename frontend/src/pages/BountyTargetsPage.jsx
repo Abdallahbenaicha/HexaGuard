@@ -196,7 +196,7 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
           {target.suggested_lessons.slice(0, 4).map((les) => (
             <a
               key={les}
-              href={`/learn#${les}`}
+              href={`/learn/${les}`}
               className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/25 hover:bg-purple-500/20 hover:text-white transition-colors"
               title={`Practice ${les} in HexaGuard Encyclopedia`}
             >

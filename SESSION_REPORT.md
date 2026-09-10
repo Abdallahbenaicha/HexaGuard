@@ -224,4 +224,36 @@
 ```
 
 ---
-*تم إعداد وتدقيق هذا التقرير — مع التحقق المستقل من صاحب المشروع في الجلسات الثالثة والرابعة والخامسة.*
+
+## 9. إعادة بناء المنظومة التعليمية الموحدة (HexaGuard Education System Rebuild — الجلسة السادسة: 10 سبتمبر 2026)
+
+تم إنجاز إعادة البناء الشاملة للمنظومة التعليمية وفق المعايير الصارمة (Strict Specification):
+1. **المصدر الموحد للحقيقة (Single Source of Truth - SSoT):**
+   - حذف `frontend/src/utils/vulnLibraryData.js` نهائياً والتأكد من `grep -r "VULN_LIBRARY" frontend/` يُرجع صفر نتائج.
+   - جعل `backend/vuln_taxonomy.py` المصدر الحصري المرجعي لكافة المعارف والدروس.
+   - إنشاء واجهة Learn API (`backend/blueprints/learn.py`) وتوفير نقاط `/api/learn/taxonomy` و `/api/learn/taxonomy/<vuln_id>` و `/api/learn/methodology`.
+
+2. **الوحدة 0: المنهجية العالمية لتنفيذ الفحوصات (Module 0):**
+   - إنشاء `backend/assessment_methodology.py` متضمناً المراحل السبع القياسية ومصفوفة اختيار الفاحصات الـ 11.
+   - إعادة هيكلة دليل الصيد اليدوي في `bounty.py` ليرث مباشرة من المنهجية الموحدة.
+   - بناء صفحة `GetStartedPage.jsx` (`/learn/start` و `/learn/methodology`) وشريط التوجيه `AssessmentMethodologyBanner.jsx` المدمج في كافة صفحات الفحص الـ 11 وصفحة `ScannerHubPage` و `HelpPage`.
+
+3. **المناهج البيداغوجية رباعية المستويات (4-Level Curriculum):**
+   - توسيع فاحصات المنصة الـ 11 إلى 58 نوع ثغرة هجومية (بحد أدنى 5 ثغرات لكل فاحص) + 10 أنواع حوادث للدفاع السيبراني (Blue Team).
+   - توفير حقول تعليمية غير فارغة 100% (Foundations, Detection, Practice, Defend & Report).
+   - حصر الروابط الخارجية بحد أقصى 3 روابط لكل درس وتموضعها حصرياً في نهاية الدرس.
+
+4. **فصل الفهرس عن العرض أحادي الموضوع (Single-Topic Lesson View):**
+   - إعادة بناء `VulnLibraryPage.jsx` ككتالوج/فهرس سريع يدعم البحث والتصفية وبطاقات المهارات المتقنة دون استعراض الأكورديون الموسع.
+   - بناء صفحة الدرس المنفردة `LessonDetailPage.jsx` (`/learn/:vulnId`) مع إدماج مشغل الساندبوكس `SandboxLauncher` ومستشار ARIA السقراطي وبوابة التقرير الذاتي لسجل المهارة.
+
+```
+=========================== 286 passed in 229.10s ============================
+- ملفات الاختبار: 36 ملفاً (إضافة test_vuln_taxonomy_completeness.py و test_learn_api.py)
+- نسبة النجاح: 286 / 286 (100%)
+- اختبارات الواجهة (Node.js Test Runner): 14 / 14 passed (إضافة learn_flow.test.js)
+- بناء حزمة الواجهة (Vite Production Build): 2246 وحدة، 0 أخطاء
+```
+
+---
+*تم إعداد وتدقيق هذا التقرير — مع استيفاء كافة الاختبارات وضمان عدم وجود أي انحدار برمجي بنسبة 100%.*

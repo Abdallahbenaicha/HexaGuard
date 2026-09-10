@@ -43,6 +43,8 @@ import ScannerHubPage    from './pages/ScannerHubPage';
 import ScannerGuard      from './components/ScannerGuard';
 const BountyTargetsPage = React.lazy(() => import('./pages/BountyTargetsPage'));
 import VulnLibraryPage from './pages/VulnLibraryPage';
+import GetStartedPage from './pages/GetStartedPage';
+import LessonDetailPage from './pages/LessonDetailPage';
 import PricingPage from './pages/PricingPage';
 import ManualHuntPage from './pages/ManualHuntPage';
 import SkillLedgerPage from './pages/SkillLedgerPage';
@@ -221,10 +223,14 @@ function AppInner() {
                     />
                 )}
 
-                {/* Vulnerability Learning Center & Manual Hunting */}
-                <Route path="/learn"                 element={<Navigate to="/learn/vulnerabilities" replace />} />
-                <Route path="/learn/vulnerabilities" element={<ProtectedRoute element={<VulnLibraryPage />} />} />
-                <Route path="/hunt/manual"           element={<ProtectedRoute element={<ManualHuntPage />} />} />
+                {/* Vulnerability Learning Center, Methodology & Interactive Lessons */}
+                <Route path="/learn"                         element={<Navigate to="/learn/vulnerabilities" replace />} />
+                <Route path="/learn/start"                   element={<ProtectedRoute element={<GetStartedPage />} />} />
+                <Route path="/learn/methodology"             element={<ProtectedRoute element={<GetStartedPage />} />} />
+                <Route path="/learn/vulnerabilities"         element={<ProtectedRoute element={<VulnLibraryPage />} />} />
+                <Route path="/learn/:vulnId"                 element={<ProtectedRoute element={<LessonDetailPage />} />} />
+                <Route path="/learn/vulnerabilities/:vulnId" element={<ProtectedRoute element={<LessonDetailPage />} />} />
+                <Route path="/hunt/manual"                   element={<ProtectedRoute element={<ManualHuntPage />} />} />
                 <Route path="/skills"                element={<ProtectedRoute element={<SkillLedgerPage />} />} />
                 <Route path="/dojo"                  element={<ProtectedRoute element={<DojoPage />} />} />
                 <Route path="/tracks"                element={<ProtectedRoute element={<TracksPage />} />} />

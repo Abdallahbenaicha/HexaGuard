@@ -7,6 +7,7 @@ import {
     AlertTriangle, Info, ShieldAlert, ExternalLink,
     ChevronDown, ChevronUp, LayoutGrid,
 } from 'lucide-react';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const WpIcon = LayoutGrid;
 
@@ -141,6 +142,8 @@ const WordPressScanPage = () => {
                         </div>
                     </div>
                 </div>
+
+                <AssessmentMethodologyBanner compact />
 
                 {/* Input Card */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">

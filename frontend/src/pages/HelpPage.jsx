@@ -8,10 +8,11 @@ import {
     GraduationCap, Crosshair, Award, CheckCircle2, Target,
     Sparkles, ShieldCheck, Terminal, Compass,
 } from 'lucide-react';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const METRICS = [
-    { label: 'Automated Tests', value: '276/276', sub: '100% Pass Rate', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { label: 'Live Bounty Feeds', value: '5 Platforms', sub: 'H1, Bugcrowd, YWH, Intigriti, Fed', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+    { label: 'Automated Tests', value: '286+ Passing', sub: '100% Pass Rate', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    { label: 'Curriculum Topics', value: '68 Topics', sub: '58 Offensive · 10 Incidents', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
     { label: 'Specialized Scanners', value: '11 Engines', sub: 'DAST, SAST, Network, SSL, Docker', color: 'text-purple-400', bg: 'bg-purple-500/10' },
     { label: 'Canonical Taxonomy', value: '15 Vuln Classes', sub: 'SSoT Ground Truth Invariant', color: 'text-amber-400', bg: 'bg-amber-500/10' },
 ];
@@ -109,6 +110,10 @@ const SCANS = [
 
 const FAQS = [
     {
+        q: 'What is Module 0: Universal Assessment Methodology?',
+        a: 'Module 0 provides the standard 7-phase methodology (Scope -> Passive OSINT -> Active Recon -> Engine Selection -> Vulnerability Confirmation -> Triaging & Prioritization -> Verified Reporting) for structuring professional security assessments and deciding which scanner engines to deploy.',
+    },
+    {
         q: 'How does HexaGuard select lessons and practice challenges?',
         a: 'The platform employs an adaptive gap-prioritization algorithm. Instead of static linear syllabi, the Micro-Dojo and Learning Compass analyze your Skill Ledger. If you have mastered SQLi but have unverified gaps in SSRF or Broken Auth, daily exercises, shadow backlog tasks, and recommended bug bounty targets automatically surface those exact vulnerabilities first.',
     },
@@ -196,6 +201,11 @@ export default function HelpPage() {
                         <div className="text-[11px] text-slate-500 mt-1">{m.sub}</div>
                     </div>
                 ))}
+            </div>
+
+            {/* Assessment Methodology Primer */}
+            <div>
+                <AssessmentMethodologyBanner />
             </div>
 
             {/* Quick links */}

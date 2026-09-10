@@ -7,6 +7,7 @@ import {
     AlertTriangle, CheckCircle, Info, Lock, Globe,
     Cpu, Activity, Zap, Terminal, RefreshCw, FileText
 } from 'lucide-react';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const SEVERITY_BADGES = {
     critical: 'bg-red-500/10 text-red-400 border-red-500/30',
@@ -73,6 +74,8 @@ const ServerExtScanPage = () => {
                         </div>
                     </div>
                 </div>
+
+                <AssessmentMethodologyBanner compact />
 
                 {/* Scan Configuration Form */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-6 shadow-xl backdrop-blur-md">

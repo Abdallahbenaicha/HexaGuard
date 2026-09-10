@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import ReportExportBar from '../components/ReportExportBar';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 import {
     Activity, ArrowLeft, PackageSearch, UploadCloud,
     FileText, X, AlertTriangle, Terminal, ChevronRight
@@ -116,6 +117,10 @@ const DependencyScanPage = () => {
                         Audit project dependencies (package.json, requirements.txt, etc.) for known CVEs.
                     </p>
                 </div>
+            </div>
+
+            <div className="mb-6">
+                <AssessmentMethodologyBanner compact />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

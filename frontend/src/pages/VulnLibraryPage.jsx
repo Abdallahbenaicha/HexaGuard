@@ -1,476 +1,483 @@
-import { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
-  BookOpen, Search, ChevronDown, ChevronUp,
-  ExternalLink, Shield, Filter, X, ShieldAlert,
+  BookOpen, Search, Shield, Filter, X, ShieldAlert,
   Zap, Code, Globe, Lock, Package, Settings,
-  Layers, Mail, Layout, Play, ChevronRight, ChevronsUpDown,
-  Server,
+  Layers, Mail, Layout, Server, CheckCircle2,
+  ArrowRight, Box, Compass, Sparkles, AlertTriangle
 } from 'lucide-react';
-import {
-  SCANNER_TABS,
-  VULN_LIBRARY,
-  DIFFICULTY_META,
-  getSortedVulns,
-  searchAllVulns,
-} from '../utils/vulnLibraryData';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
-// ── Icon map per scanner tab ────────────────────────────────────────────────
-const SCANNER_ICONS = {
-  web:        Globe,
-  dast:       Zap,
-  sast:       Code,
-  network:    Globe,
-  ssl:        Lock,
-  deps:       Package,
-  server:     Settings,
-  server_ext: Server,
-  docker:     Layers,
-  dns:        Mail,
-  wordpress:  Layout,
+// ── Scanner Engine Configuration ───────────────────────────────────────────
+const SCANNER_META = {
+  all:        { label: 'All Modules', icon: BookOpen, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+  dast:       { label: 'DAST Engine', icon: Zap, color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
+  web:        { label: 'Web Core', icon: Globe, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+  sast:       { label: 'SAST Engine', icon: Code, color: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10' },
+  network:    { label: 'Network Recon', icon: Globe, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+  ssl:        { label: 'SSL/TLS Audit', icon: Lock, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
+  deps:       { label: 'Dependencies', icon: Package, color: 'text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/10' },
+  server:     { label: 'Server Internal', icon: Settings, color: 'text-slate-300', border: 'border-slate-500/30', bg: 'bg-slate-500/10' },
+  server_ext: { label: 'Server External', icon: Server, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
+  docker:     { label: 'Docker Security', icon: Layers, color: 'text-sky-400', border: 'border-sky-500/30', bg: 'bg-sky-500/10' },
+  dns:        { label: 'DNS & Email', icon: Mail, color: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
+  wordpress:  { label: 'WordPress Audit', icon: Layout, color: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+  incident:   { label: 'Blue Team Incidents', icon: Shield, color: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
 };
 
-// ── Difficulty Badge Component ───────────────────────────────────────────────
-function DifficultyBadge({ level }) {
-  const meta = DIFFICULTY_META[level] || DIFFICULTY_META.medium;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border shadow-sm ${meta.color}`}>
-      <span className={`w-2 h-2 rounded-full shadow-sm ${meta.dot}`} />
-      {meta.label}
-    </span>
-  );
-}
+const DIFFICULTY_META = {
+  easy:   { label: 'Easy', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', dot: 'bg-emerald-400' },
+  medium: { label: 'Medium', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30', dot: 'bg-amber-400' },
+  hard:   { label: 'Hard', color: 'bg-rose-500/10 text-rose-400 border-rose-500/30', dot: 'bg-rose-400' },
+};
 
-// ── External Learning Resource Button ────────────────────────────────────────
-function ResourceBtn({ href, label, icon, variant = 'slate' }) {
-  if (!href) return null;
-
-  const variants = {
-    purple: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border-purple-500/30 hover:border-purple-500/50 shadow-purple-500/5',
-    amber:  'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 border-amber-500/30 hover:border-amber-500/50 shadow-amber-500/5',
-    cyan:   'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-200 border-cyan-500/30 hover:border-cyan-500/50 shadow-cyan-500/5',
-    red:    'bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border-red-500/30 hover:border-red-500/50 shadow-red-500/5',
-    slate:  'bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border-slate-700 hover:border-slate-600 shadow-slate-900/50',
-  };
-
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-150 hover:shadow-md ${variants[variant] || variants.slate}`}
-    >
-      {icon}
-      <span>{label}</span>
-      <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
-    </a>
-  );
-}
-
-// ── Single Standalone Vulnerability Card Component ───────────────────────────
-function VulnCard({ vuln, highlight = '', scannerLabel = '' }) {
-  // Highlight matching text helper
-  function hl(text) {
-    if (!highlight || !text) return text;
-    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(regex);
-    return parts.map((p, i) =>
-      regex.test(p)
-        ? <mark key={i} className="bg-cyan-500/30 text-cyan-200 rounded px-1">{p}</mark>
-        : p
-    );
-  }
-
-  return (
-    <div className="flex flex-col bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 shadow-lg shadow-black/20 hover:shadow-cyan-500/5 transition-all duration-200">
-      {/* Card Header: Category & Difficulty Badge */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          {scannerLabel && (
-            <span className="text-[11px] font-semibold text-cyan-400 uppercase tracking-wider block mb-1">
-              {scannerLabel}
-            </span>
-          )}
-          <h3 className="text-base font-bold text-white leading-snug">
-            {hl(vuln.label)}
-          </h3>
-        </div>
-        <div className="flex-shrink-0">
-          <DifficultyBadge level={vuln.difficulty} />
-        </div>
-      </div>
-
-      {/* Card Body: Comprehensive Technical Description */}
-      <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
-        {hl(vuln.summary)}
-      </p>
-
-      {/* Key Remediation Tip */}
-      {vuln.remediation && (
-        <div className="mb-4 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs text-slate-300 flex items-start gap-2.5">
-          <ShieldAlert className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <strong className="text-emerald-300 font-semibold block mb-0.5">Mitigation & Defense:</strong>
-            <span className="text-slate-400 leading-normal">{vuln.remediation}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Card Footer: External Learning Resource Action Buttons */}
-      <div className="pt-3.5 border-t border-slate-800/80 mt-auto">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
-          <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Learning References & Labs</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {vuln.portswigger && (
-            <ResourceBtn
-              href={vuln.portswigger}
-              label="PortSwigger Academy"
-              variant="purple"
-              icon={<span className="text-xs font-mono font-bold text-purple-400">PS</span>}
-            />
-          )}
-          {vuln.hacktricks && (
-            <ResourceBtn
-              href={vuln.hacktricks}
-              label="HackTricks"
-              variant="amber"
-              icon={<span className="text-xs">🃏</span>}
-            />
-          )}
-          {vuln.owasp && (
-            <ResourceBtn
-              href={vuln.owasp}
-              label="OWASP Guide"
-              variant="cyan"
-              icon={<Shield className="w-3 h-3 text-cyan-400" />}
-            />
-          )}
-          {vuln.extraResource && (
-            <ResourceBtn
-              href={vuln.extraResource.url}
-              label={vuln.extraResource.label}
-              variant="slate"
-              icon={<ExternalLink className="w-3 h-3 text-slate-400" />}
-            />
-          )}
-          {vuln.youtube?.map((yt, i) => (
-            <ResourceBtn
-              key={i}
-              href={yt.url}
-              label="Video Lab"
-              variant="red"
-              icon={<Play className="w-3 h-3 text-red-400 fill-red-400/20" />}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Category / Scanner Collapsible Accordion Component ───────────────────────
-function ScannerAccordion({ tab, isOpen, onToggle, filterDifficulty, searchQuery }) {
-  const Icon = SCANNER_ICONS[tab.id] || Shield;
-  const vulns = useMemo(() => {
-    let list = getSortedVulns(tab.id);
-    if (filterDifficulty) list = list.filter(v => v.difficulty === filterDifficulty);
-    return list;
-  }, [tab.id, filterDifficulty]);
-
-  if (vulns.length === 0) return null;
-
-  return (
-    <div
-      className={`
-        rounded-2xl border transition-all duration-200 overflow-hidden
-        ${isOpen
-          ? `border-slate-700 bg-slate-900/60 shadow-xl shadow-black/30`
-          : 'border-slate-800 bg-slate-900/30 hover:border-slate-700 hover:bg-slate-900/50'}
-      `}
-    >
-      {/* Accordion Trigger Header */}
-      <button
-        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left transition-colors"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        id={`scanner-tab-${tab.id}`}
-      >
-        <div className="flex items-center gap-4 min-w-0">
-          <div className={`p-3 rounded-2xl ${tab.bgColor} border ${tab.borderColor} flex-shrink-0`}>
-            <Icon className={`w-5 h-5 ${tab.textColor}`} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className={`text-base font-bold ${tab.textColor}`}>{tab.label}</span>
-              <span className="text-slate-500 text-xs hidden sm:inline">•</span>
-              <span className="text-xs text-slate-400 hidden sm:inline">{tab.labelFull}</span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-1 sm:line-clamp-none">
-              {tab.desc}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3.5 flex-shrink-0">
-          <span className="text-xs font-mono font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-            {vulns.length} {vulns.length === 1 ? 'Vulnerability' : 'Vulnerabilities'}
-          </span>
-          <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
-            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </div>
-        </div>
-      </button>
-
-      {/* Accordion Content: Responsive Card Grid */}
-      {isOpen && (
-        <div className="px-6 pb-6 pt-2 border-t border-slate-800/80 bg-slate-950/40">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-3">
-            {vulns.map(v => (
-              <VulnCard
-                key={v.id}
-                vuln={v}
-                highlight={searchQuery}
-                scannerLabel={tab.label}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Main Vulnerability Library Page Component ────────────────────────────────
 export default function VulnLibraryPage() {
-  const [searchQuery, setSearchQuery]           = useState('');
-  const [filterDifficulty, setFilterDifficulty] = useState('');
-  // Open first 3 scanners by default
-  const [openScanners, setOpenScanners]         = useState(new Set(['dast', 'sast', 'network']));
+  const navigate = useNavigate();
   const searchRef = useRef(null);
 
-  // Cross-scanner search query
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return null;
-    return searchAllVulns(searchQuery);
-  }, [searchQuery]);
+  const [taxonomyData, setTaxonomyData] = useState({ offensive: [], incidents: [], stats: {} });
+  const [userLedger, setUserLedger] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Toggle single scanner accordion
-  function toggleScanner(id) {
-    setOpenScanners(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedScanner, setSelectedScanner] = useState('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('');
+  const [selectedMastery, setSelectedMastery] = useState('all');
+  const [sandboxOnly, setSandboxOnly] = useState(false);
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [taxRes, skillRes] = await Promise.all([
+          axios.get('/api/learn/taxonomy'),
+          axios.get('/api/skill/ledger').catch(() => ({ data: { ledger: [] } }))
+        ]);
+
+        if (taxRes.data?.ok) {
+          setTaxonomyData({
+            offensive: taxRes.data.offensive || [],
+            incidents: taxRes.data.incidents || [],
+            stats: taxRes.data.stats || {}
+          });
+        } else {
+          setError('Failed to load curriculum taxonomy.');
+        }
+
+        // Build user ledger lookup
+        const ledgerMap = {};
+        const items = skillRes.data?.ledger || [];
+        items.forEach(item => {
+          if (item.vuln_type) {
+            ledgerMap[item.vuln_type] = item.status;
+          }
+        });
+        setUserLedger(ledgerMap);
+      } catch (err) {
+        setError('Failed to load education system data.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Combine and normalize items
+  const allCurriculumItems = useMemo(() => {
+    const offensiveItems = (taxonomyData.offensive || []).map(item => ({
+      ...item,
+      track: item.scanner,
+      trackLabel: SCANNER_META[item.scanner]?.label || item.scanner.toUpperCase(),
+      trackType: 'offensive',
+    }));
+
+    const incidentItems = (taxonomyData.incidents || []).map(item => ({
+      ...item,
+      track: 'incident',
+      trackLabel: 'Incident Response',
+      trackType: 'incident',
+    }));
+
+    return [...offensiveItems, ...incidentItems];
+  }, [taxonomyData]);
+
+  // Filtering
+  const filteredItems = useMemo(() => {
+    return allCurriculumItems.filter(item => {
+      // Scanner filter
+      if (selectedScanner !== 'all' && item.track !== selectedScanner) {
+        return false;
+      }
+
+      // Difficulty filter
+      if (selectedDifficulty && item.difficulty !== selectedDifficulty) {
+        return false;
+      }
+
+      // Sandbox filter
+      if (sandboxOnly && !item.has_sandbox) {
+        return false;
+      }
+
+      // Mastery filter
+      const userStatus = userLedger[item.id] || 'unstarted';
+      if (selectedMastery === 'mastered') {
+        if (userStatus !== 'practiced_verified' && userStatus !== 'practiced_self_reported') {
+          return false;
+        }
+      } else if (selectedMastery === 'verified') {
+        if (userStatus !== 'practiced_verified') {
+          return false;
+        }
+      } else if (selectedMastery === 'unstarted') {
+        if (userStatus === 'practiced_verified' || userStatus === 'practiced_self_reported') {
+          return false;
+        }
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = (item.name_en || '').toLowerCase().includes(query) || (item.name || '').toLowerCase().includes(query);
+        const descMatch = (item.summary || item.description_en || '').toLowerCase().includes(query);
+        const cweMatch = (item.cwe || '').toLowerCase().includes(query);
+        const owaspMatch = (item.owasp || '').toLowerCase().includes(query);
+        const mitreMatch = (item.mitre_id || '').toLowerCase().includes(query);
+        const idMatch = (item.id || '').toLowerCase().includes(query);
+
+        if (!titleMatch && !descMatch && !cweMatch && !owaspMatch && !mitreMatch && !idMatch) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }
+  }, [allCurriculumItems, selectedScanner, selectedDifficulty, selectedMastery, sandboxOnly, searchQuery, userLedger]);
 
-  // Quick controls: Expand all / Collapse all
-  function expandAll() {
-    setOpenScanners(new Set(SCANNER_TABS.map(t => t.id)));
-  }
-
-  function collapseAll() {
-    setOpenScanners(new Set());
-  }
-
-  function clearSearch() {
+  const clearSearch = () => {
     setSearchQuery('');
     searchRef.current?.focus();
-  }
+  };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedScanner('all');
+    setSelectedDifficulty('');
+    setSelectedMastery('all');
+    setSandboxOnly(false);
+  };
 
   // Summary counts
-  const totalVulns = Object.values(VULN_LIBRARY).reduce((sum, arr) => sum + arr.length, 0);
-  const totalScanners = SCANNER_TABS.length;
+  const totalTopics = allCurriculumItems.length;
+  const offensiveCount = taxonomyData.offensive.length;
+  const incidentCount = taxonomyData.incidents.length;
+  const verifiedMasteredCount = Object.values(userLedger).filter(s => s === 'practiced_verified').length;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-b border-slate-800">
-        {/* Ambient background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 py-12">
-          {/* Header Title & Icon */}
-          <div className="flex items-center gap-3.5 mb-4">
+        <div className="relative max-w-7xl mx-auto px-6 py-10">
+          <div className="flex items-center gap-3.5 mb-3">
             <div className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
               <BookOpen className="w-7 h-7 text-cyan-400" />
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-0.5">
-                Knowledge & Security Research
+                HexaGuard Unified Curriculum
               </div>
               <h1 className="text-3xl font-black text-white tracking-tight">
-                Vulnerability Learning Center
+                Vulnerability Catalog & Interactive Lessons
               </h1>
             </div>
           </div>
 
           <p className="text-slate-300 text-sm max-w-3xl leading-relaxed mb-6">
-            A comprehensive, curated encyclopedia of vulnerabilities detected across all {totalScanners} SecuraX scanning engines.
-            Organized by engine category and exploitation difficulty, each finding features detailed technical analysis,
-            actionable defense strategies, and direct links to hands-on labs and official documentation.
+            Authoritative, 4-level pedagogical curriculum spanning all 11 offensive scanning engines
+            and Blue Team incident playbooks. Master theoretical foundations, detection heuristics,
+            containerized sandbox practice, and verified remediation reporting.
           </p>
 
           {/* Stats Bar */}
-          <div className="flex flex-wrap gap-4 mb-8">
-            {[
-              { label: 'Scanner Engines', value: totalScanners },
-              { label: 'Cataloged Vulnerabilities', value: totalVulns },
-              { label: 'Difficulty Tiers', value: '3 (Easy, Med, Hard)' },
-              { label: 'Direct Labs & Resources', value: '75+' },
-            ].map((s, idx) => (
-              <div key={idx} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm">
-                <span className="text-lg font-bold text-cyan-400 font-mono">{s.value}</span>
-                <span className="text-xs text-slate-400 font-medium">{s.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Search Bar ──────────────────────────────────────────── */}
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              ref={searchRef}
-              id="vuln-search"
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by vulnerability name, CVE, scanner type, or keyword (XSS, SQLi, Docker, SSL...)"
-              className="
-                w-full pl-11 pr-10 py-3.5 rounded-xl
-                bg-slate-800/90 border border-slate-700 text-white
-                placeholder:text-slate-400 text-sm
-                focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20
-                transition-all shadow-inner
-              "
-            />
-            {searchQuery && (
-              <button
-                onClick={clearSearch}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* ── Filter Toolbar ───────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-4 mt-5 flex-wrap">
-            {/* Difficulty Filter */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Filter Difficulty:</span>
-              <div className="flex gap-2">
-                {[
-                  { value: '', label: 'All Levels' },
-                  { value: 'easy', label: 'Easy' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'hard', label: 'Hard' },
-                ].map(d => {
-                  const active = filterDifficulty === d.value;
-                  return (
-                    <button
-                      key={d.value}
-                      onClick={() => setFilterDifficulty(d.value)}
-                      className={`
-                        px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border
-                        ${active
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
-                          : 'bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white hover:border-slate-600'}
-                      `}
-                    >
-                      {d.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="flex flex-wrap gap-3 mb-6">
+            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80">
+              <span className="text-lg font-bold text-cyan-400 font-mono">{totalTopics || 68}</span>
+              <span className="text-xs text-slate-400 font-medium">Curriculum Topics</span>
             </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80">
+              <span className="text-lg font-bold text-orange-400 font-mono">{offensiveCount || 58}</span>
+              <span className="text-xs text-slate-400 font-medium">Offensive Vulnerabilities</span>
+            </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80">
+              <span className="text-lg font-bold text-rose-400 font-mono">{incidentCount || 10}</span>
+              <span className="text-xs text-slate-400 font-medium">Blue Team Incidents</span>
+            </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80">
+              <span className="text-lg font-bold text-emerald-400 font-mono">{verifiedMasteredCount}</span>
+              <span className="text-xs text-slate-400 font-medium">Skills Verified</span>
+            </div>
+          </div>
 
-            {/* Expand / Collapse All */}
-            {!searchResults && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={expandAll}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
-                >
-                  Expand All
-                </button>
-                <button
-                  onClick={collapseAll}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
-                >
-                  Collapse All
-                </button>
-              </div>
-            )}
+          {/* ── Assessment Methodology Primer Banner ─────────────────── */}
+          <div className="mt-2">
+            <AssessmentMethodologyBanner />
           </div>
         </div>
       </div>
 
-      {/* ── Main Content Area ────────────────────────────────────────── */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Global Search Results Mode */}
-        {searchResults ? (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>Search Results for</span>
-                <span className="text-cyan-400 font-mono">"{searchQuery}"</span>
-                <span className="text-sm font-normal text-slate-400 font-mono">({searchResults.length} found)</span>
-              </h2>
-              <button
-                onClick={clearSearch}
-                className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
-              >
-                Clear search & view categories
-              </button>
-            </div>
-
-            {searchResults.length === 0 ? (
-              <div className="p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800">
-                <div className="text-4xl mb-3">🔍</div>
-                <h3 className="text-base font-bold text-white mb-1">No vulnerabilities matched your search</h3>
-                <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-                  Try searching with generic terms like "injection", "docker", "ssl", or "xss".
-                </p>
+      {/* ── Main Catalog Content ────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Search & Filter Bar */}
+        <div className="space-y-4 mb-8">
+          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                ref={searchRef}
+                id="curriculum-search"
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search topics (e.g. XSS, SQLi, SSRF, Docker, Ransomware, CVE, CWE)..."
+                className="
+                  w-full pl-11 pr-10 py-3 rounded-xl
+                  bg-slate-900 border border-slate-800 text-white
+                  placeholder:text-slate-500 text-sm
+                  focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30
+                  transition-all
+                "
+              />
+              {searchQuery && (
                 <button
                   onClick={clearSearch}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                  aria-label="Clear search"
                 >
-                  View All Vulnerabilities
+                  <X className="w-4 h-4" />
                 </button>
+              )}
+            </div>
+
+            {/* Quick Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Difficulty Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <select
+                  value={selectedDifficulty}
+                  onChange={e => setSelectedDifficulty(e.target.value)}
+                  className="bg-transparent text-slate-300 font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-slate-900 text-slate-300">All Difficulties</option>
+                  <option value="easy" className="bg-slate-900 text-slate-300">Easy</option>
+                  <option value="medium" className="bg-slate-900 text-slate-300">Medium</option>
+                  <option value="hard" className="bg-slate-900 text-slate-300">Hard</option>
+                </select>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {searchResults.map(v => (
-                  <VulnCard
-                    key={`${v.scannerId}-${v.id}`}
-                    vuln={v}
-                    highlight={searchQuery}
-                    scannerLabel={v.scannerId.toUpperCase()}
-                  />
-                ))}
+
+              {/* Mastery Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
+                <select
+                  value={selectedMastery}
+                  onChange={e => setSelectedMastery(e.target.value)}
+                  className="bg-transparent text-slate-300 font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="all" className="bg-slate-900 text-slate-300">All Mastery Status</option>
+                  <option value="mastered" className="bg-slate-900 text-slate-300">Completed / Practiced</option>
+                  <option value="verified" className="bg-slate-900 text-slate-300">Verified by Engine</option>
+                  <option value="unstarted" className="bg-slate-900 text-slate-300">Not Completed</option>
+                </select>
               </div>
-            )}
+
+              {/* Live Sandbox Toggle */}
+              <button
+                onClick={() => setSandboxOnly(!sandboxOnly)}
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-all
+                  ${sandboxOnly
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'}
+                `}
+              >
+                <Box className="w-3.5 h-3.5" />
+                <span>Live Sandbox Only</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Track Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-800">
+            {Object.entries(SCANNER_META).map(([trackKey, meta]) => {
+              const Icon = meta.icon;
+              const active = selectedScanner === trackKey;
+              return (
+                <button
+                  key={trackKey}
+                  onClick={() => setSelectedScanner(trackKey)}
+                  className={`
+                    inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border
+                    ${active
+                      ? `${meta.bg} ${meta.color} ${meta.border} shadow-sm shadow-black/40`
+                      : 'bg-slate-900/60 text-slate-400 border-slate-800/80 hover:border-slate-700 hover:text-white'}
+                  `}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{meta.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Results Info */}
+        <div className="flex items-center justify-between gap-4 mb-6 text-xs text-slate-400">
+          <span>
+            Showing <strong className="text-white font-semibold">{filteredItems.length}</strong> of {totalTopics} topics
+          </span>
+          {(searchQuery || selectedScanner !== 'all' || selectedDifficulty || selectedMastery !== 'all' || sandboxOnly) && (
+            <button
+              onClick={resetFilters}
+              className="text-cyan-400 hover:underline flex items-center gap-1"
+            >
+              Reset all filters
+            </button>
+          )}
+        </div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse h-64 flex flex-col justify-between">
+                <div>
+                  <div className="h-4 bg-slate-800 rounded w-1/3 mb-4" />
+                  <div className="h-6 bg-slate-800 rounded w-3/4 mb-3" />
+                  <div className="h-3 bg-slate-800 rounded w-full mb-2" />
+                  <div className="h-3 bg-slate-800 rounded w-2/3" />
+                </div>
+                <div className="h-9 bg-slate-800 rounded-xl w-full" />
+              </div>
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          /* Empty Search / Filter State */
+          <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 max-w-lg mx-auto">
+            <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-2xl mx-auto mb-4">
+              🔍
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">No matching curriculum topics</h3>
+            <p className="text-xs text-slate-400 leading-relaxed mb-5">
+              We couldn't find any lessons matching your search query and active filters.
+            </p>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 text-xs font-semibold rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+            >
+              Clear Filters & Show All
+            </button>
           </div>
         ) : (
-          /* Normal Accordion Mode by Scanner */
-          <div className="space-y-4">
-            {SCANNER_TABS.map(tab => (
-              <ScannerAccordion
-                key={tab.id}
-                tab={tab}
-                isOpen={openScanners.has(tab.id)}
-                onToggle={() => toggleScanner(tab.id)}
-                filterDifficulty={filterDifficulty}
-                searchQuery={searchQuery}
-              />
-            ))}
+          /* Card Grid: Index / Catalog (Single-Topic view rules applied) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map(item => {
+              const trackMeta = SCANNER_META[item.track] || SCANNER_META.web;
+              const diffMeta = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
+              const TrackIcon = trackMeta.icon;
+              const userStatus = userLedger[item.id];
+              const isVerified = userStatus === 'practiced_verified';
+              const isSelfReported = userStatus === 'practiced_self_reported';
+              const isMastered = isVerified || isSelfReported;
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col bg-slate-900/80 border border-slate-800 hover:border-slate-700/90 rounded-2xl p-5 shadow-lg shadow-black/30 hover:shadow-cyan-500/5 transition-all duration-200 group"
+                >
+                  {/* Card Header: Scanner Track Badge & Difficulty */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-lg border ${trackMeta.bg} ${trackMeta.color} ${trackMeta.border}`}>
+                      <TrackIcon className="w-3 h-3" />
+                      <span>{trackMeta.label}</span>
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {item.has_sandbox && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/30" title="Containerized practice target available">
+                          <Box className="w-2.5 h-2.5" />
+                          <span>Sandbox</span>
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${diffMeta.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${diffMeta.dot}`} />
+                        {diffMeta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors leading-snug mb-1.5">
+                    {item.name_en || item.name}
+                  </h3>
+
+                  {/* Identifiers (CWE / OWASP / MITRE) */}
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 mb-3 flex-wrap">
+                    {item.cwe && <span className="bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/60">{item.cwe}</span>}
+                    {item.owasp && <span className="bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/60">{item.owasp}</span>}
+                    {item.mitre_id && <span className="bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded border border-rose-500/30">{item.mitre_id}</span>}
+                  </div>
+
+                  {/* Summary */}
+                  <p className="text-slate-300 text-xs leading-relaxed mb-4 line-clamp-3 flex-1">
+                    {item.summary || item.description_en}
+                  </p>
+
+                  {/* Mastery Status Pill */}
+                  {isMastered && (
+                    <div className="mb-3.5 px-3 py-1.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-xs">
+                      <span className="text-slate-400 text-[11px] font-medium">Skill Ledger:</span>
+                      {isVerified ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Mastered (Verified)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-cyan-400 font-bold text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Practiced (Self-Reported)</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Card Action CTA */}
+                  <div className="pt-3 border-t border-slate-800/80 mt-auto">
+                    <Link
+                      to={`/learn/${item.id}`}
+                      className={`
+                        w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all
+                        ${isMastered
+                          ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 hover:border-slate-600'
+                          : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/20 hover:shadow-cyan-500/30'}
+                      `}
+                    >
+                      <span>{isMastered ? 'Review Lesson' : 'Start Lesson'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

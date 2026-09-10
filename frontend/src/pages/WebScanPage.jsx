@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import ReportExportBar from '../components/ReportExportBar';
 import { useScanJobs } from '../context/ScanJobsContext';
+import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
 
 const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|localhost$)/i;
 const isPrivateIP = (host) => PRIVATE_IP_RE.test(host);
@@ -180,6 +181,10 @@ const WebScanPage = () => {
                         Advanced vulnerability scanning for web applications and APIs.
                     </p>
                 </div>
+            </div>
+
+            <div className="mb-6">
+                <AssessmentMethodologyBanner compact />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
