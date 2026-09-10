@@ -140,6 +140,72 @@ const TabOverview = ({ target, methodology }) => {
         </div>
       )}
 
+      {/* Recommended HexaGuard Training Labs */}
+      {target.suggested_lessons?.length > 0 && (
+        <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-4">
+          <div className="text-xs font-semibold text-purple-300 mb-2 flex items-center gap-1.5">
+            <BookOpen className="w-4 h-4 text-purple-400" /> Recommended Training Labs for this Target
+          </div>
+          <p className="text-xs text-slate-300 mb-3">
+            Strengthen your vulnerability identification methodology before testing live production assets:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {target.suggested_lessons.map((les) => (
+              <a
+                key={les}
+                href={`/learn#${les}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono bg-purple-500/15 text-purple-200 border border-purple-500/30 hover:bg-purple-500/30 transition-colors"
+              >
+                <span>{les}</span>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HexaGuard Manual Recon & Hunting Guidance */}
+      {target.manual_hunt_guide && (
+        <div className="bg-slate-800/60 rounded-xl p-4 space-y-3">
+          <div className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
+            <Shield className="w-4 h-4 text-cyan-400" /> HexaGuard Manual Hunting & Recon Guidance
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-slate-400">Passive Reconnaissance Strategy:</div>
+            {target.manual_hunt_guide.recon_steps?.map((st, idx) => (
+              <div key={idx} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-xs">
+                <div className="font-semibold text-slate-200">{st.phase}: {st.action}</div>
+                <div className="text-slate-400 mt-0.5">{st.guidance}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <div className="text-xs font-medium text-slate-400">High-Probability Attack Surfaces:</div>
+            {target.manual_hunt_guide.testing_focus?.map((tf, idx) => (
+              <div key={idx} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-xs">
+                <div className="font-semibold text-purple-300">{tf.category}</div>
+                <div className="text-slate-400 mt-0.5">{tf.description}</div>
+              </div>
+            ))}
+          </div>
+
+          {target.manual_hunt_guide.burp_tips?.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <div className="text-xs font-medium text-slate-400">Burp Suite Manual Tips:</div>
+              <ul className="list-disc list-inside text-xs text-slate-300 space-y-1">
+                {target.manual_hunt_guide.burp_tips.map((tip, idx) => (
+                  <li key={idx}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Methodology summary */}
       <div className="bg-slate-800/60 rounded-xl p-4">
         <div className="text-xs text-slate-500 mb-2">Testing Approach</div>

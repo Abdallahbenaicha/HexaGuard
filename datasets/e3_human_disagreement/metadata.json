@@ -3,15 +3,15 @@
   "name": "Human vs Automated Scanner Disagreement Benchmark",
   "version": "1.0.0",
   "created_at": "2026-09-09T00:00:00Z",
-  "last_updated": "2026-09-09T23:16:25.789982+00:00",
+  "last_updated": "2026-09-10T03:34:56.899583+00:00",
   "data_type": "empirical_disagreement",
   "description": "Empirical repository of human analyst disagreements against automated scanner findings, including verified False Positives (FPs) and manually discovered findings missed by automated scanners (FNs).",
   "collector": "SecuraX Research Platform",
-  "total_records": 17,
+  "total_records": 19,
   "disagreement_types": {
-    "false_positive": 17,
     "severity_dispute": 0,
-    "missed_by_scanner": 0
+    "missed_by_scanner": 0,
+    "false_positive": 19
   },
   "license": "CC-BY-4.0",
   "research_question": "RQ3 — Automated Vulnerability Assessment Discrepancy & Human Ground-Truth Calibration"

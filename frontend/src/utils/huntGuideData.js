@@ -10,6 +10,8 @@ export const PLATFORM_META = {
   hackerone: { label: 'HackerOne', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30', icon: '🔶' },
   bugcrowd:  { label: 'Bugcrowd',  color: 'bg-red-500/20 text-red-300 border-red-500/30',           icon: '🔴' },
   yeswehack: { label: 'YesWeHack', color: 'bg-green-500/20 text-green-300 border-green-500/30',     icon: '🟢' },
+  intigriti: { label: 'Intigriti', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30',       icon: '🔵' },
+  federacy:  { label: 'Federacy',  color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',       icon: '🔷' },
 };
 
 export const SEVERITY_CONFIG = {

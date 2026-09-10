@@ -82,6 +82,8 @@ _PLATFORM_URLS = {
     "hackerone": "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/hackerone_data.json",
     "bugcrowd":  "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json",
     "yeswehack": "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/yeswehack_data.json",
+    "intigriti": "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/intigriti_data.json",
+    "federacy":  "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/federacy_data.json",
 }
 
 # ── Scan-policy detection ────────────────────────────────────────────────────
@@ -279,37 +281,178 @@ def _normalise_bugcrowd(programs: list) -> list:
 def _normalise_yeswehack(programs: list) -> list:
     out = []
     for prog in programs:
-        if not prog.get("scopes"):
+        raw_targets = prog.get("targets") if isinstance(prog.get("targets"), dict) else {}
+        in_scope = raw_targets.get("in_scope") or prog.get("scopes") or []
+        if not in_scope:
             continue
+
+        prog_name = prog.get("name") or prog.get("id") or ""
+        prog_id = prog.get("id") or prog.get("slug") or prog_name.lower().replace(" ", "-")
         prog_policy_text = (prog.get("policy") or prog.get("description") or "").strip() or None
+
         reward_grid = prog.get("bounty_reward_range") or {}
-        if reward_grid.get("critical"):
+        max_b = prog.get("max_bounty") or prog.get("bounty_reward_max")
+        if isinstance(max_b, dict):
+            max_b = max_b.get("value", 0)
+        elif not isinstance(max_b, (int, float)):
+            max_b = 0
+
+        if reward_grid.get("critical") or max_b >= 3000:
             prog_max_sev = "critical"
-        elif reward_grid.get("high"):
+        elif reward_grid.get("high") or max_b >= 1000:
             prog_max_sev = "high"
-        elif reward_grid.get("medium"):
+        elif reward_grid.get("medium") or max_b > 0:
             prog_max_sev = "medium"
         elif prog.get("bounty"):
             prog_max_sev = "low"
         else:
             prog_max_sev = "unknown"
-        for scope_item in prog.get("scopes", []):
-            scope_type = scope_item.get("scope_type", "")
-            if scope_type.lower() not in {"web-application", "api", "ip-address"}:
+
+        for scope_item in in_scope:
+            target = scope_item.get("target") or scope_item.get("scope") or ""
+            scope_type = (scope_item.get("type") or scope_item.get("scope_type") or "").lower()
+
+            if scope_type and scope_type not in {
+                "web-application", "web_application", "api", "ip-address", "ip_address", "url", "domain", "wildcard", "other", "website"
+            } and not (target.startswith("http") or target.startswith("*.") or "." in target):
                 continue
+
+            if not target:
+                continue
+
             scope_desc = scope_item.get("description") or ""
-            combined   = (scope_desc + " " + (prog_policy_text or "")).strip() or None
-            policy     = _analyse_policy(combined)
+            combined = (scope_desc + " " + (prog_policy_text or "")).strip() or None
+            policy = _analyse_policy(combined)
+
+            asset_type = "URL"
+            if scope_type in ("ip-address", "ip_address"):
+                asset_type = "CIDR" if "/" in target else "IP_ADDRESS"
+            elif target.startswith("*.") or scope_type == "wildcard":
+                asset_type = "WILDCARD"
+            elif scope_type == "api":
+                asset_type = "API"
+
             out.append({
                 "platform":         "yeswehack",
-                "program_name":     prog.get("name", ""),
-                "program_handle":   prog.get("slug", ""),
-                "program_url":      f"https://yeswehack.com/programs/{prog.get('slug', '')}",
-                "website":          scope_item.get("scope", ""),
-                "asset":            scope_item.get("scope", ""),
-                "asset_type":       "URL" if scope_type != "ip-address" else "CIDR",
+                "program_name":     prog_name,
+                "program_handle":   prog_id,
+                "program_url":      f"https://yeswehack.com/programs/{prog_id}",
+                "website":          target,
+                "asset":            target,
+                "asset_type":       asset_type,
                 "max_severity":     prog_max_sev,
-                "eligible_bounty":  prog.get("bounty", False),
+                "eligible_bounty":  bool(max_b or prog.get("bounty", False)),
+                "scan_policy":      policy,
+                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "instruction":      scope_desc,
+                "managed":          bool(prog.get("managed", False)),
+                "avg_response_h":   None,
+            })
+    return out
+
+
+def _normalise_intigriti(programs: list) -> list:
+    out = []
+    for prog in programs:
+        if prog.get("status") and str(prog.get("status")).lower() != "open":
+            continue
+
+        raw_targets = prog.get("targets") if isinstance(prog.get("targets"), dict) else {}
+        in_scope = raw_targets.get("in_scope") or []
+        if not in_scope:
+            continue
+
+        prog_name = prog.get("name") or ""
+        company_h = prog.get("company_handle") or prog.get("handle") or ""
+        prog_handle = prog.get("handle") or prog.get("id") or ""
+        prog_url = prog.get("url") or f"https://www.intigriti.com/programs/{company_h}/{prog_handle}/detail"
+
+        max_bounty_obj = prog.get("max_bounty") or {}
+        max_val = max_bounty_obj.get("value", 0) if isinstance(max_bounty_obj, dict) else (max_bounty_obj if isinstance(max_bounty_obj, (int, float)) else 0)
+
+        if max_val >= 5000:
+            prog_max_sev = "critical"
+        elif max_val >= 1500:
+            prog_max_sev = "high"
+        elif max_val > 0:
+            prog_max_sev = "medium"
+        else:
+            prog_max_sev = "low"
+
+        for scope_item in in_scope:
+            endpoint = scope_item.get("endpoint") or scope_item.get("target") or ""
+            if not endpoint:
+                continue
+
+            scope_desc = scope_item.get("description") or ""
+            scope_type = str(scope_item.get("type") or "").lower()
+
+            policy = _analyse_policy(scope_desc or None)
+
+            asset_type = "URL"
+            if endpoint.startswith("*.") or scope_type == "wildcard":
+                asset_type = "WILDCARD"
+            elif scope_type == "api" or "api" in endpoint.lower():
+                asset_type = "API"
+            elif "/" in endpoint and not endpoint.startswith("http"):
+                asset_type = "CIDR"
+            elif not ("." in endpoint or endpoint.startswith("http")):
+                asset_type = "WEB_APPLICATION"
+
+            out.append({
+                "platform":         "intigriti",
+                "program_name":     prog_name,
+                "program_handle":   prog_handle,
+                "program_url":      prog_url,
+                "website":          endpoint,
+                "asset":            endpoint,
+                "asset_type":       asset_type,
+                "max_severity":     prog_max_sev,
+                "eligible_bounty":  bool(max_val),
+                "scan_policy":      policy,
+                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "instruction":      scope_desc,
+                "managed":          False,
+                "avg_response_h":   None,
+            })
+    return out
+
+
+def _normalise_federacy(programs: list) -> list:
+    out = []
+    for prog in programs:
+        raw_targets = prog.get("targets") if isinstance(prog.get("targets"), dict) else {}
+        in_scope = raw_targets.get("in_scope") or []
+        if not in_scope:
+            continue
+
+        prog_name = prog.get("name") or ""
+        prog_url = prog.get("url") or ""
+        prog_handle = prog.get("id") or prog_name.lower().replace(" ", "-")
+        offers_awards = prog.get("offers_awards", False)
+        prog_max_sev = "medium" if offers_awards else "low"
+
+        for scope_item in in_scope:
+            target = scope_item.get("target") or scope_item.get("endpoint") or ""
+            if not target:
+                continue
+
+            scope_desc = scope_item.get("description") or ""
+            scope_type = str(scope_item.get("type") or "").lower()
+
+            policy = _analyse_policy(scope_desc or None)
+            asset_type = "WILDCARD" if target.startswith("*.") else ("API" if scope_type == "api" else "URL")
+
+            out.append({
+                "platform":         "federacy",
+                "program_name":     prog_name,
+                "program_handle":   prog_handle,
+                "program_url":      prog_url,
+                "website":          target,
+                "asset":            target,
+                "asset_type":       asset_type,
+                "max_severity":     prog_max_sev,
+                "eligible_bounty":  bool(offers_awards),
                 "scan_policy":      policy,
                 "auto_scan_ok":     policy["status"] == "ALLOWED",
                 "instruction":      scope_desc,
@@ -323,7 +466,10 @@ _NORMALISERS = {
     "hackerone": (_fetch_platform, _normalise_hackerone),
     "bugcrowd":  (_fetch_platform, _normalise_bugcrowd),
     "yeswehack": (_fetch_platform, _normalise_yeswehack),
+    "intigriti": (_fetch_platform, _normalise_intigriti),
+    "federacy":  (_fetch_platform, _normalise_federacy),
 }
+
 
 
 # ── Rate-limit signals ────────────────────────────────────────────────────────
@@ -680,11 +826,158 @@ def _calculate_expected_roi(target_item: dict) -> float:
     return round(min(100.0, max(0.0, score)), 1)
 
 
+def _matches_keyword(term: str, text: str) -> bool:
+    """Safely match keyword using word boundaries for short acronyms/words."""
+    if not term or not text:
+        return False
+    if " " in term or "-" in term or "_" in term:
+        return term in text
+    if len(term) <= 4:
+        return bool(re.search(rf"\b{re.escape(term)}\b", text))
+    return term in text
+
+
+def _get_vuln_keywords(vuln_type: str) -> list[str]:
+    """Map canonical vulnerability types to matching text terms and attack surface indicators."""
+    v = (vuln_type or "").lower().strip()
+    terms = [v, v.replace("_", " ")]
+    if v == "sqli":
+        terms.extend(["sql", "injection", "database", "query"])
+    elif v == "xss":
+        terms.extend(["cross-site", "scripting", "xss", "dom-based", "dom xss", "html"])
+    elif v == "csrf":
+        terms.extend(["cross-site request", "csrf", "forgery"])
+    elif v == "rce":
+        terms.extend(["remote code", "command injection", "rce", "execution"])
+    elif v == "ssrf":
+        terms.extend(["server-side request", "ssrf", "webhook", "proxy"])
+    elif v == "broken_auth":
+        terms.extend(["auth", "login", "session", "oauth", "jwt", "token", "password"])
+    elif v == "sensitive_data_exposure":
+        terms.extend(["leak", "disclosure", "secret", "exposure", "credential"])
+    elif v == "open_redirect":
+        terms.extend(["redirect", "forward", "url jump"])
+    elif v == "security_misconfig":
+        terms.extend(["cors", "header", "misconfig", "debug", "admin"])
+    elif v == "weak_crypto":
+        terms.extend(["crypto", "ssl", "tls", "cipher", "hash"])
+    elif v == "vulnerable_dependency":
+        terms.extend(["dependency", "cve", "package", "library", "component"])
+    elif v == "deserialization":
+        terms.extend(["serialize", "deserialization", "pickle", "yaml"])
+    elif v == "session_fixation":
+        terms.extend(["session", "fixation", "cookie"])
+    elif v == "missing_csp":
+        terms.extend(["csp", "content-security-policy", "policy"])
+    elif v == "missing_security_headers":
+        terms.extend(["headers", "hsts", "x-frame", "security headers"])
+    return terms
+
+
+def _suggest_lessons_for_target(t: dict) -> list[str]:
+    """Suggest relevant vulnerability classes / lesson topics for a given target.
+
+    Returns list of canonical vuln_types (e.g. ['sqli', 'xss', 'broken_auth']).
+    """
+    text = f"{t.get('instruction', '')} {t.get('program_name', '')} {t.get('asset', '')} {t.get('asset_type', '')}".lower()
+    asset_type = (t.get("asset_type") or "URL").upper()
+
+    suggested = []
+    for v_type in [
+        "sqli", "xss", "csrf", "rce", "ssrf", "broken_auth",
+        "sensitive_data_exposure", "open_redirect", "security_misconfig"
+    ]:
+        if any(_matches_keyword(term, text) for term in _get_vuln_keywords(v_type)):
+            suggested.append(v_type)
+
+    if not suggested:
+        if asset_type == "API":
+            suggested = ["broken_auth", "sensitive_data_exposure", "sqli", "csrf"]
+        elif asset_type in ("WILDCARD", "DOMAIN"):
+            suggested = ["security_misconfig", "open_redirect", "sensitive_data_exposure", "ssrf"]
+        elif asset_type in ("CIDR", "IP_ADDRESS"):
+            suggested = ["security_misconfig", "weak_crypto", "rce"]
+        else:
+            suggested = ["xss", "sqli", "csrf", "broken_auth"]
+
+    out = []
+    for s in suggested:
+        if s not in out:
+            out.append(s)
+        if len(out) >= 5:
+            break
+    return out
+
+
+def _build_manual_hunt_guide(t: dict) -> dict:
+    """Construct an actionable manual recon & hunting guide for researchers."""
+    asset = t.get("asset", "")
+    asset_type = (t.get("asset_type") or "URL").upper()
+    is_wildcard = asset.startswith("*.") or asset_type == "WILDCARD"
+    policy_status = (t.get("scan_policy") or {}).get("status", "UNKNOWN")
+
+    recon_steps = [
+        {
+            "phase": "Passive Recon",
+            "action": "OSINT & Surface Mapping",
+            "guidance": f"Query crt.sh, Shodan, and Censys for {asset} without initiating active port probes.",
+        },
+        {
+            "phase": "Traffic Inspection",
+            "action": "Burp Suite Manual Proxying",
+            "guidance": "Walk normal business flows (registration, search, profile, checkout) through Burp Suite proxy.",
+        },
+        {
+            "phase": "Client-side Audit",
+            "action": "JavaScript Analysis",
+            "guidance": "Extract endpoints and internal path patterns from app bundles and source maps.",
+        },
+    ]
+    if is_wildcard:
+        recon_steps.insert(1, {
+            "phase": "Subdomain Discovery",
+            "action": "Passive CT Query",
+            "guidance": "Use HexaGuard Recon (crt.sh) to identify staging, test, and regional subdomains.",
+        })
+
+    testing_focus = [
+        {
+            "category": "Authorization (IDOR)",
+            "description": "Manipulate object identifiers, tenant UUIDs, and role parameters in JSON payloads.",
+        },
+        {
+            "category": "Business Logic",
+            "description": "Test unexpected state transitions, discount compounding, and currency rounding.",
+        },
+        {
+            "category": "Authentication Integrity",
+            "description": "Verify password reset token entropy, session expiration upon logout, and OAuth state binding.",
+        },
+    ]
+
+    burp_tips = [
+        "Use Burp Repeater with low request rates (1-2 req/s) to comply with responsible disclosure policies.",
+        "Install Autorize to automatically compare responses across privileged and unprivileged sessions.",
+        "Review hidden fields and non-standard HTTP headers (X-Original-URL, X-Forwarded-Host).",
+    ]
+
+    return {
+        "target": asset,
+        "asset_type": asset_type,
+        "policy_status": policy_status,
+        "auto_scan_ok": t.get("auto_scan_ok", False),
+        "recon_steps": recon_steps,
+        "testing_focus": testing_focus,
+        "burp_tips": burp_tips,
+        "program_url": t.get("program_url", ""),
+    }
+
+
 def _calculate_learn_earn_score(target_item: dict, user_ledger: list[dict] | None = None) -> float:
     """Calculate Learn+Earn composite ranking score for Bug Bounty targets.
 
     Formula:
-        learn_earn_score = automation_factor * payout_factor * skill_gap_factor
+        learn_earn_score = automation_factor * payout_factor * skill_synergy_factor
 
     Factors:
         - automation_factor:
@@ -694,8 +987,8 @@ def _calculate_learn_earn_score(target_item: dict, user_ledger: list[dict] | Non
         - payout_factor:
             Base 10.0 + (25.0 if eligible_bounty else 5.0)
             + Critical: 25.0 | High: 18.0 | Medium: 10.0 | Low: 5.0
-        - skill_gap_factor:
-            1.0 + (min(matched_gaps, 5) * 0.3) + (len(unverified_gaps) / 38.0 * 0.4)
+        - skill_synergy_factor:
+            1.0 + (min(matched_gaps, 5) * 0.3) + (min(matched_verified, 5) * 0.1) + (len(unverified_gaps) / 38.0 * 0.4)
     """
     policy = target_item.get("scan_policy", {})
     status = policy.get("status", "UNKNOWN")
@@ -722,42 +1015,102 @@ def _calculate_learn_earn_score(target_item: dict, user_ledger: list[dict] | Non
     elif sev == "low":
         payout_factor += 5.0
 
-    skill_gap_factor = 1.0
+    skill_synergy_factor = 1.0
     if user_ledger:
         unverified_gaps = [
             item for item in user_ledger
             if item.get("status") != "practiced_verified"
+        ]
+        verified_skills = [
+            item for item in user_ledger
+            if item.get("status") == "practiced_verified"
         ]
         text = f"{target_item.get('instruction', '')} {target_item.get('program_name', '')} {target_item.get('asset', '')} {target_item.get('asset_type', '')}".lower()
 
         matched_gaps = 0
         for gap in unverified_gaps:
             v_type = gap.get("vuln_type", "")
-            terms = [v_type, v_type.replace("_", " ")]
-            if v_type == "sqli":
-                terms.extend(["sql", "injection", "database"])
-            elif v_type == "xss":
-                terms.extend(["cross-site", "scripting"])
-            elif v_type == "csrf":
-                terms.extend(["cross-site request", "csrf"])
-            elif v_type == "rce":
-                terms.extend(["remote code", "command injection"])
-            elif v_type == "ssrf":
-                terms.extend(["server-side request", "ssrf"])
-            elif v_type == "broken_auth":
-                terms.extend(["auth", "login", "session", "oauth", "jwt"])
-            elif v_type == "sensitive_data_exposure":
-                terms.extend(["leak", "disclosure", "token", "secret", "exposure"])
-            elif v_type == "open_redirect":
-                terms.extend(["redirect", "url forward"])
-
-            if any(term in text for term in terms):
+            terms = _get_vuln_keywords(v_type)
+            if any(_matches_keyword(term, text) for term in terms):
                 matched_gaps += 1
 
-        skill_gap_factor = 1.0 + (min(matched_gaps, 5) * 0.3) + (len(unverified_gaps) / 38.0 * 0.4)
+        matched_verified = 0
+        for skill in verified_skills:
+            v_type = skill.get("vuln_type", "")
+            terms = _get_vuln_keywords(v_type)
+            if any(_matches_keyword(term, text) for term in terms):
+                matched_verified += 1
 
-    score = auto_factor * payout_factor * skill_gap_factor
+        skill_synergy_factor = (
+            1.0
+            + (min(matched_gaps, 5) * 0.3)
+            + (min(matched_verified, 5) * 0.1)
+            + (len(unverified_gaps) / 38.0 * 0.4)
+        )
+
+    score = auto_factor * payout_factor * skill_synergy_factor
     return round(score, 1)
+
+
+@bounty_bp.route("/api/bounty/targets-by-skill/<vuln_type>")
+@login_required
+@limiter.limit("60/minute")
+def api_bounty_targets_by_skill(vuln_type: str):
+    """Retrieve bug bounty targets specifically suited for a vulnerability or skill type.
+
+    Returns targets matching the requested vuln_type sorted by learn_earn_score.
+    """
+    v_clean = vuln_type.strip().lower()
+    terms = _get_vuln_keywords(v_clean)
+
+    platforms = list(_NORMALISERS)
+    all_targets = []
+    for plat in platforms:
+        fetch_fn, norm_fn = _NORMALISERS[plat]
+        raw = fetch_fn(plat)
+        all_targets.extend(norm_fn(raw))
+
+    user_id = getattr(current_user, "id", None)
+    user_ledger = None
+    if user_id:
+        try:
+            from db.skills import get_user_skill_ledger
+            user_ledger = get_user_skill_ledger(user_id)
+        except Exception as exc:
+            logger.debug("Could not load user ledger for targets by skill: %s", exc)
+
+    matched = []
+    for t in all_targets:
+        text = f"{t.get('instruction', '')} {t.get('program_name', '')} {t.get('asset', '')} {t.get('asset_type', '')}".lower()
+        asset_type = (t.get("asset_type") or "URL").upper()
+
+        is_match = any(_matches_keyword(term, text) for term in terms)
+        if not is_match:
+            if v_clean in ("broken_auth", "csrf", "sqli", "sensitive_data_exposure") and asset_type == "API":
+                is_match = True
+            elif v_clean in ("security_misconfig", "open_redirect", "ssrf") and asset_type in ("WILDCARD", "DOMAIN"):
+                is_match = True
+            elif v_clean in ("xss", "sqli", "csrf") and asset_type in ("URL", "WEB_APPLICATION"):
+                is_match = True
+
+        if is_match:
+            sh = _detect_safe_harbor(t)
+            t["safe_harbor"] = sh
+            t["has_safe_harbor"] = sh["has_safe_harbor"]
+            t["expected_value_score"] = _calculate_expected_roi(t)
+            t["roi_score"] = t["expected_value_score"]
+            t["learn_earn_score"] = _calculate_learn_earn_score(t, user_ledger)
+            t["suggested_lessons"] = _suggest_lessons_for_target(t)
+            t["manual_hunt_guide"] = _build_manual_hunt_guide(t)
+            matched.append(t)
+
+    matched.sort(key=lambda x: (x.get("learn_earn_score", 0), x.get("expected_value_score", 0)), reverse=True)
+
+    return jsonify({
+        "vuln_type": v_clean,
+        "total_matched": len(matched),
+        "targets": matched[:20],
+    })
 
 
 @bounty_bp.route("/api/bounty/targets/history")
@@ -809,7 +1162,7 @@ def api_bounty_targets():
         except Exception as exc:
             logger.debug("Could not load user ledger for bounty ranking: %s", exc)
 
-    # Enrich with Safe Harbor, Expected ROI, and Learn+Earn scoring (Part 4)
+    # Enrich with Safe Harbor, Expected ROI, Learn+Earn scoring, suggested lessons, and manual hunt guide
     for t in all_targets:
         sh = _detect_safe_harbor(t)
         t["safe_harbor"] = sh
@@ -817,6 +1170,8 @@ def api_bounty_targets():
         t["expected_value_score"] = _calculate_expected_roi(t)
         t["roi_score"] = t["expected_value_score"]
         t["learn_earn_score"] = _calculate_learn_earn_score(t, user_ledger)
+        t["suggested_lessons"] = _suggest_lessons_for_target(t)
+        t["manual_hunt_guide"] = _build_manual_hunt_guide(t)
 
     if policy_filter != "ALL":
         all_targets = [t for t in all_targets

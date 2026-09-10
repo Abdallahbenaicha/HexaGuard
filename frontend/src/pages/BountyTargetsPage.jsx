@@ -187,6 +187,25 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
         onToggle={() => setPolicyExpanded(v => !v)}
       />
 
+      {/* Suggested Training Labs / Lessons */}
+      {target.suggested_lessons?.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+            <GraduationCap className="w-3 h-3 text-purple-400" /> Prep Labs:
+          </span>
+          {target.suggested_lessons.slice(0, 4).map((les) => (
+            <a
+              key={les}
+              href={`/learn#${les}`}
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/25 hover:bg-purple-500/20 hover:text-white transition-colors"
+              title={`Practice ${les} in HexaGuard Encyclopedia`}
+            >
+              {les}
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Instruction warning */}
       {target.instruction && (
         <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-3 py-2 text-xs text-yellow-300 flex gap-2">
@@ -1150,6 +1169,8 @@ export default function BountyTargetsPage() {
           <option value="hackerone">HackerOne</option>
           <option value="bugcrowd">Bugcrowd</option>
           <option value="yeswehack">YesWeHack</option>
+          <option value="intigriti">Intigriti</option>
+          <option value="federacy">Federacy</option>
         </select>
 
         {/* Asset type */}
