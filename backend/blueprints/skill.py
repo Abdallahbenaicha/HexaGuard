@@ -114,3 +114,34 @@ def self_report_skill():
     except Exception as exc:
         logger.error("Error recording self-reported skill: %s", exc, exc_info=True)
         return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@skill_bp.route("/evidence/<vuln_type>", methods=["GET"])
+@login_required
+def get_skill_evidence(vuln_type: str):
+    """Retrieve capability evidence for a specific vulnerability type."""
+    from database import get_capability_evidence
+    capability = request.args.get("capability")
+    evidence = get_capability_evidence(
+        user_id=current_user.id,
+        vuln_type=vuln_type,
+        capability=capability,
+    )
+    return jsonify({
+        "ok": True,
+        "vuln_type": vuln_type,
+        "evidence": evidence,
+        "count": len(evidence),
+    }), 200
+
+
+@skill_bp.route("/mastery/<vuln_type>", methods=["GET"])
+@login_required
+def get_skill_mastery(vuln_type: str):
+    """Retrieve capability mastery matrix for a specific vulnerability type."""
+    from database import compute_mastery_matrix
+    matrix = compute_mastery_matrix(user_id=current_user.id, vuln_type=vuln_type)
+    return jsonify({
+        "ok": True,
+        "matrix": matrix,
+    }), 200

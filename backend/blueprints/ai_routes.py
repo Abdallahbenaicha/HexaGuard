@@ -1,12 +1,20 @@
 """SecuraX — AI routes blueprint (ARIA agent endpoints)."""
 
 import logging
+import os
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
-from ai_agent import get_aria
-from database import check_and_consume_ai_quota, get_report, log_event
+from ai_agent import get_aria, _OVERRIDE_PHRASES
+from database import (
+    check_and_consume_ai_quota,
+    get_report,
+    log_event,
+    get_attempt,
+    increment_attempt_aria_calls_atomic,
+    mark_attempt_solution_viewed,
+)
 from extensions import limiter
 from utils import _UUID_RE, require_permission
 
@@ -107,6 +115,44 @@ def ai_chat():
             "used": used,
             "max": max_msgs,
         }), 429
+
+    # ARIA Exercise Call Budget enforcement (D-05 / D-06)
+    attempt_id = data.get("exercise_attempt_id")
+    if attempt_id:
+        try:
+            attempt = get_attempt(int(attempt_id))
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid exercise_attempt_id."}), 400
+
+        if not attempt:
+            return jsonify({"error": "Attempt not found."}), 400
+        if attempt["user_id"] != current_user.id:
+            log_event(
+                "idor_attempt",
+                current_user.username,
+                current_user.id,
+                category="security",
+                resource=f"/api/ai/chat/attempt/{attempt_id}",
+                ip_address=request.remote_addr,
+                status="blocked",
+            )
+            return jsonify({"error": "Access denied."}), 403
+        if attempt["completed_at"] is not None:
+            return jsonify({"error": "This exercise attempt is already completed."}), 400
+
+        budget = int(os.environ.get("ARIA_EXERCISE_CALL_BUDGET", "5"))
+        allowed_call, used_calls = increment_attempt_aria_calls_atomic(int(attempt_id), budget=budget)
+        if not allowed_call:
+            return jsonify({
+                "error": f"Exercise ARIA budget exhausted ({used_calls}/{budget}).",
+                "exercise_budget_exceeded": True,
+                "remaining": 0,
+                "used": used_calls,
+                "budget": budget,
+            }), 429
+
+        if any(phrase in message.lower() for phrase in _OVERRIDE_PHRASES):
+            mark_attempt_solution_viewed(int(attempt_id))
 
     mentor_mode = bool(
         data.get("mentor_mode") or

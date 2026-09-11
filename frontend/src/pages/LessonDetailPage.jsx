@@ -5,23 +5,46 @@ import {
   ArrowLeft, Shield, AlertTriangle, CheckCircle2,
   ExternalLink, Box, Terminal, Zap, Code, Globe, Lock,
   Package, Settings, Layers, Mail, Layout, Server,
-  ChevronRight, Sparkles, MessageSquare, Check, Copy, BookOpen
+  ChevronRight, Sparkles, MessageSquare, Check, Copy, BookOpen,
+  Code2, Network, ShieldAlert, Container
 } from 'lucide-react';
 import SandboxLauncher from '../components/SandboxLauncher';
+import MasteryMatrix from '../components/MasteryMatrix';
 
 const SCANNER_META = {
   web:        { label: 'Web Core', icon: Globe, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
-  dast:       { label: 'DAST Engine', icon: Zap, color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
-  sast:       { label: 'SAST Engine', icon: Code, color: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10' },
-  network:    { label: 'Network Recon', icon: Globe, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
-  ssl:        { label: 'SSL/TLS Audit', icon: Lock, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
-  deps:       { label: 'Dependencies', icon: Package, color: 'text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/10' },
-  server:     { label: 'Server Internal', icon: Settings, color: 'text-slate-300', border: 'border-slate-500/30', bg: 'bg-slate-500/10' },
-  server_ext: { label: 'Server External', icon: Server, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
-  docker:     { label: 'Docker Security', icon: Layers, color: 'text-sky-400', border: 'border-sky-500/30', bg: 'bg-sky-500/10' },
-  dns:        { label: 'DNS & Email', icon: Mail, color: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
-  wordpress:  { label: 'WordPress Audit', icon: Layout, color: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+  dast:       { label: 'DAST Active', icon: Zap, color: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10' },
+  sast:       { label: 'SAST Code', icon: Code2, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
+  network:    { label: 'Network Ports', icon: Network, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+  ssl:        { label: 'SSL / TLS', icon: Lock, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
+  deps:       { label: 'Dependencies', icon: Box, color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
+  server:     { label: 'Headers', icon: Shield, color: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
+  server_ext: { label: 'Server Hardening', icon: ShieldAlert, color: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
+  docker:     { label: 'Container', icon: Container, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
+  dns:        { label: 'DNS & Mail', icon: Globe, color: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+  wordpress:  { label: 'CMS', icon: AlertTriangle, color: 'text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/10' },
 };
+
+function CapabilityBadge({ capabilityKey, matrix }) {
+  if (!matrix?.capabilities) return null;
+  const cap = matrix.capabilities[capabilityKey] || { state: 'NOT_STARTED' };
+  const state = cap.state || 'NOT_STARTED';
+
+  const cfg = {
+    NOT_STARTED: { labelAr: 'لم تبدأ', cls: 'bg-slate-800/80 text-slate-400 border-slate-700' },
+    INTRODUCED: { labelAr: 'مُستَهلّة', cls: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' },
+    PRACTICED: { labelAr: 'مُمارَسَة', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+    DEMONSTRATED: { labelAr: 'مُثبَتَة', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
+    MASTERED: { labelAr: 'مُتقَنَة', cls: 'bg-purple-500/15 text-purple-300 border-purple-500/40' },
+  }[state] || { labelAr: state, cls: 'bg-slate-800 text-slate-400 border-slate-700' };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${cfg.cls}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span>{capabilityKey}: {cfg.labelAr}</span>
+    </span>
+  );
+}
 
 const DIFFICULTY_COLORS = {
   easy:   'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
@@ -47,15 +70,17 @@ export default function LessonDetailPage() {
   const [activeLevel, setActiveLevel] = useState(1);
   const [copied, setCopied] = useState(false);
   const [skillStatus, setSkillStatus] = useState('theory_only');
+  const [masteryMatrix, setMasteryMatrix] = useState(null);
 
   useEffect(() => {
     async function loadTopicData() {
       setLoading(true);
       setError(null);
       try {
-        const [topicRes, skillRes] = await Promise.all([
+        const [topicRes, skillRes, masteryRes] = await Promise.all([
           axios.get(`/api/learn/taxonomy/${vulnId}`),
-          axios.get('/api/skill/ledger').catch(() => ({ data: { ledger: [] } }))
+          axios.get('/api/skill/ledger').catch(() => ({ data: { ledger: [] } })),
+          axios.get(`/api/learning/mastery/${vulnId}`).catch(() => ({ data: { matrix: null } })),
         ]);
 
         if (topicRes.data?.ok) {
@@ -66,6 +91,9 @@ export default function LessonDetailPage() {
           const userItem = userLedger.find(item => item.vuln_type === vulnId);
           if (userItem) {
             setSkillStatus(userItem.status);
+          }
+          if (masteryRes.data?.ok && masteryRes.data?.matrix) {
+            setMasteryMatrix(masteryRes.data.matrix);
           }
         } else {
           setError(topicRes.data?.error || 'Topic not found');
@@ -281,13 +309,19 @@ export default function LessonDetailPage() {
           {/* LEVEL 1: FOUNDATIONS */}
           {activeLevel === 1 && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                  <BookOpen className="w-5 h-5" />
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Level 1: Foundations & Real-World Impact</h3>
+                    <p className="text-xs text-slate-400">Core architectural concept, threat mechanics, and documented breach precedent.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Level 1: Foundations & Real-World Impact</h3>
-                  <p className="text-xs text-slate-400">Core architectural concept, threat mechanics, and documented breach precedent.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CapabilityBadge capabilityKey="knowledge" matrix={masteryMatrix} />
+                  <CapabilityBadge capabilityKey="impact_analysis" matrix={masteryMatrix} />
                 </div>
               </div>
 
@@ -315,13 +349,19 @@ export default function LessonDetailPage() {
           {/* LEVEL 2: DETECTION */}
           {activeLevel === 2 && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/30">
-                  <Terminal className="w-5 h-5" />
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                    <Terminal className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Level 2: Detection & Scanner Signals</h3>
+                    <p className="text-xs text-slate-400">How to manually recognize the flaw, and what exact signal HexaGuard surfaces.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Level 2: Detection & Scanner Signals</h3>
-                  <p className="text-xs text-slate-400">How to manually recognize the flaw, and what exact signal HexaGuard surfaces.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CapabilityBadge capabilityKey="recognition" matrix={masteryMatrix} />
+                  <CapabilityBadge capabilityKey="manual_detection" matrix={masteryMatrix} />
                 </div>
               </div>
 
@@ -377,7 +417,7 @@ export default function LessonDetailPage() {
           {/* LEVEL 3: PRACTICE */}
           {activeLevel === 3 && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/30">
                     <Box className="w-5 h-5" />
@@ -388,13 +428,17 @@ export default function LessonDetailPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={openAriaMentor}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all shadow-sm"
-                >
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <span>Socratic Mentor</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CapabilityBadge capabilityKey="lab_exploitation" matrix={masteryMatrix} />
+                  <CapabilityBadge capabilityKey="validation" matrix={masteryMatrix} />
+                  <button
+                    onClick={openAriaMentor}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all shadow-sm"
+                  >
+                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                    <span>Socratic Mentor</span>
+                  </button>
+                </div>
               </div>
 
               {/* Guided & Challenge Prompts */}
@@ -465,13 +509,19 @@ export default function LessonDetailPage() {
           {/* LEVEL 4: DEFEND & REPORT */}
           {activeLevel === 4 && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  <Shield className="w-5 h-5" />
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Level 4: Defend, Remediate & Comply</h3>
+                    <p className="text-xs text-slate-400">Hardened configuration, secure coding snippets, and regulatory compliance mapping.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Level 4: Defend, Remediate & Comply</h3>
-                  <p className="text-xs text-slate-400">Hardened configuration, secure coding snippets, and regulatory compliance mapping.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CapabilityBadge capabilityKey="remediation" matrix={masteryMatrix} />
+                  <CapabilityBadge capabilityKey="reporting" matrix={masteryMatrix} />
                 </div>
               </div>
 
@@ -509,7 +559,7 @@ export default function LessonDetailPage() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
                   >
                     <span>Open Case Files</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-3 h-3" />
                   </Link>
                 </div>
               )}
@@ -525,6 +575,11 @@ export default function LessonDetailPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Mastery Matrix Section ───────────────────────────────────── */}
+        <div className="pt-2">
+          <MasteryMatrix vulnType={vulnId} initialMatrix={masteryMatrix} />
         </div>
 
         {/* ── Supplementary Deep Dive Links (Capped at 3, strictly at the end) ── */}

@@ -1,7 +1,7 @@
-# تقرير الجلسة النهائي والتدقيق الشامل — HexaGuard / SecuraX
-> **تاريخ الإنجاز:** 2026-09-09  
+# تقرير الجلسة الشامل — HexaGuard / SecuraX
+> **آخر تحديث:** 2026-09-11  
 > **الدور:** مدير تدقيق وتفتيش وتطوير (Audit & Hardening Director)  
-> **حالة المنصة الكلية:** جاهزة للإنتاج والتسليم مع اجتياز كامل لبوابات التحقق بنسبة 100%.
+> **حالة المنصة الكلية:** ✅ جاهزة للإنتاج | ⏳ نظام التعلم المتقدم (Evidence-Based Mastery) — بانتظار موافقة Benaicha على Phase 0 للانطلاق.
 
 ---
 
@@ -256,4 +256,162 @@
 ```
 
 ---
-*تم إعداد وتدقيق هذا التقرير — مع استيفاء كافة الاختبارات وضمان عدم وجود أي انحدار برمجي بنسبة 100%.*
+
+## 10. الجلسة السابعة — Phase 0 Audit للنظام التعليمي (11 سبتمبر 2026)
+
+### 10.1 الهدف
+إعادة تصميم نظام التعلم من نظام تتبع تقدم (Progress Tracking) إلى نظام إثبات إتقان قائم على الأدلة (Evidence-Based Mastery System) وفق مواصفات Benaicha الصارمة.
+
+### 10.2 المشكلة الجوهرية المُكتشَفة
+ما بُني في الجلسات 2-6 هو **Progress Tracking** وليس **Evidence-Based Mastery**:
+- `skill_ledger.status` = واحدة من 3 حالات لكل **ثغرة كاملة** (Theory / Self-reported / Verified)
+- المطلوب: **8 capabilities لكل ثغرة** (Knowledge, Recognition, ManualDetection, Validation, LabExploitation, ImpactAnalysis, Remediation, Reporting)
+
+### 10.3 نتائج التدقيق الحقيقية (Phase 0)
+
+| المكوّن | الملفات الحقيقية | الحالة |
+|---|---|---|
+| `/learn` | `blueprints/learn.py` (84 سطر، 3 endpoints), `VulnLibraryPage.jsx`, `LessonDetailPage.jsx` | ✅ موجود — يفتقر للـ capability structure |
+| `/skills` | `db/skills.py` (299 سطر), `blueprints/skill.py` (117 سطر), `SkillLedgerPage.jsx` | ✅ موجود — schema يحتاج توسيع |
+| `/dojo` | `blueprints/dojo.py` (15KB), `DojoPage.jsx` | ✅ موجود — إتمام الدوجو لا يتطلب دليلاً |
+| Sandbox | `blueprints/sandbox.py` (12KB), `SandboxLauncher.jsx` | ✅ بنية تحتية — `sandbox_target=None` لمعظم الثغرات |
+| Shadow Manual Pass | `db/skills.py:create_shadow_tasks_for_report()` | ✅ أقوى جزء حالياً |
+| Tracks/Case Files | `blueprints/tracks.py`, `blueprints/casefiles.py` | ✅ مكتمل |
+| ARIA | `ai_agent.py` (1096 سطر) — Ollama→Gemini→Offline | ✅ يعمل — لا per-exercise budget |
+| Taxonomy | `vuln_taxonomy.py` (463KB) — 58+ ثغرة | ✅ SSoT — `lesson.level_1/2/3/4` موجودة |
+
+### 10.4 نموذج Evidence-Based Mastery المقترح
+
+```python
+SKILL_CAPABILITIES = [
+    'knowledge',         # اجتياز assessment نصي
+    'recognition',       # التعرف على النمط في كود/output
+    'manual_detection',  # الكشف اليدوي (Shadow Manual Task)
+    'validation',        # التحقق من أنها ليست FP
+    'lab_exploitation',  # استغلالها في Sandbox (flag verified)
+    'impact_analysis',   # كتابة Impact Statement
+    'remediation',       # تطبيق الإصلاح + re-scan نظيف
+    'reporting',         # تقرير احترافي مقبول
+]
+```
+
+**قواعد Anti-Cheating الصارمة:**
+```
+❌ فتح درس                    ← لا evidence
+❌ click Complete              ← لا evidence
+❌ قراءة/طلب الحل من ARIA     ← لا evidence
+❌ MCQ بسيط                   ← لا evidence
+
+✅ Shadow Task + notes حقيقية  → manual_detection (is_verified=0)
+✅ Sandbox Flag Capture         → lab_exploitation (is_verified=1)
+✅ Re-scan نظيف بعد patch      → remediation (is_verified=1)
+✅ Assessment مفتوح + ARIA     → knowledge / recognition
+```
+
+### 10.5 تحليل ARIA الفعلي
+- **Provider Chain:** Ollama (OLLAMA_URL) → Gemini (يجرب 4 موديلات) → Offline rule-engine
+- **Conversation History:** آخر 20 تبادل per user — يُرسَل كاملاً مع كل call
+- **Rate Limiting:** quota شهرية في DB (ai_messages_used) — لا per-exercise budget
+- **Caching:** لا يوجد — نفس السؤال = API call جديد
+- **Privacy (F-03):** opt-out → Ollama فقط (Gemini محظور برمجياً)
+
+### 10.6 خطة Phase 1 (بانتظار الموافقة)
+
+| المكوّن | الإجراء | الملفات المتأثرة |
+|---|---|---|
+| DB | ADD جدول `skill_capability_evidence` | `db/connection.py`, `migrations/003_capability_evidence.py` |
+| Backend | ADD `record_capability_evidence()`, mastery endpoints | `db/skills.py`, `blueprints/skill.py`, `blueprints/learn.py` |
+| Backend | MODIFY `complete_shadow_task()` → inserts capability evidence | `db/skills.py` |
+| Frontend | NEW `MasteryMatrix.jsx` — 8×capability visual grid | `components/MasteryMatrix.jsx` |
+| Frontend | MODIFY SkillLedgerPage + LessonDetailPage | موجودان |
+| Tests | NEW `test_capability_evidence.py` (≥8), `test_mastery_anti_cheat.py` (≥5) | `tests/` |
+| Content | XSS + SQLi فقط — مع sandbox_target حقيقي | `vuln_taxonomy.py` |
+
+### 10.7 خطة النشر الشاملة
+
+```
+[Local]  →  git push origin main  →  [GitHub: Abdallahbenaicha/HexaGuard]
+                                           ↓
+                              [Render: securax-backend.onrender.com]  (auto-deploy)
+                              [Vercel: securax-frontend] (auto-deploy من frontend/)
+                                           ↓
+                    python scripts/sync_hf_push.py --commit --push
+                                           ↓
+                   [HuggingFace: abdallahbenaicha-securax.hf.space]
+```
+
+**الـ Remotes الحالية:**
+- `origin` → `https://github.com/Abdallahbenaicha/HexaGuard.git` ✅
+- `space`  → `https://huggingface.co/spaces/abdallahbenaicha/hexaguard` ✅
+- Render: مُهيَّأ في `render.yaml` ✅
+- Vercel: يحتاج تهيئة مشروع (إن لم يكن موجوداً)
+
+### 10.8 الحالة الحالية للاختبارات (آخر تشغيل)
+
+```
+pytest: 286 passed in 229.10s — 0 فاشل
+npm test (Node.js): 14/14 passed
+Vite build: 2246 وحدة، 0 أخطاء
+```
+
+### 10.9 القرارات المعمارية المعتمدة لـ Phase 1 (v3)
+
+- **الخيار A معتمد**: الإبقاء على `skill_ledger` متوافقاً مع إضافة جدول الأدلة التفصيلي `skill_capability_evidence`.
+- **Anti-Cheat معتمد**: العميل لا يملك حق وضع `is_verified` أو التحكم في النقاط.
+- **حد ARIA**: 5 مكالمات ذرية per-attempt مع إرجاع 429 عند التجاوز.
+
+---
+
+## 11. الجلسة الثامنة — إنجاز Phase 1: نظام الإتقان القائم على الأدلة (11 سبتمبر 2026)
+
+### 11.1 الإنجازات المحققة
+تم تنفيذ **Phase 1** بالكامل ووفق العقد المعماري v3 المعتمد وبدون أي انحدار (Zero Regressions):
+
+1. **بنية قواعد البيانات (SQLite & MySQL):**
+   - إضافة جدول `skill_capability_evidence` (سجل أدلة تراكمي غير قابل للتلاعب).
+   - إضافة جدول `learning_exercises` (فهرس التمارين المعياري المرتبط بـ `vuln_type`).
+   - إضافة جدول `exercise_attempts` (متابعة المحاولات مع عداد استدعاءات ARIA الذري).
+
+2. **محرك الإتقان الخماسي (5-State Deterministic Mastery Machine):**
+   - 8 قدرات لكل ثغرة: `knowledge`, `recognition`, `manual_detection`, `validation`, `lab_exploitation`, `impact_analysis`, `remediation`, `reporting`.
+   - الحالات: `NOT_STARTED` → `INTRODUCED` → `PRACTICED` → `DEMONSTRATED` → `MASTERED`.
+   - **M-2 Recency Decay**: تراجع الحالة عند مضي أكثر من 90 يوماً دون إثبات حديث.
+   - **M-3 Failure Blocking**: الفشل غير المتجاوز بنجاح لاحق يحجب الانتقال إلى `MASTERED`.
+   - **D-04 Quantity Rollup**: حساب إجمالي المستوى وفق عدد القدرات المثبتة.
+
+3. **الحواجز الأمنية ومنع التحايل (Security & Anti-Cheat Trust Boundaries):**
+   - **SEC-01**: منع العميل كلياً من إرسال `verified` أو `is_verified` في كل الـ endpoints (`/api/reports/.../shadow/.../complete`, `/api/learning/attempt/complete`).
+   - **SEC-03**: تعقيم مدخلات الفحص وتطويقها بـ `[UNTRUSTED SCAN METADATA]` لمنع الـ Prompt Injection داخل سياق ARIA.
+   - **SEC-05**: التحقق المزدوج من ملكية مهمة الـ Shadow (`report.user_id == user_id` و `task.user_id == user_id`).
+   - **D-05**: تحديد ميزانية ARIA للتمارين (5 مكالمات كحد أقصى) بعداد ذري في SQL وإرجاع `429 Too Many Requests`.
+   - **D-06**: التحقق الصارم من ملكية محاولة التمرين لمنع التلاعب بين المستخدمين.
+   - **D-07**: تقييم إجابات الأسئلة من جانب الخادم بحد أقصى `0.9` (الدرجة `1.0` محجوزة حصراً للأدلة المؤكدة كـ Sandbox Flag).
+
+4. **تطوير واجهات المستخدم (Frontend):**
+   - إنشاء مكوّن `MasteryMatrix.jsx` التفاعلي بشبكة الـ 8 قدرات، والترجمات العربية، وحالة الإتقان، وتوقيت الإنجاز.
+   - دمج محول العرض والـ Matrix في `SkillLedgerPage.jsx`.
+   - ربط شارات القدرات `CapabilityBadge` في ترويسات المستويات 1-4 وتذييل الدرس في `LessonDetailPage.jsx`.
+
+### 11.2 نتائج الاختبارات والتحقق النهائي
+
+```
+Backend Test Suite (pytest):
+collected 324 items (286 baseline + 38 Phase 1 new tests)
+====================== 324 passed in 390.72s (100%) ======================
+
+الاختبارات الجديدة المضافة (38 اختباراً متخصصاً):
+- tests/test_shadow_idor.py ........... 4 passed (SEC-05 Dual Ownership, IDOR, Unverified proof)
+- tests/test_aria_security.py ......... 4 passed (SEC-03 Untrusted Scan-Context Isolation)
+- tests/test_anti_cheat.py ............ 11 passed (SEC-01, Evaluation Status & Score Protection)
+- tests/test_capability_evidence.py ... 12 passed (5-state machine, M-2 Decay, M-3 Failure)
+- tests/test_aria_exercise_budget.py .. 7 passed (D-05 Atomic Budget, Concurrency Race Protection)
+
+Frontend Production Build (Vite):
+✓ 2247 modules transformed
+dist/assets/index-XYybeeY9.js: 794.75 kB
+✓ built in 6.34s with 0 errors
+```
+
+---
+*تم إعداد وتدقيق هذا التقرير — المنصة مستقرة 100%، وجميع الاختبارات مجتازة بنجاح.*
+

@@ -952,10 +952,12 @@ def api_complete_shadow_task(token: str, vuln_type: str):
     res = complete_shadow_task(
         report_token=token,
         vuln_type=vuln_type,
-        user_id=current_user.id,
+        user_id=report.get("user_id") if current_user.role == "admin" else current_user.id,
         notes=notes,
-        verified=False,
     )
+    if not res:
+        return jsonify({"ok": False, "error": "Shadow task not found or access denied."}), 403
+
     return jsonify({
         "ok": True,
         "message": f"Successfully marked {vuln_type} as completed self-reported.",

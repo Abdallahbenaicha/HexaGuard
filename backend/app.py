@@ -102,6 +102,7 @@ def create_app() -> Flask:
     from blueprints.tracks import tracks_bp
     from blueprints.casefiles import casefiles_bp
     from blueprints.learn import learn_bp
+    from blueprints.learning import learning_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)
@@ -117,6 +118,7 @@ def create_app() -> Flask:
     app.register_blueprint(tracks_bp)
     app.register_blueprint(casefiles_bp)
     app.register_blueprint(learn_bp)
+    app.register_blueprint(learning_bp)
 
     # Bug Bounty live scanning blueprint (Feature Flag: enabled locally, 404 in public deploy)
     if os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "false").lower() in ("true", "1", "yes"):

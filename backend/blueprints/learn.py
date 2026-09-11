@@ -81,3 +81,32 @@ def get_methodology():
         "ok": True,
         "methodology": ASSESSMENT_METHODOLOGY,
     })
+
+
+@learn_bp.route("/mastery", methods=["GET"])
+def get_learn_mastery():
+    """Return capability mastery overview across canonical vulnerability taxonomy."""
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return jsonify({"ok": True, "skills": {}, "authenticated": False}), 200
+
+    from database import compute_mastery_matrix
+    vuln_type = request.args.get("vuln_type")
+    if vuln_type:
+        matrix = compute_mastery_matrix(user_id=current_user.id, vuln_type=vuln_type)
+        return jsonify({"ok": True, "vuln_type": vuln_type, "mastery": matrix, "authenticated": True}), 200
+
+    results = {}
+    for vt in VULN_TAXONOMY.keys():
+        matrix = compute_mastery_matrix(user_id=current_user.id, vuln_type=vt)
+        results[vt] = {
+            "skill_level": matrix["skill_level"],
+            "summary": matrix["summary"],
+            "capability_states": matrix["capability_states"],
+        }
+    return jsonify({
+        "ok": True,
+        "skills": results,
+        "total": len(results),
+        "authenticated": True,
+    }), 200

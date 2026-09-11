@@ -34,7 +34,7 @@ try:
 except ImportError:
     from backend.blueprints.bounty import local_only_required
 
-from database import record_skill_progress
+from database import record_skill_progress, record_capability_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +308,19 @@ def complete_sandbox(sandbox_id: str):
         vuln_type=sb["vuln_type"],
         status="practiced_verified",
         evidence_ref=f"sandbox_verified:{sandbox_id}",
+    )
+
+    # Record verified capability evidence for lab_exploitation (Rule E: verified server-side only)
+    record_capability_evidence(
+        user_id=current_user.id,
+        vuln_type=sb["vuln_type"],
+        capability="lab_exploitation",
+        evidence_type="VERIFIED",
+        evidence_source=f"sandbox_verified:{sandbox_id}",
+        source_id=sandbox_id,
+        is_verified=1,
+        score=1.0,
+        notes=f"Server-side sandbox challenge proof flag verified for {sb['vuln_type']}",
     )
 
     # Terminate container upon verified completion

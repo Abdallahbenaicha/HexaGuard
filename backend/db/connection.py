@@ -346,6 +346,62 @@ _SCHEMA_SQLITE = """
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_dojo_user_date ON dojo_completions (user_id, date_key);
+
+    CREATE TABLE IF NOT EXISTS learning_exercises (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        vuln_type       TEXT NOT NULL,
+        capability      TEXT NOT NULL,
+        exercise_type   TEXT NOT NULL,
+        title_en        TEXT NOT NULL,
+        description_en  TEXT,
+        difficulty      TEXT NOT NULL DEFAULT 'medium',
+        content_json    TEXT,
+        cert_hint       TEXT,
+        is_active       INTEGER NOT NULL DEFAULT 1,
+        created_at      TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_exercises_vuln_cap ON learning_exercises (vuln_type, capability);
+
+    CREATE TABLE IF NOT EXISTS exercise_attempts (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id               INTEGER NOT NULL,
+        exercise_id           INTEGER NOT NULL,
+        vuln_type             TEXT NOT NULL,
+        capability            TEXT NOT NULL,
+        attempt_number        INTEGER NOT NULL DEFAULT 1,
+        started_at            TEXT NOT NULL,
+        completed_at          TEXT,
+        submission_text       TEXT,
+        score                 REAL,
+        hints_used            INTEGER NOT NULL DEFAULT 0,
+        aria_calls_used       INTEGER NOT NULL DEFAULT 0,
+        solution_viewed       INTEGER NOT NULL DEFAULT 0,
+        result                TEXT NOT NULL DEFAULT 'pending',
+        evaluation_status     TEXT NOT NULL DEFAULT 'pending',
+        evidence_id           INTEGER,
+        FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES learning_exercises(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_attempts_user_vuln ON exercise_attempts (user_id, vuln_type);
+    CREATE INDEX IF NOT EXISTS idx_attempts_user_cap  ON exercise_attempts (user_id, vuln_type, capability);
+
+    CREATE TABLE IF NOT EXISTS skill_capability_evidence (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL,
+        vuln_type       TEXT NOT NULL,
+        capability      TEXT NOT NULL,
+        evidence_type   TEXT NOT NULL,
+        evidence_source TEXT NOT NULL,
+        source_id       TEXT,
+        is_verified     INTEGER NOT NULL DEFAULT 0,
+        score           REAL,
+        notes           TEXT,
+        created_at      TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sce_user_vuln ON skill_capability_evidence (user_id, vuln_type);
+    CREATE INDEX IF NOT EXISTS idx_sce_user_cap  ON skill_capability_evidence (user_id, vuln_type, capability);
+    CREATE INDEX IF NOT EXISTS idx_sce_verified  ON skill_capability_evidence (user_id, is_verified);
 """
 
 _SCHEMA_MYSQL = """
@@ -534,6 +590,62 @@ _SCHEMA_MYSQL = """
         UNIQUE KEY uq_dojo_user_date (user_id, date_key),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS learning_exercises (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        vuln_type       VARCHAR(100) NOT NULL,
+        capability      VARCHAR(50)  NOT NULL,
+        exercise_type   VARCHAR(50)  NOT NULL,
+        title_en        VARCHAR(255) NOT NULL,
+        description_en  TEXT,
+        difficulty      VARCHAR(50)  NOT NULL DEFAULT 'medium',
+        content_json    MEDIUMTEXT,
+        cert_hint       TEXT,
+        is_active       TINYINT(1)   NOT NULL DEFAULT 1,
+        created_at      VARCHAR(50)  NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_exercises_vuln_cap ON learning_exercises (vuln_type, capability);
+
+    CREATE TABLE IF NOT EXISTS exercise_attempts (
+        id                    INT AUTO_INCREMENT PRIMARY KEY,
+        user_id               INT          NOT NULL,
+        exercise_id           INT          NOT NULL,
+        vuln_type             VARCHAR(100) NOT NULL,
+        capability            VARCHAR(50)  NOT NULL,
+        attempt_number        INT          NOT NULL DEFAULT 1,
+        started_at            VARCHAR(50)  NOT NULL,
+        completed_at          VARCHAR(50),
+        submission_text       MEDIUMTEXT,
+        score                 FLOAT,
+        hints_used            INT          NOT NULL DEFAULT 0,
+        aria_calls_used       INT          NOT NULL DEFAULT 0,
+        solution_viewed       TINYINT(1)   NOT NULL DEFAULT 0,
+        result                VARCHAR(50)  NOT NULL DEFAULT 'pending',
+        evaluation_status     VARCHAR(50)  NOT NULL DEFAULT 'pending',
+        evidence_id           INT,
+        FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES learning_exercises(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_attempts_user_vuln ON exercise_attempts (user_id, vuln_type);
+    CREATE INDEX IF NOT EXISTS idx_attempts_user_cap  ON exercise_attempts (user_id, vuln_type, capability);
+
+    CREATE TABLE IF NOT EXISTS skill_capability_evidence (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        user_id         INT          NOT NULL,
+        vuln_type       VARCHAR(100) NOT NULL,
+        capability      VARCHAR(50)  NOT NULL,
+        evidence_type   VARCHAR(50)  NOT NULL,
+        evidence_source VARCHAR(255) NOT NULL,
+        source_id       VARCHAR(255),
+        is_verified     TINYINT(1)   NOT NULL DEFAULT 0,
+        score           FLOAT,
+        notes           TEXT,
+        created_at      VARCHAR(50)  NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_sce_user_vuln ON skill_capability_evidence (user_id, vuln_type);
+    CREATE INDEX IF NOT EXISTS idx_sce_user_cap  ON skill_capability_evidence (user_id, vuln_type, capability);
+    CREATE INDEX IF NOT EXISTS idx_sce_verified  ON skill_capability_evidence (user_id, is_verified);
 """
 
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import SandboxLauncher from '../components/SandboxLauncher';
+import MasteryMatrix from '../components/MasteryMatrix';
 
 const STATUS_BADGES = {
   practiced_verified: {
@@ -51,6 +52,7 @@ export default function SkillLedgerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showSandbox, setShowSandbox] = useState(false);
+  const [expandedMatrixVuln, setExpandedMatrixVuln] = useState(null);
 
   const fetchLedger = async () => {
     try {
@@ -381,15 +383,30 @@ export default function SkillLedgerPage() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <Link
-                      to={`/learn/vulnerabilities?search=${encodeURIComponent(item.vuln_type)}`}
-                      className="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1 font-medium transition-colors"
-                      title="مراجعة في الموسوعة"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>الموسوعة</span>
-                    </Link>
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/learn/vulnerabilities?search=${encodeURIComponent(item.vuln_type)}`}
+                        className="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1 font-medium transition-colors"
+                        title="مراجعة في الموسوعة"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>الموسوعة</span>
+                      </Link>
+
+                      <button
+                        onClick={() => setExpandedMatrixVuln(expandedMatrixVuln === item.vuln_type ? null : item.vuln_type)}
+                        className={`text-xs flex items-center gap-1 font-medium transition-colors px-2 py-0.5 rounded-lg border ${
+                          expandedMatrixVuln === item.vuln_type
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                            : 'text-cyan-400 hover:text-cyan-300 border-cyan-500/20 hover:border-cyan-500/40 bg-cyan-500/5'
+                        }`}
+                        title="عرض مصفوفة الكفاءات الثمانية"
+                      >
+                        <Shield className="w-3 h-3" />
+                        <span>{expandedMatrixVuln === item.vuln_type ? 'إخفاء الكفاءات' : 'الكفاءات الثمانية'}</span>
+                      </button>
+                    </div>
 
                     {item.status !== 'practiced_verified' && (
                       <button
@@ -403,6 +420,13 @@ export default function SkillLedgerPage() {
                       </button>
                     )}
                   </div>
+
+                  {/* Inline 8-Capability Mastery Matrix */}
+                  {expandedMatrixVuln === item.vuln_type && (
+                    <div className="mt-4 pt-3 border-t border-slate-800">
+                      <MasteryMatrix vulnType={item.vuln_type} />
+                    </div>
+                  )}
                 </div>
               );
             })}

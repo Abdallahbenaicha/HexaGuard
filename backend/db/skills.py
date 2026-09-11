@@ -7,7 +7,7 @@ lessons (Shadow Manual Tasks).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 try:
@@ -257,36 +257,94 @@ def get_user_shadow_backlog(user_id: int) -> list[dict[str, Any]]:
     return backlog
 
 
+SKILL_CAPABILITIES = [
+    "knowledge",        # Conceptual understanding of the vulnerability
+    "recognition",      # Identifying the pattern in code / scanner output
+    "manual_detection", # Finding it manually in a real or exercise target
+    "validation",       # Proving it is a true positive, not a false positive
+    "lab_exploitation", # Safely exploiting in a sandboxed environment
+    "impact_analysis",  # Articulating realistic business/technical impact
+    "remediation",      # Applying and verifying the correct fix
+    "reporting",        # Producing a professional-quality bug report
+]
+
+CAPABILITY_PREREQUISITES: dict[str, list[str]] = {}  # Empty in Phase 1 per Task 7.4 M-4
+
+
+def _parse_iso(ts: Any) -> datetime:
+    if isinstance(ts, datetime):
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    s = str(ts)
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
 def complete_shadow_task(
     report_token: str,
     vuln_type: str,
     user_id: int,
     notes: str = "",
-    verified: bool = False,
-) -> dict[str, Any]:
-    """Complete a shadow manual task.
+) -> dict[str, Any] | None:
+    """Complete a shadow manual task (self-reported only).
 
-    If verified is False, sets status='completed_self_reported' and records 'practiced_self_reported'.
-    If verified is True, sets status='completed_verified' and records 'practiced_verified'.
+    SEC-01: Removes client-controlled 'verified' flag. Always sets
+            status='completed_self_reported' and records 'practiced_self_reported'.
+    SEC-05: Enforces dual-layer ownership (scan report ownership AND task ownership).
     """
     db = _get_db()
+
+    # Layer 1: Report ownership check
+    report = db.execute(
+        "SELECT id, token, user_id FROM scan_reports WHERE token = ?",
+        (report_token,),
+    ).fetchone()
+    if not report or report["user_id"] != user_id:
+        return None
+
+    # Layer 2: Task existence and ownership check
+    task = db.execute(
+        "SELECT id, report_token, user_id, vuln_type, status FROM shadow_manual_tasks "
+        "WHERE report_token = ? AND vuln_type = ?",
+        (report_token, vuln_type),
+    ).fetchone()
+    if not task:
+        return None
+    if task["user_id"] != user_id:
+        return None
+
     now = _utcnow_iso()
-    task_status = "completed_verified" if verified else "completed_self_reported"
-    skill_status = "practiced_verified" if verified else "practiced_self_reported"
+    task_status = "completed_self_reported"
+    skill_status = "practiced_self_reported"
 
     db.execute(
         "UPDATE shadow_manual_tasks SET status = ?, notes = ?, updated_at = ? "
-        "WHERE report_token = ? AND vuln_type = ?",
-        (task_status, notes, now, report_token, vuln_type),
+        "WHERE report_token = ? AND vuln_type = ? AND user_id = ?",
+        (task_status, notes, now, report_token, vuln_type, user_id),
     )
     db.commit()
 
-    # Update skill ledger
+    # Update legacy skill ledger
     record_skill_progress(
         user_id=user_id,
         vuln_type=vuln_type,
         status=skill_status,
         evidence_ref=f"shadow_report:{report_token}",
+    )
+
+    # Task 7.3 & 10.1: Shadow task creates SELF_REPORTED evidence for manual_detection (is_verified=0)
+    record_capability_evidence(
+        user_id=user_id,
+        vuln_type=vuln_type,
+        capability="manual_detection",
+        evidence_type="SELF_REPORTED",
+        evidence_source=f"shadow_report:{report_token}",
+        is_verified=0,
+        notes=notes,
     )
 
     return {
@@ -296,3 +354,289 @@ def complete_shadow_task(
         "notes": notes,
         "updated_at": now,
     }
+
+
+def record_capability_evidence(
+    user_id: int,
+    vuln_type: str,
+    capability: str,
+    evidence_type: str,
+    evidence_source: str,
+    source_id: Optional[str] = None,
+    is_verified: int = 0,
+    score: Optional[float] = None,
+    notes: Optional[str] = None,
+) -> dict[str, Any]:
+    """Record capability evidence for a user and vulnerability type.
+
+    Rule E: is_verified can only be 1 if from trusted server-side events.
+    Rule B: SELF_REPORTED evidence has is_verified=0.
+    """
+    db = _get_db()
+    now = _utcnow_iso()
+    v_flag = 1 if is_verified else 0
+    cur = db.execute(
+        "INSERT INTO skill_capability_evidence "
+        "(user_id, vuln_type, capability, evidence_type, evidence_source, source_id, is_verified, score, notes, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (user_id, vuln_type, capability, evidence_type, evidence_source, source_id, v_flag, score, notes, now),
+    )
+    db.commit()
+    ev_id = getattr(cur, "lastrowid", None)
+    return {
+        "id": ev_id,
+        "user_id": user_id,
+        "vuln_type": vuln_type,
+        "capability": capability,
+        "evidence_type": evidence_type,
+        "evidence_source": evidence_source,
+        "source_id": source_id,
+        "is_verified": v_flag,
+        "score": score,
+        "notes": notes,
+        "created_at": now,
+    }
+
+
+def get_capability_evidence(
+    user_id: int,
+    vuln_type: Optional[str] = None,
+    capability: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Retrieve capability evidence records for a user with optional filters."""
+    db = _get_db()
+    sql = (
+        "SELECT id, user_id, vuln_type, capability, evidence_type, evidence_source, "
+        "source_id, is_verified, score, notes, created_at "
+        "FROM skill_capability_evidence WHERE user_id = ?"
+    )
+    params: list[Any] = [user_id]
+    if vuln_type:
+        sql += " AND vuln_type = ?"
+        params.append(vuln_type)
+    if capability:
+        sql += " AND capability = ?"
+        params.append(capability)
+    sql += " ORDER BY created_at DESC"
+    rows = db.execute(sql, tuple(params)).fetchall()
+    results = []
+    for r in rows:
+        results.append({
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "vuln_type": r["vuln_type"],
+            "capability": r["capability"],
+            "evidence_type": r["evidence_type"],
+            "evidence_source": r["evidence_source"],
+            "source_id": r["source_id"],
+            "is_verified": int(r["is_verified"]),
+            "score": float(r["score"]) if r["score"] is not None else None,
+            "notes": r["notes"],
+            "created_at": r["created_at"],
+        })
+    return results
+
+
+def skill_mastery_level(cap_states: dict[str, str]) -> str:
+    """Derives skill-level mastery state from the 8 capability states.
+
+    Phase 1 design: quantity-based rollup (D-04).
+    """
+    counts = {
+        "NOT_STARTED": 0,
+        "INTRODUCED": 0,
+        "PRACTICED": 0,
+        "DEMONSTRATED": 0,
+        "MASTERED": 0,
+    }
+    for s in cap_states.values():
+        if s in counts:
+            counts[s] += 1
+
+    mastered   = counts["MASTERED"]
+    demo_plus  = counts["DEMONSTRATED"] + mastered
+    prac_plus  = counts["PRACTICED"]    + demo_plus
+    intro_plus = counts["INTRODUCED"]  + prac_plus
+
+    if mastered   == 8: return "MASTERED"
+    if demo_plus  >= 6: return "DEMONSTRATED"
+    if prac_plus  >= 4: return "PRACTICED"
+    if intro_plus >= 1: return "INTRODUCED"
+    return "NOT_STARTED"
+
+
+def compute_mastery_matrix(user_id: int, vuln_type: str) -> dict[str, Any]:
+    """Computes the five-state mastery machine for all 8 capabilities deterministically.
+
+    Follows Task 7.4 (v3) specifications:
+    - NOT_STARTED: zero exercise_attempts records.
+    - INTRODUCED: >=1 exercise_attempts record (Rule C: engagement-only, zero evidence weight).
+    - PRACTICED: evaluated attempt with score >= 0.5.
+    - DEMONSTRATED: verified evidence (Option A) OR evaluated attempt with score >= 0.8 (Option B).
+    - MASTERED: M-1 (DEMONSTRATED), M-2 (recency <= 90 days), M-3 (no unsuperseded failure < 0.3 in 30 days), M-4 (prerequisites).
+    """
+    db = _get_db()
+    now_dt = datetime.now(timezone.utc)
+    ninety_days_ago = now_dt - timedelta(days=90)
+    thirty_days_ago = now_dt - timedelta(days=30)
+
+    # Load attempts for this user and vuln_type
+    attempts_rows = db.execute(
+        "SELECT id, exercise_id, vuln_type, capability, attempt_number, started_at, "
+        "completed_at, score, hints_used, aria_calls_used, solution_viewed, "
+        "result, evaluation_status "
+        "FROM exercise_attempts "
+        "WHERE user_id = ? AND vuln_type = ? "
+        "ORDER BY id ASC",
+        (user_id, vuln_type),
+    ).fetchall()
+    attempts = [dict(r) for r in attempts_rows]
+
+    # Load evidence for this user and vuln_type
+    evidence_rows = db.execute(
+        "SELECT id, user_id, vuln_type, capability, evidence_type, evidence_source, "
+        "source_id, is_verified, score, notes, created_at "
+        "FROM skill_capability_evidence "
+        "WHERE user_id = ? AND vuln_type = ? "
+        "ORDER BY created_at ASC",
+        (user_id, vuln_type),
+    ).fetchall()
+    evidence = [dict(r) for r in evidence_rows]
+
+    cap_details: dict[str, dict[str, Any]] = {}
+    cap_states: dict[str, str] = {}
+
+    for cap in SKILL_CAPABILITIES:
+        cap_att = [a for a in attempts if a["capability"] == cap]
+        cap_ev = [e for e in evidence if e["capability"] == cap]
+
+        # 1. Check NOT_STARTED
+        if not cap_att:
+            has_verified_ev = any(int(e.get("is_verified", 0)) == 1 for e in cap_ev)
+            if not has_verified_ev:
+                cap_states[cap] = "NOT_STARTED"
+                cap_details[cap] = {
+                    "state": "NOT_STARTED",
+                    "attempts_count": 0,
+                    "evidence_count": len(cap_ev),
+                    "verified_evidence_count": 0,
+                    "latest_score": None,
+                    "latest_activity_at": None,
+                }
+                continue
+
+        # 2. Base state if attempts exist: INTRODUCED (Rule C: engagement state only)
+        state = "INTRODUCED" if cap_att else "NOT_STARTED"
+
+        # 3. Check PRACTICED: score >= 0.5 on evaluated completed attempt
+        practiced_attempts = [
+            a for a in cap_att
+            if a.get("completed_at")
+            and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated")
+            and a.get("score") is not None
+            and float(a["score"]) >= 0.5
+        ]
+        if practiced_attempts:
+            state = "PRACTICED"
+
+        # 4. Check DEMONSTRATED: Option A (verified evidence) OR Option B (score >= 0.8)
+        verified_evidence = [e for e in cap_ev if int(e.get("is_verified", 0)) == 1]
+        high_score_attempts = [
+            a for a in cap_att
+            if a.get("completed_at")
+            and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated", "system_verified")
+            and a.get("score") is not None
+            and float(a["score"]) >= 0.8
+        ]
+        if verified_evidence or high_score_attempts:
+            state = "DEMONSTRATED"
+
+        # 5. Check MASTERED
+        if state == "DEMONSTRATED":
+            # M-1: is DEMONSTRATED (True)
+
+            # M-2: Recency <= 90 days of latest qualifying event
+            qualifying_dates: list[datetime] = []
+            for e in verified_evidence:
+                if e.get("created_at"):
+                    qualifying_dates.append(_parse_iso(e["created_at"]))
+            for a in high_score_attempts:
+                if a.get("completed_at"):
+                    qualifying_dates.append(_parse_iso(a["completed_at"]))
+
+            if qualifying_dates:
+                latest_qualifying_success_dt = max(qualifying_dates)
+                m2_passes = (latest_qualifying_success_dt >= ninety_days_ago)
+            else:
+                m2_passes = False
+                latest_qualifying_success_dt = None
+
+            # M-3: No unsuperseded recent failure within 30 days
+            blocking_failures = [
+                a for a in cap_att
+                if a.get("completed_at")
+                and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated")
+                and a.get("score") is not None
+                and float(a["score"]) < 0.3
+                and _parse_iso(a["completed_at"]) >= thirty_days_ago
+            ]
+            if not blocking_failures:
+                m3_passes = True
+            else:
+                latest_blocking_failure_dt = max(_parse_iso(a["completed_at"]) for a in blocking_failures)
+                if latest_qualifying_success_dt and latest_qualifying_success_dt > latest_blocking_failure_dt:
+                    m3_passes = True
+                else:
+                    m3_passes = False
+
+            # M-4: Prerequisites (trivially True in Phase 1)
+            prereqs = CAPABILITY_PREREQUISITES.get(cap, [])
+            m4_passes = all(cap_states.get(p) in ("DEMONSTRATED", "MASTERED") for p in prereqs)
+
+            if m2_passes and m3_passes and m4_passes:
+                state = "MASTERED"
+
+        cap_states[cap] = state
+
+        # Latest score and activity timestamp
+        latest_score = None
+        for a in reversed(cap_att):
+            if a.get("score") is not None:
+                latest_score = float(a["score"])
+                break
+
+        latest_ts = None
+        if cap_att and cap_att[-1].get("completed_at"):
+            latest_ts = cap_att[-1]["completed_at"]
+        elif cap_att and cap_att[-1].get("started_at"):
+            latest_ts = cap_att[-1]["started_at"]
+        elif cap_ev:
+            latest_ts = cap_ev[-1]["created_at"]
+
+        cap_details[cap] = {
+            "state": state,
+            "attempts_count": len(cap_att),
+            "evidence_count": len(cap_ev),
+            "verified_evidence_count": len(verified_evidence),
+            "latest_score": latest_score,
+            "latest_activity_at": latest_ts,
+        }
+
+    skill_level = skill_mastery_level(cap_states)
+    summary_counts = {
+        "NOT_STARTED": sum(1 for s in cap_states.values() if s == "NOT_STARTED"),
+        "INTRODUCED": sum(1 for s in cap_states.values() if s == "INTRODUCED"),
+        "PRACTICED": sum(1 for s in cap_states.values() if s == "PRACTICED"),
+        "DEMONSTRATED": sum(1 for s in cap_states.values() if s == "DEMONSTRATED"),
+        "MASTERED": sum(1 for s in cap_states.values() if s == "MASTERED"),
+    }
+
+    return {
+        "vuln_type": vuln_type,
+        "user_id": user_id,
+        "capabilities": cap_details,
+        "capability_states": cap_states,
+        "skill_level": skill_level,
+        "summary": summary_counts,
+    }
+
