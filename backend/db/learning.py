@@ -245,13 +245,15 @@ def complete_exercise_attempt(
     attempt_id: int,
     user_id: int,
     submission_text: str = "",
+    metadata: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Completes an exercise attempt with backend evaluation.
+    """Completes an exercise attempt with authoritative backend evaluation.
 
-    CRITICAL (Rule D / D-07):
-    - Client CANNOT submit score or evaluation_status.
-    - Assessment score is computed server-side via evaluate_assessment_submission().
-    - If score >= 0.5, writes skill_capability_evidence with is_verified=0 (EVALUATED).
+    CRITICAL (Rule D / D-07 / Anti-Cheat Invariants):
+    - Client CANNOT submit score, evaluation_status, result, or is_verified.
+    - Evaluation is dispatched server-side via backend/db/exercise_engine.py.
+    - Automated assessments are capped at score <= 0.9 with is_verified=0 (EVALUATED).
+    - Authentic score=1.0 and is_verified=1 is STRICTLY reserved for server-verified sandbox proofs.
     """
     db = _get_db()
     attempt = get_attempt_with_ownership_check(attempt_id, user_id)
@@ -266,56 +268,66 @@ def complete_exercise_attempt(
         raise ValueError(f"Exercise {attempt['exercise_id']} not found")
 
     now = _utcnow_iso()
-    ex_type = exercise.get("exercise_type", "assessment")
-    score: Optional[float] = None
-    evaluation_status = "pending"
-    result = "pending"
-    notes = ""
+
+    try:
+        from db.exercise_engine import evaluate_submission
+    except ImportError:
+        from backend.db.exercise_engine import evaluate_submission
+
+    eval_res = evaluate_submission(
+        exercise=exercise,
+        attempt=attempt,
+        user_id=user_id,
+        submission_text=submission_text,
+        metadata=metadata,
+    )
+
+    score = eval_res.get("score")
+    evaluation_status = eval_res.get("evaluation_status", "auto_evaluated")
+    result = eval_res.get("result", "failed")
+    notes = eval_res.get("notes", "")
     evidence_id: Optional[int] = None
 
-    if ex_type == "assessment":
-        score, notes = evaluate_assessment_submission(
-            submission_text=submission_text,
-            content_json=exercise.get("content_json"),
-        )
-        evaluation_status = "auto_evaluated"
-        result = "passed" if score >= 0.5 else "failed"
+    # P0-1 (DEV-01): Atomic Transaction Boundary
+    # Ensure BEGIN IMMEDIATE ... single commit, or rollback on any failure
+    try:
+        db.execute("BEGIN IMMEDIATE")
+    except Exception:
+        pass
 
-        # If score qualifies (>= 0.5), record EVALUATED capability evidence
-        if score >= 0.5:
+    try:
+        if eval_res.get("evidence_record"):
+            evidence_id = eval_res["evidence_record"].get("id")
+        elif eval_res.get("evidence_type") and score is not None and score >= 0.5:
             ev = record_capability_evidence(
                 user_id=user_id,
                 vuln_type=attempt["vuln_type"],
                 capability=attempt["capability"],
-                evidence_type="EVALUATED",
+                evidence_type=eval_res["evidence_type"],
                 evidence_source=f"exercise_attempt:{attempt_id}",
                 source_id=str(attempt_id),
-                is_verified=0,
+                is_verified=eval_res.get("is_verified", 0),
                 score=score,
-                notes=f"Auto-evaluated assessment submission: {notes}",
+                notes=f"Auto-evaluated exercise submission: {notes}",
+                commit=False,
             )
             evidence_id = ev.get("id")
 
-    elif ex_type == "lab":
-        # Lab exercises are scored via server-side sandbox flag verification
-        # If flag was already verified, score is 1.0, otherwise pending
-        score = attempt.get("score")
-        evaluation_status = attempt.get("evaluation_status", "pending")
-        result = "passed" if (score and score >= 0.8) else "pending"
-    else:
-        # manual_task, reporting, scenario: pending human review
-        evaluation_status = "pending"
-        result = "pending"
-
-    # Update attempt row
-    db.execute(
-        "UPDATE exercise_attempts "
-        "SET completed_at = ?, submission_text = ?, score = ?, result = ?, "
-        "evaluation_status = ?, evidence_id = ? "
-        "WHERE id = ? AND user_id = ?",
-        (now, submission_text, score, result, evaluation_status, evidence_id, attempt_id, user_id),
-    )
-    db.commit()
+        # Update attempt row
+        db.execute(
+            "UPDATE exercise_attempts "
+            "SET completed_at = ?, submission_text = ?, score = ?, result = ?, "
+            "evaluation_status = ?, evidence_id = ? "
+            "WHERE id = ? AND user_id = ?",
+            (now, submission_text, score, result, evaluation_status, evidence_id, attempt_id, user_id),
+        )
+        db.commit()
+    except Exception as exc:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise exc
 
     updated_attempt = get_attempt(attempt_id)
     # Compute current capability mastery matrix for response
@@ -373,3 +385,94 @@ def mark_attempt_solution_viewed(attempt_id: int) -> None:
         (attempt_id,),
     )
     db.commit()
+
+
+# ── Authoritative Active Sandboxes Persistence ────────────────────────────────
+
+def save_active_sandbox_record(record: dict[str, Any]) -> None:
+    """Inserts or updates an active sandbox record in the persistent DB."""
+    db = _get_db()
+    existing = db.execute("SELECT id FROM active_sandboxes WHERE id = ?", (record["id"],)).fetchone()
+    if existing:
+        db.execute(
+            "UPDATE active_sandboxes SET status = ?, completed = ?, expires_at = ? WHERE id = ?",
+            (
+                record.get("status", "running"),
+                1 if record.get("completed") else 0,
+                float(record.get("expires_at", 0.0)),
+                record["id"],
+            ),
+        )
+    else:
+        db.execute(
+            """
+            INSERT INTO active_sandboxes (
+                id, user_id, vuln_type, name, image, host_port,
+                container_id, status, completed, flag_hash,
+                started_at, expires_at, timeout_seconds, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record["id"],
+                record["user_id"],
+                record["vuln_type"],
+                record.get("name", ""),
+                record.get("image", ""),
+                record.get("host_port", 0),
+                record.get("container_id", ""),
+                record.get("status", "running"),
+                1 if record.get("completed") else 0,
+                record.get("flag_hash", ""),
+                record.get("started_at", _utcnow_iso()),
+                float(record.get("expires_at", 0.0)),
+                int(record.get("timeout_seconds", 7200)),
+                record.get("created_at", _utcnow_iso()),
+            ),
+        )
+    db.commit()
+
+
+def get_active_sandbox_record(sandbox_id: str) -> dict[str, Any] | None:
+    """Retrieves an active sandbox record by ID from persistent storage."""
+    db = _get_db()
+    row = db.execute("SELECT * FROM active_sandboxes WHERE id = ?", (sandbox_id,)).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["completed"] = bool(d.get("completed", 0))
+    d["url"] = f"http://127.0.0.1:{d.get('host_port')}"
+    return d
+
+
+def get_user_active_sandboxes_records(user_id: int) -> list[dict[str, Any]]:
+    """Retrieves all running sandboxes for a specific user from persistent storage."""
+    db = _get_db()
+    rows = db.execute(
+        "SELECT * FROM active_sandboxes WHERE user_id = ? AND status = 'running'",
+        (user_id,),
+    ).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["completed"] = bool(d.get("completed", 0))
+        d["url"] = f"http://127.0.0.1:{d.get('host_port')}"
+        results.append(d)
+    return results
+
+
+def update_active_sandbox_state(sandbox_id: str, status: str, completed: bool = False) -> None:
+    """Updates status and completion state for a sandbox in persistent storage."""
+    db = _get_db()
+    db.execute(
+        "UPDATE active_sandboxes SET status = ?, completed = ? WHERE id = ?",
+        (status, 1 if completed else 0, sandbox_id),
+    )
+    db.commit()
+
+
+def delete_active_sandbox_record(sandbox_id: str) -> None:
+    """Removes a sandbox record from persistent storage."""
+    db = _get_db()
+    db.execute("DELETE FROM active_sandboxes WHERE id = ?", (sandbox_id,))
+    db.commit()
+

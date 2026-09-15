@@ -3481,6 +3481,17 @@ VULN_TAXONOMY: dict[str, dict[str, Any]] = {   'abandoned_dependency': {   'desc
                'scanner': 'dast',
                'severity_default': 'medium'}}
 
+# ── Merge Phase 2A Canonical Foundational 12 Skills ──────────────────────────────
+try:
+    from curriculum import FOUNDATIONAL_SKILLS_12
+except ImportError:
+    try:
+        from backend.curriculum import FOUNDATIONAL_SKILLS_12
+    except ImportError:
+        FOUNDATIONAL_SKILLS_12 = {}
+
+VULN_TAXONOMY.update(FOUNDATIONAL_SKILLS_12)
+
 # ── Blue Team / SOC Incident Taxonomy (E-02) ──────────────────────────────────
 INCIDENT_TAXONOMY: dict[str, dict[str, Any]] = {   'brute_force': {   'description_ar': 'محاولات تسجيل دخول متكررة ومكثفة تستهدف خدمات التحكم عن بعد أو نماذج مصادقة '
                                          'الويب.',
@@ -4260,6 +4271,20 @@ CHECK_MAP: dict[str, str] = {
     "wp_user_enumeration":           "wp_user_enumeration",
     "wp_sensitive_files":            "wp_sensitive_files",
     "wp_default_admin":              "wp_default_admin",
+
+    # Phase 2A Canonical Foundational Skills Mappings
+    "http_fundamentals":             "http_fundamentals",
+    "http_protocol":                 "http_fundamentals",
+    "dns_recon":                     "dns_recon",
+    "dns_enumeration":               "dns_recon",
+    "idor":                          "idor",
+    "broken_access_control":         "idor",
+    "file_upload":                   "file_upload",
+    "unrestricted_file_upload":      "file_upload",
+    "cve_cvss_epss":                 "cve_cvss_epss",
+    "cve_intelligence":              "cve_cvss_epss",
+    "bug_bounty_reporting":          "bug_bounty_reporting",
+    "vulnerability_reporting":       "bug_bounty_reporting",
 }
 
 
@@ -4320,6 +4345,18 @@ def normalize_check_to_vuln_type(
         return CHECK_MAP[lower_check]
 
     # 3. Check prefixes
+    if lower_check.startswith("idor"):
+        return "idor"
+    if lower_check.startswith("file_upload") or lower_check.startswith("upload"):
+        return "file_upload"
+    if lower_check.startswith("http_"):
+        return "http_fundamentals"
+    if lower_check.startswith("dns_") and "spf" not in lower_check and "dmarc" not in lower_check and "caa" not in lower_check and "dnssec" not in lower_check and "zone" not in lower_check:
+        return "dns_recon"
+    if lower_check.startswith("cve_") or lower_check.startswith("cvss_") or lower_check.startswith("epss_"):
+        return "cve_cvss_epss"
+    if lower_check.startswith("bug_bounty") or lower_check.startswith("bounty_report"):
+        return "bug_bounty_reporting"
     if lower_check.startswith("ssrf"):
         return "ssrf"
     if lower_check.startswith("rce"):
@@ -4350,6 +4387,18 @@ def normalize_check_to_vuln_type(
     # 4. Title heuristics
     lower_title = title_str.lower()
     if lower_title:
+        if "idor" in lower_title or "direct object reference" in lower_title:
+            return "idor"
+        if "file upload" in lower_title or "unrestricted upload" in lower_title:
+            return "file_upload"
+        if "http fundamentals" in lower_title or "http method" in lower_title:
+            return "http_fundamentals"
+        if "dns recon" in lower_title or "dns enumeration" in lower_title:
+            return "dns_recon"
+        if "cvss" in lower_title or "epss" in lower_title:
+            return "cve_cvss_epss"
+        if "bug bounty report" in lower_title:
+            return "bug_bounty_reporting"
         if "cross-site scripting" in lower_title or " xss" in lower_title or "xss " in lower_title:
             return "xss"
         if "sql injection" in lower_title or " sqli" in lower_title or "sqli " in lower_title:

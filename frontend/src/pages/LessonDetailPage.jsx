@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import SandboxLauncher from '../components/SandboxLauncher';
 import MasteryMatrix from '../components/MasteryMatrix';
+import ExerciseWorkspace from '../components/ExerciseWorkspace';
 
 const SCANNER_META = {
   web:        { label: 'Web Core', icon: Globe, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
@@ -114,6 +115,26 @@ export default function LessonDetailPage() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function reloadMastery() {
+    if (!vulnId) return;
+    try {
+      const [skillRes, masteryRes] = await Promise.all([
+        axios.get('/api/skill/ledger').catch(() => ({ data: { ledger: [] } })),
+        axios.get(`/api/learning/mastery/${vulnId}`).catch(() => ({ data: { matrix: null } })),
+      ]);
+      const userLedger = skillRes.data?.ledger || [];
+      const userItem = userLedger.find(item => item.vuln_type === vulnId);
+      if (userItem) {
+        setSkillStatus(userItem.status);
+      }
+      if (masteryRes.data?.ok && masteryRes.data?.matrix) {
+        setMasteryMatrix(masteryRes.data.matrix);
+      }
+    } catch (e) {
+      // ignore reload errors
+    }
   }
 
   function openAriaMentor() {
@@ -326,12 +347,76 @@ export default function LessonDetailPage() {
               </div>
 
               <div className="space-y-4">
+                {/* Concept / Technical Analysis */}
                 <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">Technical Analysis</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">
+                    {lesson.concept ? 'Core Architecture & Threat Mechanics' : 'Technical Analysis'}
+                  </h4>
                   <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-                    {lesson.level_1_foundations_en}
+                    {lesson.concept || lesson.level_1_foundations_en}
                   </p>
                 </div>
+
+                {/* Mental Model Card */}
+                {lesson.mental_model && (
+                  <div className="p-5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs uppercase tracking-wider">
+                      <Sparkles className="w-4 h-4 text-cyan-400" />
+                      <span>Cognitive Mental Model</span>
+                    </div>
+                    <p className="text-sm text-slate-200 leading-relaxed italic">
+                      "{lesson.mental_model}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Why It Happens */}
+                {lesson.why_it_happens && (
+                  <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Why It Happens (Root Architectural Causes)</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {lesson.why_it_happens}
+                    </p>
+                  </div>
+                )}
+
+                {/* Vulnerable Code Pattern */}
+                {lesson.vulnerable_pattern && (
+                  <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                        <Code2 className="w-4 h-4" />
+                        <span>Vulnerable Pattern & Flawed Code</span>
+                      </div>
+                      <button
+                        onClick={() => copyText(lesson.vulnerable_pattern)}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <pre className="p-4 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-200 overflow-x-auto whitespace-pre">
+                      {lesson.vulnerable_pattern.replace(/```[a-z]*\n?/g, '')}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Impact Analysis */}
+                {lesson.impact_analysis && (
+                  <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Impact Analysis (Technical & Business Risk)</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {lesson.impact_analysis}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end">
@@ -365,13 +450,55 @@ export default function LessonDetailPage() {
                 </div>
               </div>
 
-              <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
-                  Recognition & Diagnostic Signal
-                </h4>
-                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-                  {lesson.level_2_detection_en}
-                </p>
+              <div className="space-y-4">
+                {/* Recognition & Diagnostic Signal */}
+                <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                    Detection Methodology & Hunting Strategy
+                  </h4>
+                  <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                    {lesson.detection_methodology || lesson.level_2_detection_en}
+                  </p>
+                </div>
+
+                {/* Manual Validation Protocol */}
+                {lesson.manual_validation && (
+                  <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider">
+                      <Terminal className="w-4 h-4 text-amber-400" />
+                      <span>Step-by-Step Manual Validation Protocol</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                      {lesson.manual_validation}
+                    </p>
+                  </div>
+                )}
+
+                {/* HexaGuard Scanner Telemetry & Blind Spots */}
+                {lesson.hexaguard_scanner_relationship && (
+                  <div className="p-5 rounded-xl bg-cyan-950/15 border border-cyan-500/25 space-y-2">
+                    <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                      <Zap className="w-4 h-4" />
+                      <span>HexaGuard Telemetry: What We See vs Scanner Blind Spots</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {lesson.hexaguard_scanner_relationship}
+                    </p>
+                  </div>
+                )}
+
+                {/* False Positives & Limitations */}
+                {lesson.false_positives_limitations && (
+                  <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-wider">
+                      <Shield className="w-4 h-4 text-slate-400" />
+                      <span>False Positives, Edge Cases & Detection Boundaries</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {lesson.false_positives_limitations}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {topicType === 'offensive' && topic.scanner && (
@@ -441,6 +568,41 @@ export default function LessonDetailPage() {
                 </div>
               </div>
 
+              {/* Safe Local Practice Instructions */}
+              {lesson.safe_local_practice && (
+                <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
+                      <Terminal className="w-4 h-4" />
+                      <span>Safe Practice Protocol & Commands</span>
+                    </div>
+                    <button
+                      onClick={() => copyText(lesson.safe_local_practice)}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <pre className="p-4 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-200 overflow-x-auto whitespace-pre">
+                    {lesson.safe_local_practice.replace(/```[a-z]*\n?/g, '')}
+                  </pre>
+                </div>
+              )}
+
+              {/* Evidence Markers */}
+              {lesson.evidence_markers && (
+                <div className="p-5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-2">
+                  <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                    <span>Evidence Markers: Verifiable Proof Requirements</span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                    {lesson.evidence_markers}
+                  </p>
+                </div>
+              )}
+
               {/* Guided & Challenge Prompts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
@@ -462,28 +624,58 @@ export default function LessonDetailPage() {
                 </div>
               </div>
 
-              {/* Live Sandbox Container or Safe Mode Guidance */}
-              {practice.sandbox_target ? (
+              {/* Live Sandbox Container (Containerized Topics) */}
+              {practice.sandbox_target && (
                 <div className="space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Adversarial Twin Local Practice Target
                   </h4>
                   <SandboxLauncher
                     targetVulnType={practice.sandbox_target}
-                    onVerified={() => setSkillStatus('practiced_verified')}
+                    onVerified={() => {
+                      setSkillStatus('practiced_verified');
+                      reloadMastery();
+                    }}
                   />
                 </div>
-              ) : (
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-slate-300 block mb-0.5">Non-Containerized Practice Mode</span>
-                    <span>
-                      This topic covers architectural, static code, configuration, or network protocol controls.
-                      Practice is conducted through local code review, CLI probing, or configuration auditing as outlined
-                      in the challenge prompt without spinning up an isolated container.
-                    </span>
+              )}
+
+              {/* Interactive Capability Exercises (Analytical, CLI, Payload, & Remediation) */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <Code className="w-4 h-4 text-cyan-400" />
+                    <span>Curriculum Capability Evaluation Workspace</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Authoritative Server Evaluation
+                  </span>
+                </div>
+                <ExerciseWorkspace
+                  vulnType={vulnId}
+                  onAttemptCompleted={() => reloadMastery()}
+                />
+              </div>
+
+              {/* Socratic Assessment Prompt Card */}
+              {lesson.assessment_prompt && (
+                <div className="p-5 rounded-xl bg-gradient-to-r from-indigo-950/30 to-purple-950/30 border border-indigo-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                      <span>Socratic Red-Team Assessment Prompt</span>
+                    </div>
+                    <button
+                      onClick={openAriaMentor}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Discuss with ARIA Mentor</span>
+                    </button>
                   </div>
+                  <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                    {lesson.assessment_prompt}
+                  </p>
                 </div>
               )}
 
@@ -525,23 +717,73 @@ export default function LessonDetailPage() {
                 </div>
               </div>
 
-              {/* Remediation Prose & Snippet */}
-              <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    Defensive Standard & Patch Guidance
-                  </h4>
-                  <button
-                    onClick={() => copyText(lesson.level_4_remediation_en)}
-                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
+              <div className="space-y-4">
+                {/* Remediation Standard & Patch Guidance */}
+                <div className="p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Defensive Standard & Patch Guidance
+                    </h4>
+                    <button
+                      onClick={() => copyText(lesson.remediation_standard || lesson.level_4_remediation_en)}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                    {lesson.remediation_standard || lesson.level_4_remediation_en}
+                  </p>
                 </div>
-                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-                  {lesson.level_4_remediation_en}
-                </p>
+
+                {/* Authoritative Re-Scan Verification */}
+                {lesson.remediation_verification && (
+                  <div className="p-5 rounded-xl bg-emerald-950/15 border border-emerald-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Authoritative Re-Scan Verification (Independent Proof of Fix)</span>
+                    </div>
+                    <p className="text-sm text-slate-200 leading-relaxed">
+                      {lesson.remediation_verification}
+                    </p>
+                  </div>
+                )}
+
+                {/* Professional Bug Bounty Report Template */}
+                {lesson.professional_reporting && (
+                  <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                        <BookOpen className="w-4 h-4" />
+                        <span>Professional Vulnerability Disclosure Report Template</span>
+                      </div>
+                      <button
+                        onClick={() => copyText(lesson.professional_reporting)}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? 'Copied Report' : 'Copy Report'}</span>
+                      </button>
+                    </div>
+                    <pre className="p-4 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-200 overflow-x-auto whitespace-pre leading-relaxed">
+                      {lesson.professional_reporting}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Demonstrated Mastery Rubric */}
+                {lesson.mastery_criteria && (
+                  <div className="p-5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wider">
+                      <Shield className="w-4 h-4 text-purple-400" />
+                      <span>Demonstrated Mastery Criteria & Rubric</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                      {lesson.mastery_criteria}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Incident link if blue team */}

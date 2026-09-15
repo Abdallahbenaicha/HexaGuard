@@ -743,3 +743,67 @@ def get_last_network_snapshot(target: str, user_id: int) -> list[dict] | None:
         return json.loads(raw)
     except Exception:
         return None
+
+
+# ── Authoritative Vulnerability Fix Verification (Closed-Loop) ──────────────────
+
+def verify_and_resolve_vulnerability(
+    vuln_id: int,
+    user_id: int,
+    is_admin: bool = False,
+    notes: str = "",
+) -> tuple[bool, str, dict | None]:
+    """Authoritatively verify and mark a vulnerability finding as fixed (SEC-05 Gate).
+
+    Enforces dual-layer report ownership (SEC-05):
+    - Report owner must match requesting user_id (or admin).
+    - Prevents cross-user IDOR / state tampering.
+    - Sets is_fixed = 1, fixed_at = UTC timestamp, triage_status = 'Resolved'.
+    """
+    db = _get_db()
+
+    # Layer 1: Vulnerability existence
+    vuln_row = db.execute(
+        "SELECT id, report_id, check_name, severity, title, is_fixed, fixed_at, triage_status, triage_notes "
+        "FROM scan_vulnerabilities WHERE id = ?",
+        (vuln_id,),
+    ).fetchone()
+    if not vuln_row:
+        return False, f"Vulnerability with ID {vuln_id} not found.", None
+
+    vuln = dict(vuln_row)
+
+    # Layer 2: Parent report existence & SEC-05 ownership verification
+    report_row = db.execute(
+        "SELECT id, token, user_id, target, scan_type FROM scan_reports WHERE id = ?",
+        (vuln["report_id"],),
+    ).fetchone()
+    if not report_row:
+        return False, f"Parent scan report not found for vulnerability {vuln_id}.", None
+
+    report = dict(report_row)
+    if not is_admin and report["user_id"] != user_id:
+        logger.warning(
+            "SEC-05 IDOR attempt: user %s attempted to verify vuln %s belonging to user %s",
+            user_id, vuln_id, report["user_id"],
+        )
+        return False, "SEC-05 violation: access denied. You do not own the parent scan report.", None
+
+    now = datetime.now(timezone.utc).isoformat()
+    triage_notes = (notes or vuln.get("triage_notes") or "").strip()
+    resolution_note = f"Authoritatively verified fix at {now}."
+    final_notes = f"{triage_notes} | {resolution_note}" if triage_notes else resolution_note
+
+    db.execute(
+        "UPDATE scan_vulnerabilities SET is_fixed = 1, fixed_at = ?, triage_status = 'Resolved', triage_notes = ? "
+        "WHERE id = ?",
+        (now, final_notes, vuln_id),
+    )
+    db.commit()
+
+    vuln["is_fixed"] = 1
+    vuln["fixed_at"] = now
+    vuln["triage_status"] = "Resolved"
+    vuln["triage_notes"] = final_notes
+
+    return True, "Vulnerability successfully verified and resolved.", vuln

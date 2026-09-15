@@ -22,6 +22,10 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("FLASK_ENV", "testing")
     monkeypatch.setenv("ENABLE_BACKGROUND_SCHEDULER", "false")
 
+    with job_manager._lock:
+        job_manager._jobs.clear()
+    job_manager.set_concurrency_limit(3)
+
     if hasattr(db._local, "conn"):
         del db._local.conn
     db.DB_PATH = db_file
@@ -38,6 +42,9 @@ def app(tmp_path, monkeypatch):
         yield flask_app
 
     scheduler.stop_scheduler()
+    with job_manager._lock:
+        job_manager._jobs.clear()
+    job_manager.set_concurrency_limit(3)
     if hasattr(db._local, "conn"):
         db._local.conn.close()
         del db._local.conn
@@ -84,6 +91,7 @@ class TestSchedulerExecution:
         # Verify future scan was untouched
         future_row = next(s for s in scans if s["id"] == future_id)
         assert future_row["last_run_at"] is None
+        time.sleep(0.3)
 
     def test_scheduler_respects_concurrency_cap(self, app):
         """F-01: Dispatched scheduled scans honor H-04 concurrency semaphore."""

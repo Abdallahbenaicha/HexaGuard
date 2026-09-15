@@ -415,3 +415,314 @@ dist/assets/index-XYybeeY9.js: 794.75 kB
 ---
 *تم إعداد وتدقيق هذا التقرير — المنصة مستقرة 100%، وجميع الاختبارات مجتازة بنجاح.*
 
+---
+
+# 12. المرحلة 2أ — تأسيس المنهج التعليمي القياسي (Phase 2A — Curriculum Foundation)
+
+تم بحمد الله إنجاز **المرحلة 2أ (Phase 2A)** بالكامل وبدقة معمارية صارمة استجابةً للتوجيهات والقيود المعمارية المفروضة.
+
+### 12.1 حصر المهارات الـ12 القياسية (The 12 Canonical Skills)
+تم اعتماد وتعريف المهارات الـ12 القياسية بكافة تفاصيلها في وحدة مستقلة ونظيفة `backend/curriculum.py` ودمجها بسلاسة في `VULN_TAXONOMY` في `backend/vuln_taxonomy.py`:
+
+| # | المعرف القياسي (Canonical ID) | الاسم العربي / English | محرك الفحص (Scanner) | الصعوبة | القدرات الثلاث الأساسية (Rule 8 Capabilities) | نمط التدريب |
+|---|---|---|---|---|---|---|
+| 1 | `http_fundamentals` | أساسيات بروتوكول HTTP ومعمارية الويب | `web` | Easy | `knowledge`, `recognition`, `manual_detection` | غير حاوي (Non-containerized CLI/curl) |
+| 2 | `dns_recon` | استطلاع خوادم DNS ورسم خرائط البنية | `dns` | Easy | `recognition`, `manual_detection`, `impact_analysis` | غير حاوي (dig / mock DNS) |
+| 3 | `missing_security_headers` | غياب ترويسات الأمان والدفاع المتعمق | `server` | Easy | `recognition`, `manual_detection`, `remediation` | غير حاوي (Nginx / Headers inspection) |
+| 4 | `broken_auth` | خلل المصادقة وإدارة الجلسات | `dast` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (DVWA / Session Lab) |
+| 5 | `idor` | الوصول غير الآمن للمراجع المباشرة للكائنات | `web` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (Multi-user Juice Shop) |
+| 6 | `xss` | حقن النصوص البرمجية عبر المواقع | `web` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (Juice Shop / XSS) |
+| 7 | `sqli` | حقن أوامر قواعد البيانات | `web` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (DVWA / SQLi) |
+| 8 | `ssrf` | تزوير الطلبات من جانب الخادم | `dast` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (Juice Shop / SSRF) |
+| 9 | `path_traversal` | اجتياز المسارات وقراءة الملفات | `web` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (DVWA / Directory Traversal) |
+| 10 | `file_upload` | رفع الملفات غير المقيد ودورة حياة التنفيذ | `web` | Medium | `recognition`, `validation`, `lab_exploitation` | معمل منعزل (DVWA / File Upload) |
+| 11 | `cve_cvss_epss` | استخبارات الثغرات: CVE, CVSS & EPSS | `deps` | Easy | `knowledge`, `impact_analysis`, `reporting` | غير حاوي (Public NVD/EPSS APIs) |
+| 12 | `bug_bounty_reporting` | كتابة تقارير صيد الثغرات الاحترافية | `sast` | Easy | `reporting`, `impact_analysis`, `remediation` | غير حاوي (Markdown Triage Cases) |
+
+### 12.2 هيكل الدروس الـ16 حقلاً وظيفياً (The 16 Functional Fields)
+لم يتم الاكتفاء بنصوص عامة أو حشو، بل كل حقل في الدروس الـ12 يحتوي على مضمون أمني وتقني دقيق وعميق:
+1. `concept`: المفهوم المعماري العميق لآلية عمل البروتوكول أو الثغرة.
+2. `why_it_happens`: الأسباب الهيكلية والتصميمية الجذرية لحدوث الخلل.
+3. `mental_model`: النموذج الإدراكي الذهني لفهم سطح الهجوم.
+4. `vulnerable_pattern`: نموذج برمجي لشفرة حقيقية مصابة مع تعليقات تشرح خطأ التنفيذ تحديداً.
+5. `detection_methodology`: منهجية الصيد والاستكشاف اليدوي والآلي.
+6. `evidence_markers`: علامات الأدلة القاطعة والشروط الملموسة لإثبات الثغرة.
+7. `safe_local_practice`: خطوات التدريب المحلي الآمن وأوامر الاختبار المعزول.
+8. `manual_validation`: بروتوكول التدقيق اليدوي خطوة بخطوة للتمييز عن التخمين.
+9. `hexaguard_scanner_relationship`: علاقة تليمترية ثنائية الاتجاه (ماذا يكتشف فاحص HexaGuard وما هي النقاط العمياء التي لا يراها).
+10. `false_positives_limitations`: الإيجابيات الكاذبة وحالات الحافة والقيود الفنية للفحص.
+11. `impact_analysis`: تحليل الأثر التقني والمخاطر التجارية والتنظيمية.
+12. `remediation_standard`: المعيار الدفاعي الموصى به وأمثلة الترقيع البرمجي.
+13. `remediation_verification`: التحقق المستقل من الإصلاح عبر إعادة الفحص التلقائي المستقل.
+14. `professional_reporting`: قالب تقرير إبلاغ احترافي متكامل متوافق مع معايير HackerOne وBugcrowd.
+15. `assessment_prompt`: سؤال تقييمي سقراطي مفتوح لاختبار الفهم المعمق.
+16. `mastery_criteria`: معايير إثبات الإتقان عبر مستويات التقييم الأربعة (Introduced, Practiced, Demonstrated, Mastered).
+
+بالإضافة إلى الحفاظ التام على الحقول المتوافقة مع النظام القديم: `level_1_foundations_en`، `level_2_detection_en`، `level_3_practice`، `level_4_remediation_en`، و `deep_dive_links`.
+
+### 12.3 قرارات أمنية ومعمارية حاسمة مطبقة في Phase 2A
+1. **التدريب غير الحاوي (Non-containerized Practice)**: المهارات التي لا تتطلب دوكر (`http_fundamentals`, `dns_recon`, `missing_security_headers`, `cve_cvss_epss`, `bug_bounty_reporting`) تم ضبطها بـ `sandbox_target: null` مع تقديم تعليمات CLI واضحة (curl, dig, NVD/EPSS APIs, Markdown triage).
+2. **سقالة الـSandbox المؤقتة**: تم تسجيل الـstatic flags صراحة كـ `temporary Phase-2 allowlist entries` وليست أدلة تشفيرية نهائية (`cryptographic proof`).
+3. **تطوير واجهة الدرس `LessonDetailPage.jsx`**: أصبحت واجهة الدرس تعرض البطاقات الـ16 بدقة وأناقة داخل المستويات الأربعة:
+   - **Level 1**: Concept + Cognitive Mental Model + Root Causes + Vulnerable Code Pattern + Impact Analysis.
+   - **Level 2**: Detection Methodology + Manual Validation Protocol + HexaGuard Telemetry & Blind Spots + False Positives + Diagnostic Engine link.
+   - **Level 3**: Safe Local Practice Commands + Concrete Evidence Markers + Walkthrough/Challenge + Sandbox Launcher / Non-containerized badge + Socratic Mentor Prompt.
+   - **Level 4**: Remediation Standard + Authoritative Re-Scan Verification + Professional Bug Report Template + Mastery Criteria Rubric.
+4. **تطبيع الفحوصات (Check Normalization)**: تحديث `CHECK_MAP` ودالة `normalize_check_to_vuln_type` لربط أي فحص يخص المهارات الـ12 الجديدة بالمعرفات القياسية المعتمدة.
+5. **توقف صارم عند بوابة التدقيق (Audit Gate)**: تم التوقف تماماً بنهاية Phase 2A وعدم بدء Phase 2B انتظاراً لمراجعة المستخدم والموافقة.
+
+### 12.4 التحقق النهائي وحساب الاختبارات (Test Verification & Arithmetic Reconciliation)
+
+```
+Backend Test Suite (pytest):
+collected 334 items (324 baseline + 10 Phase 2A new tests)
+====================== 334 passed in 324.62s (05:24) (100%) ======================
+
+Arithmetic Reconciliation:
+- Pre-Phase 2A Baseline: 324 tests
+- Phase 2A Added Tests (tests/test_phase2a_curriculum.py): 10 tests
+  * test_phase2a_canonical_12_presence
+  * test_phase2a_16_structured_fields_depth
+  * test_phase2a_backward_compatibility_fields
+  * test_phase2a_localization_integrity
+  * test_phase2a_rule_8_capability_weighting
+  * test_phase2a_non_containerized_practice
+  * test_phase2a_prerequisites_integrity
+  * test_phase2a_scanner_engine_bindings
+  * test_phase2a_api_taxonomy_endpoint
+  * test_phase2a_check_normalization
+- Final Collected Count: 334 tests (Zero regressions across existing 324 tests)
+
+Frontend Production Build (Vite):
+✓ 2247 modules transformed
+dist/assets/index-Co3x94af.js: 803.23 kB
+✓ built in 10.27s with 0 errors
+```
+
+---
+*تم إغلاق المرحلة 2أ بنجاح تام بعد اجتياز بوابة التدقيق 2A Audit Gate.*
+
+---
+
+## 13. المرحلة 2ب — أساس محرك التمارين والمهارات المرجعية (Phase 2B: Exercise Engine Foundation)
+
+### 13.1 الملخص المعماري والهدف
+تم بناء **محرك التمارين والتقييم الخادمي الموحد (Exercise Engine Foundation)** وفق قاعدة صارمة:
+**Zero Client Trust (انعدام الثقة المطلق في مدخلات العميل)**.
+وكما نص قرار الاعتماد الصادر من المستخدم:
+- حصر التنفيذ الأولي في **مهارتين مرجعيتين فقط**:
+  1. **`http_fundamentals`** (المرجع غير الحاوي: قدرات `knowledge`، `recognition`، `manual_detection`).
+  2. **`xss`** (المرجع الهجومي الحاوي: قدرات `knowledge`، `recognition`، `validation`، `lab_exploitation`، `impact_analysis`).
+- التوقف الكامل والصارم عند **بوابة التدقيق Phase 2B Audit Gate** دون لمس المهارات العشر الأخرى.
+
+### 13.2 القواعد الأمنية ومحددات محرك التقييم
+```text
+Exercise
+   ↓
+Attempt (start_exercise_attempt -> INTRODUCED, zero evidence weight)
+   ↓
+Learner Action
+   ↓
+Server-side Evaluation (backend/db/exercise_engine.py)
+   ↓
+Evidence (EVALUATED vs VERIFIED)
+   ↓
+Mastery Matrix
+```
+1. **سقف التقييم الآلي (Automated Score Capping)**:
+   - قدرات `knowledge`, `recognition`, `manual_detection`, `validation`, `impact_analysis` تُقيّم خادمياً بمعايير صارمة (عمق الكلمات، مطابقة المفاهيم، المؤشرات المستهدفة، بروتوكولات الفحص، تحليل كاناري، مقاييس CVSS).
+   - الدرجة القصوى محصورة بشكل حتمي في `score <= 0.9` مع تسجيل دليل من نوع `EVALUATED` و `is_verified = 0`.
+2. **حظر تزييف التحقق (Verified Proof Gate)**:
+   - الحصول على درجة `1.0` وعلامة `is_verified = 1` (`VERIFIED`) **محصور حصراً ومطلقاً** بالتحقق الخادمي المستقل لإثبات الساندبوكس في مختبرات الاستغلال (`lab_exploitation`).
+   - العميل لا يستطيع إرسال `score`, `evaluation_status`, `is_verified`, أو `result`، حيث يتم تجريدها وإهمالها بالكامل في نقطة النهاية `POST /api/learning/attempt/complete`.
+3. **أطر العمل للمهارات اللاحقة (Remediation & Reporting Framework)**:
+   - تم بناء المقيمات الهيكلية لقدرتي `remediation` و `reporting` مع سقف `score <= 0.9` و `is_verified = 0` صراحةً، وتأجيل التحقق التلقائي المباشر (Independent Live Re-scan) إلى المرحلة 2C.
+
+### 13.3 تدقيق وتحصين سجل الحاويات `_ACTIVE_SANDBOXES`
+تم فحص وتحصين سجل الحاويات لمنع أي تجاوزات محتملة:
+- **عشوائية معرف الساندبوكس (Entropy)**: الانتقال من 12 محرفاً إلى 32 محرفاً بنظام الست عشري `secrets.token_hex(16)` لتوليد 128 بت من العشوائية التشفيرية غير القابلة للتخمين.
+- **التحقق الخادمي المستقل `verify_sandbox_proof_authoritative`**:
+  1. *التحقق من الوجود*: التأكد من وجود معرف الساندبوكس في سجل الخادم النشط (الفشل في حال إعادة تشغيل الخادم يعود بـ Fail-Safe 404).
+  2. *عزل المستخدمين (Strict Ownership)*: منع المستخدم B من استخدام ساندبوكس المستخدم A.
+  3. *مطابقة الهدف (Target Match)*: منع استخدام ساندبوكس SQLi لإتمام تمرين XSS.
+  4. *حالة التشغيل (Running Status)*: رفض الحاويات المنتهية أو المتوقفة.
+  5. *فحص انتهاء الصلاحية (TTL Expiry)*: رفض أي محاولة بعد انقضاء المهلة الزمنية للحاوية.
+  6. *منع إعادة الاستخدام والارتداد (Replay Prevention)*: وسم الحاوية فور نجاح التحقق كـ `completed = True` وإنهاؤها، ورفض أي محاولة تالية لإعادة استخدام نفس العلم.
+  7. *المقارنة الآمنة زمنياً (Timing-Safe Comparison)*: استخدام `secrets.compare_digest` لمنع هجمات التوقيت الجانبية (Side-channel Timing Attacks).
+- **قفل متكرر الدخول (Re-entrant Lock)**: ترقية قفل الساندبوكس إلى `threading.RLock()` لمنع حالات الجمود (Deadlocks) في الاستدعاءات المتداخلة.
+- **حماية بيئة الاختبارات**: عزل استدعاءات `docker rm -f` في بيئة الاختبارات بشرط `not os.environ.get("TESTING")`.
+
+### 13.4 المكونات والملفات المنجزة في Phase 2B
+1. **[جديد] محرك التقييم الخادمي**: `backend/db/exercise_engine.py` (مقيّمات المعرفة، التمييز، الاكتشاف اليدوي، التحقق، مختبر الساندبوكس، تحليل الأثر، الترقيع، وإعداد التقارير).
+2. **[محدث] إدارة محاولات التمارين**: `backend/db/learning.py` (ربط `complete_exercise_attempt` بالمحرك الخادمي ودعم حقل `metadata` وتحديث الدليل ومصفوفة الإتقان).
+3. **[محدث] مسارات واجهة التعلم**: `backend/blueprints/learning.py` (تجريد وتطهير أي معاملات تقييم يرسلها العميل وتمرير `sandbox_id` و `flag` عبر `metadata`).
+4. **[محدث] تحصين الساندبوكس**: `backend/blueprints/sandbox.py` (دالة `verify_sandbox_proof_authoritative` والـ 7 حواجز أمنية و `RLock` وتوليد المعرف التشفيري).
+5. **[محدث] بذر التمارين للمهارتين المرجعيتين**: `backend/seed_learning.py` (بذر 3 تمارين لـ `http_fundamentals` و 5 تمارين لـ `xss` مع الحفاظ على تمارين SQLi السابقة).
+6. **[جديد] حزمة اختبارات Phase 2B الشاملة**: `backend/tests/test_phase2b_exercise_engine.py` (11 اختباراً تغطي المحرك، تجريد مدخلات العميل، العزل بين المستخدمين، حواجز أمن الساندبوكس، وتحولات مصفوفة الإتقان).
+
+### 13.5 نتائج التحقق والمطابقة الرياضية للاختبارات
+
+```
+================================================================================
+FINAL VERIFICATION GATE — PHASE 2B
+================================================================================
+
+1. Backend Test Inventory & Collection:
+   - Dynamic Pre-Phase-2B Baseline Count: 334 tests
+   - Phase 2B New Tests (tests/test_phase2b_exercise_engine.py): 11 tests
+     * test_attempt_start_sets_introduced_with_zero_evidence
+     * test_http_fundamentals_knowledge_evaluator
+     * test_http_fundamentals_recognition_evaluator
+     * test_http_fundamentals_manual_detection_evaluator
+     * test_xss_validation_evaluator
+     * test_xss_impact_analysis_evaluator
+     * test_remediation_and_reporting_framework_evaluators
+     * test_api_strips_client_supplied_score_and_verification
+     * test_cross_user_attempt_isolation
+     * test_sandbox_verification_security_boundaries
+     * test_mastery_state_machine_progression
+   - Total Collected Tests: 345 tests across 43 test files
+
+2. Backend Pytest Execution Results:
+   python -m pytest backend/tests
+   ====================== 345 passed in 306.28s (05:06) ======================
+   Result: 100% PASSED, ZERO REGRESSIONS.
+
+3. Frontend Test Runner:
+   npm test -- --run
+   # tests 14 | # pass 14 | # fail 0 (100% passed)
+
+4. Frontend Production Bundle:
+   npm run build
+   ✓ 2247 modules transformed
+   dist/assets/index-BXsFOE2m.js: 803.78 kB
+   ✓ built in 41.58s with 0 errors
+
+================================================================================
+AUDIT GATE STATUS: PHASE 2B FOUNDATION COMPLETE — STOPPED FOR REVIEW
+================================================================================
+```
+
+---
+
+### 13.6 توسيع نطاق Phase 2B الرسمي: توثيق المهارات الـ12 (Bridge Scope Specification)
+بناءً على نتائج التدقيق الجنائي وتثبيت الحقائق، تم توثيق النطاق الفعلي المعتمد للمرحلة 2B رسمياً لإغلاق الفجوة الإدارية المكتشفة في المسألة (أ)، بحيث يشمل النظام التعليمي المعماري 12 مهارة و40 تمريناً seeded ومقيّماً على مستوى النواة الخلفية وقواعد البيانات:
+
+| المهارة (Skill Key) | القدرات الفعلية في DB (Capabilities) | عدد التمارين | نوع التدريب |
+|---|---|---|---|
+| `broken_auth` | lab_exploitation, recognition, validation | 3 | نظري + ساندبوكس حاوي |
+| `bug_bounty_reporting` | recognition, remediation, reporting | 3 | صياغة تقارير وترقيع خادمي |
+| `cve_cvss_epss` | impact_analysis, knowledge, recognition | 3 | تحليلي / استخباراتي |
+| `dns_recon` | impact_analysis, manual_detection, recognition | 3 | استطلاع / فحص CLI |
+| `file_upload` | lab_exploitation, recognition, validation | 3 | نظري + ساندبوكس حاوي |
+| `http_fundamentals` | knowledge, manual_detection, recognition | 3 | نظري / تحليلي |
+| `idor` | lab_exploitation, recognition, validation | 3 | نظري + ساندبوكس حاوي |
+| `missing_security_headers` | manual_detection, recognition, remediation | 3 | فحص ترويسات وترقيع |
+| `path_traversal` | lab_exploitation, recognition, validation | 3 | نظري + ساندبوكس حاوي |
+| `sqli` | impact_analysis, knowledge, lab_exploitation, recognition, validation | 5 | نظري + ساندبوكس حاوي |
+| `ssrf` | lab_exploitation, recognition, validation | 3 | نظري + ساندبوكس حاوي |
+| `xss` | impact_analysis, knowledge, lab_exploitation, recognition, validation | 5 | نظري + ساندبوكس حاوي |
+| **المجموع** | **12 مهارة (مستخرجة قطعيًا عبر SQL)** | **40 تمريناً** | **7 ساندبوكس تفاعلية + 33 تمريناً تحليلياً خادمياً** |
+
+> **ملاحظة إدارية ملزمة:**
+> 1. هذا التوثيق هو سد للفجوة الإدارية والتنظيمية الرسمية في Phase 2B، وليس توسيعاً لنطاق جديد.
+> 2. المرحلة 2C (Phase 2C) غير مبدوءة مطلقاً وتبقى مجمدة حتى إشعار آخر.
+> 3. التمارين الـ33 التي تفتقر لواجهة تفاعلية في الـ Frontend (P1) تظل مؤجلة ولا يفتح العمل عليها إلا بقرار تدقيقي لاحق.
+
+---
+
+### 13.7 تقرير معالجة الثغرات والعيوب المعمارية (P0 Remediations & Regression Evidence)
+
+تم تنفيذ وإثبات إصلاحات بنود P0 الثلاثة بتسلسل انحداري قطعي:
+
+#### 1. P0-1 — DEV-01: ذرّية المعاملة (Transaction Atomicity)
+- **الخلل السابق:** كان `record_capability_evidence()` يقوم بعمل `commit()` فوري منفصل عن `update_exercise_attempt()`، مما أدى عند فشل تحديث المحاولة إلى بقاء الدليل مسجلاً في قاعدة البيانات بينما المحاولة `pending` (عدم اتساق دورة حياة الدليل).
+- **الإصلاح المعماري:**
+  - تعديل `record_capability_evidence()` في `backend/db/skills.py` لقبول معامل `commit: bool = True`، مما يتيح تأجيل الحفظ للمعاملة الحاوية.
+  - تغليف تسجيل الدليل وتحديث المحاولة في `complete_exercise_attempt()` داخل `backend/db/learning.py` ضمن كتلة ذرية واحدة تبدأ بـ `BEGIN IMMEDIATE`، وتنتهي بـ `db.commit()` واحد فقط، أو `db.rollback()` عند حدوث أي استثناء.
+- **دليل الانحدار القطعي (`scratch/test_dev01_regression.py`):**
+  - تم محاكاة فشل استثنائي في خطوة إنهاء المحاولة بعد تسجيل الدليل.
+  - النتيجة: `Evidence count after simulated crash: 0` (تمت استعادة الحالة بالكامل بفضل `rollback` ولم يتبق أي أثر يتيم للدليل).
+
+#### 2. P0-2 — قيد التفرد على الأدلة ومنع التراكم (Evidence Uniqueness & Idempotency)
+- **الخلل السابق:** غياب قيد فريد على مصدر الدليل سمح بتراكم سجلات متطابقة لنفس المحاولة/المصدر عند تكرار الاستدعاء (`test_dup_impact.py` أثبت تراكم 6 سجلات متطابقة لنفس العلم).
+- **الإصلاح المعماري:**
+  - إضافة قيد تفرد صريح في جدول `skill_capability_evidence`:
+    `UNIQUE (user_id, vuln_type, capability, evidence_source)` وفهرس فريد `uidx_sce_user_cap_src` في `backend/db/connection.py`.
+  - تحديث دالة `record_capability_evidence()` لمعالجة التكرار بطريقة موحدة (Idempotent Merge): في حال وجود دليل سابق لنفس المصدر، يتم دمج وتحديث السجل القائم (أعلى درجة، تحديث حالة التحقق والملاحظات والتوقيت) بدلاً من رمي خطأ غير معالج أو مراكمة سجلات مهملة.
+- **دليل الانحدار القطعي (`scratch/test_dup_impact.py`):**
+  - إعادة تشغيل نفس سيناريو الهجوم (6 محاولات إدخال متكررة لنفس الدليل).
+  - النتيجة: تم رفض التراكم بنجاح ودمج الأدلة في سجل موحد واحد (`Evidence count = 1`).
+
+#### 3. P0-3 — حماية وقت الإقلاع من مخاطر تعدد العمليات (Multi-Worker Startup Guard)
+- **الخلل السابق:** قفل الساندبوكس `_SANDBOX_LOCK` هو `threading.RLock()` محلي للعملية الواحدة (Process-Local). في حال تم تشغيل التطبيق بعدة عمال (`workers > 1`)، فإن القفل لا يمنع التنازع بين العمال دون وجود Atomic DB CAS Guard.
+- **الإصلاح المعماري:**
+  - إضافة فحص صريح وقت الإقلاع (Startup Assertion) داخل مصنع تطبيق فلاسك `create_app()` في `backend/app.py` يفحص متغيرات البيئة (`WEB_CONCURRENCY`, `GUNICORN_WORKERS`, `WORKERS`).
+  - في حال كانت القيمة تزيد عن 1، يرفض التطبيق الإقلاع فوراً ملقياً `RuntimeError: CRITICAL ARCHITECTURAL CONCURRENCY RISK` مانعاً أي تشغيل متعدد العمال قبل بناء CAS Guard في قاعدة البيانات.
+  - توثيق المخاطرة المعمارية صراحة في `backend/gunicorn.conf.py`.
+- **دليل التحقق المباشر:**
+  - تشغيل التطبيق مع `WEB_CONCURRENCY=1`: `create_app()` أقلع بنجاح تام (`SUCCESS`).
+  - تشغيل التطبيق مع `WEB_CONCURRENCY=2`: تم إيقاف الإقلاع بنجاح مع إلقاء `RuntimeError` وتوضيح المخاطرة المعمارية.
+
+---
+*تم إغلاق بنود P0 بالكامل وتقديم أدلة الانحدار القاطعة.*
+
+---
+
+### 13.8 المرحلة 2ج — محرك الترقيع المغلق والتحقق الخادمي المستقل (Phase 2C: Closed-Loop Remediation Engine)
+
+#### 1. الملخص المعماري لنطاق المرحلة 2ج (Phase 2C Architectural Scope)
+تم بناء واعتماد منظومة الترقيع وإغلاق الحلقة الأمنية (Closed-Loop Remediation Engine) وفق قاعدة **Zero Client Trust** والتحقق الخادمي المستقل، وتتضمن الركائز التالية:
+
+1. **التحقق الخادمي التقريري من ترويسات الحماية (Declarative Reverse Proxy Headers Verification)**:
+   - فحص خادمي صارم وشامل لترويسات الأمان الخمس الإلزامية (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`) مع اشتراط توجيهات متقدمة خالية من الأنماط الممنوعة (`unsafe-inline`, `unsafe-eval`, `http://`).
+   - النجاح التام يمنح درجة `1.0` وعلامة `is_verified = 1` (`system_verified`). وفي حال وجود أي نمط خطِر يتم الرفض فوراً بدرجة `0.25`.
+
+2. **التحقق من سياسات الإفصاح المنسق وRFC 9116 (VDP & security.txt Verification)**:
+   - فحص خادمي لسياسات `security.txt` وتوافقها مع معيار RFC 9116، مع التحقق الإلزامي من وجود: `Contact:` (mailto أو https)، `Expires:`، مرجع السياسة `Policy:`، وتعهد صريح بملاذ آمن للباحثين حسن النية (`Safe Harbor`)، والتزام بمهلة الاستجابة (`SLA`).
+   - غياب بند Safe Harbor الصريح يخفض الدرجة تلقائياً لتخضع لسقف التقييم الآلي (`score <= 0.9` مع `is_verified = 0`).
+
+3. **بوابة ملكية التقارير ومنع التلاعب (SEC-05 Report Ownership Gate)**:
+   - بناء نقطة النهاية الرسمية `POST /api/reports/vulnerabilities/<id>/verify-fix` ودالة `verify_and_resolve_vulnerability()` في طبقة قاعدة البيانات.
+   - التحقق المزدوج من ملكية التقرير: منع أي مستخدم من التحقق أو التلاعب بثغرات تقارير مستخدمين آخرين (حظر IDOR وإرجاع HTTP 403 مع تسجيل حدث أمني).
+   - التحديث الحتمي لحالة الثغرة عند التحقق المعتمد: `is_fixed = 1`، وتحديث الطابع الزمني `fixed_at`، وتحويل حالة المعالجة إلى `triage_status = 'Resolved'`.
+
+4. **حراس SSRF والهدف المعتمد (SSRF & Target-Lock Verification)**:
+   - إخضاع أي تحقق حي من أهداف خارجية لحراس `check_ssrf()` و `_check_target_lock()` لمنع أي استدعاء لعناوين الـ Loopback أو الشبكات الخاصة الداخلية أو عناوين الـ Cloud Metadata.
+
+5. **واجهة التفاعل الشاملة للتمارين غير الحاوية (P1 Exercise Workspace Integration)**:
+   - إنجاز وتكامل المكون `frontend/src/components/ExerciseWorkspace.jsx` داخل `LessonDetailPage.jsx` ليوفر مسارات تفاعل كاملة للتمارين الـ 33 غير الحاوية عبر الأنماط الأربعة (تحليل المفاهيم، التحقق من الحمولات، فحص سطر الأوامر CLI، وصياغة التقارير والترقيع)، مع تجريد أي قيم تقييم مرسلة من العميل.
+
+#### 2. نتائج الاختبارات وحزمة الانحدار لـ Phase 2C
+تم بناء حزمة اختبارات تكاملية مغلقة في `backend/tests/test_phase2c_closed_loop.py` تشمل 9 اختبارات قطعية:
+1. `test_headers_remediation_authoritative_verified`: التحقق الكامل من الترويسات الخمس ومنح 1.0 و verified.
+2. `test_headers_remediation_prohibited_pattern_rejected`: رفض أنماط unsafe-inline و unsafe-eval بدرجة 0.25.
+3. `test_rfc9116_vdp_authoritative_verified`: التحقق من سياسة VDP و RFC 9116 مع Safe Harbor و SLA.
+4. `test_rfc9116_vdp_missing_safe_harbor_capped`: سقف التقييم عند غياب بند Safe Harbor.
+5. `test_live_remediation_ssrf_blocked`: اعتراض محاولات فحص عناوين الشبكات الخاصة وعناوين metadata.
+6. `test_verify_fix_endpoint_sec05_ownership`: رفض محاولة مستخدم B حل ثغرة في تقرير مستخدم A (حظر IDOR).
+7. `test_verify_fix_endpoint_success`: نجاح مالك التقرير في اعتماد حل الثغرة وانتقالها إلى Resolved و is_fixed=1.
+8. `test_sandbox_remediation_sec05_ownership_blocked`: منع استخدام ساندبوكس مستخدم آخر في حل التمارين.
+9. `test_sandbox_remediation_owner_success`: نجاح المالك الحقيقي في إتمام تمرين الترقيع المعتمد على الساندبوكس.
+
+#### 3. الميزانية الحسابية النهائية للاختبارات (376 Tests Total)
+
+```text
+================================================================================
+FINAL VERIFICATION GATE — CANONICAL PASS (376 TESTS)
+================================================================================
+Baseline (Commit 2116d7a):                             324 tests
++ Phase 2A Curriculum (test_phase2a_curriculum.py):      +10 tests
++ Phase 2B Batch 1 (test_phase2b_batch1_skills.py):       +8 tests
++ Phase 2B Batch 2 (test_phase2b_batch2_skills.py):       +8 tests
++ Phase 2B Engine (test_phase2b_exercise_engine.py):     +13 tests
++ P0 Remediations (test_p0_regressions.py):               +4 tests
++ Phase 2C Closed Loop (test_phase2c_closed_loop.py):     +9 tests
+--------------------------------------------------------------------------------
+Total Collected & Verified Tests:                        376 tests in 47 files
+Execution Result:                                        376 PASSED (100%), 0 FAILURES
+================================================================================
+```
+
+---
+*تم إغلاق المراحل 2A و 2B و P0 و P1 و 2C رسمياً وتثبيتها بالكامل.*

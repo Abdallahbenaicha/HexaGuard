@@ -397,11 +397,32 @@ _SCHEMA_SQLITE = """
         score           REAL,
         notes           TEXT,
         created_at      TEXT NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (user_id, vuln_type, capability, evidence_source)
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS uidx_sce_user_cap_src ON skill_capability_evidence (user_id, vuln_type, capability, evidence_source);
     CREATE INDEX IF NOT EXISTS idx_sce_user_vuln ON skill_capability_evidence (user_id, vuln_type);
     CREATE INDEX IF NOT EXISTS idx_sce_user_cap  ON skill_capability_evidence (user_id, vuln_type, capability);
     CREATE INDEX IF NOT EXISTS idx_sce_verified  ON skill_capability_evidence (user_id, is_verified);
+
+    CREATE TABLE IF NOT EXISTS active_sandboxes (
+        id               TEXT    PRIMARY KEY,
+        user_id          INTEGER NOT NULL,
+        vuln_type        TEXT    NOT NULL,
+        name             TEXT,
+        image            TEXT,
+        host_port        INTEGER,
+        container_id     TEXT,
+        status           TEXT    NOT NULL DEFAULT 'running',
+        completed        INTEGER NOT NULL DEFAULT 0,
+        flag_hash        TEXT    NOT NULL,
+        started_at       TEXT    NOT NULL,
+        expires_at       REAL    NOT NULL,
+        timeout_seconds  INTEGER NOT NULL,
+        created_at       TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_active_sandboxes_user ON active_sandboxes (user_id, status);
 """
 
 _SCHEMA_MYSQL = """
@@ -641,11 +662,31 @@ _SCHEMA_MYSQL = """
         score           FLOAT,
         notes           TEXT,
         created_at      VARCHAR(50)  NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY uidx_sce_user_cap_src (user_id, vuln_type, capability, evidence_source)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     CREATE INDEX IF NOT EXISTS idx_sce_user_vuln ON skill_capability_evidence (user_id, vuln_type);
     CREATE INDEX IF NOT EXISTS idx_sce_user_cap  ON skill_capability_evidence (user_id, vuln_type, capability);
     CREATE INDEX IF NOT EXISTS idx_sce_verified  ON skill_capability_evidence (user_id, is_verified);
+
+    CREATE TABLE IF NOT EXISTS active_sandboxes (
+        id               VARCHAR(64)  PRIMARY KEY,
+        user_id          INT          NOT NULL,
+        vuln_type        VARCHAR(100) NOT NULL,
+        name             VARCHAR(255),
+        image            VARCHAR(255),
+        host_port        INT,
+        container_id     VARCHAR(64),
+        status           VARCHAR(50)  NOT NULL DEFAULT 'running',
+        completed        TINYINT(1)   NOT NULL DEFAULT 0,
+        flag_hash        VARCHAR(128) NOT NULL,
+        started_at       VARCHAR(50)  NOT NULL,
+        expires_at       DOUBLE       NOT NULL,
+        timeout_seconds  INT          NOT NULL,
+        created_at       VARCHAR(50)  NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_active_sandboxes_user ON active_sandboxes (user_id, status);
 """
 
 

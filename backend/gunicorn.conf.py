@@ -14,6 +14,17 @@ workers     = 1
 worker_class = "gthread"
 threads     = 4          # async I/O for concurrent scan + AI requests
 
+# ── P0-3: Multi-Worker Concurrency Guard ──────────────────────────────────────
+# ARCHITECTURAL WARNING: SecuraX sandbox verification relies on process-local `threading.RLock()`.
+# Running with `workers > 1` without an Atomic DB CAS Guard permits cross-worker race conditions
+# on challenge completion and evidence recording. Keep workers=1 until CAS Guard is implemented.
+if workers > 1:
+    raise RuntimeError(
+        f"CRITICAL ARCHITECTURAL CONCURRENCY RISK: workers={workers} configured in gunicorn.conf.py. "
+        "Sandbox verification relies on in-process threading.RLock(). Multi-worker operation requires "
+        "an Atomic DB CAS Guard. Set workers=1."
+    )
+
 # Timeouts — tuned to longest scanner execution (DAST Nikto proc limit 390s + 30s margin = 420s)
 timeout     = 420        # 7 min limit per request (reduced from 600s to mitigate connection exhaustion)
 keepalive   = 5

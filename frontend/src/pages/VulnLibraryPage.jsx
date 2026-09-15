@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   BookOpen, Search, Shield, Filter, X, ShieldAlert,
@@ -34,6 +34,7 @@ const DIFFICULTY_META = {
 
 export default function VulnLibraryPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const searchRef = useRef(null);
 
   const [taxonomyData, setTaxonomyData] = useState({ offensive: [], incidents: [], stats: {} });
@@ -48,6 +49,26 @@ export default function VulnLibraryPage() {
   const [selectedMastery, setSelectedMastery] = useState('all');
   const [sandboxOnly, setSandboxOnly] = useState(false);
 
+  // Read URL query params (e.g. /learn/vulnerabilities?type=xss or ?scanner=dast)
+  useEffect(() => {
+    const typeParam = searchParams.get('type') || searchParams.get('vuln_type');
+    const searchParam = searchParams.get('search') || searchParams.get('q');
+    const scannerParam = searchParams.get('scanner');
+    const difficultyParam = searchParams.get('difficulty');
+
+    if (typeParam) {
+      setSearchQuery(typeParam);
+    } else if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+    if (scannerParam && SCANNER_META[scannerParam]) {
+      setSelectedScanner(scannerParam);
+    }
+    if (difficultyParam && DIFFICULTY_META[difficultyParam]) {
+      setSelectedDifficulty(difficultyParam);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -59,10 +80,19 @@ export default function VulnLibraryPage() {
         ]);
 
         if (taxRes.data?.ok) {
+          const rawVulns = taxRes.data.vulns || taxRes.data.offensive || {};
+          const rawIncidents = taxRes.data.incidents || {};
+
+          const offensiveList = Array.isArray(rawVulns) ? rawVulns : Object.values(rawVulns);
+          const incidentList = Array.isArray(rawIncidents) ? rawIncidents : Object.values(rawIncidents);
+
           setTaxonomyData({
-            offensive: taxRes.data.offensive || [],
-            incidents: taxRes.data.incidents || [],
-            stats: taxRes.data.stats || {}
+            offensive: offensiveList,
+            incidents: incidentList,
+            stats: taxRes.data.stats || {
+              total_vulns: taxRes.data.total_vulns || offensiveList.length,
+              total_incidents: taxRes.data.total_incidents || incidentList.length,
+            }
           });
         } else {
           setError('Failed to load curriculum taxonomy.');
@@ -91,8 +121,9 @@ export default function VulnLibraryPage() {
     const offensiveItems = (taxonomyData.offensive || []).map(item => ({
       ...item,
       track: item.scanner,
-      trackLabel: SCANNER_META[item.scanner]?.label || item.scanner.toUpperCase(),
+      trackLabel: SCANNER_META[item.scanner]?.label || item.scanner?.toUpperCase() || 'GENERAL',
       trackType: 'offensive',
+      has_sandbox: Boolean(item.has_sandbox || item.lesson?.level_3_practice?.sandbox_target),
     }));
 
     const incidentItems = (taxonomyData.incidents || []).map(item => ({
@@ -100,6 +131,7 @@ export default function VulnLibraryPage() {
       track: 'incident',
       trackLabel: 'Incident Response',
       trackType: 'incident',
+      has_sandbox: Boolean(item.has_sandbox || item.lesson?.level_3_practice?.sandbox_target),
     }));
 
     return [...offensiveItems, ...incidentItems];

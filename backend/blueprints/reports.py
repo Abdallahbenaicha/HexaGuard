@@ -40,6 +40,7 @@ from database import (
     set_subscription,
     store_report,
     update_vulnerability_triage,
+    verify_and_resolve_vulnerability,
     get_shadow_tasks_for_report,
     complete_shadow_task,
     get_user_shadow_backlog,
@@ -1254,6 +1255,47 @@ def api_update_vulnerability_triage(vuln_id: int):
     except Exception as exc:
         logger.error("Failed to update triage status for vuln %s: %s", vuln_id, exc)
         return jsonify({"error": str(exc)}), 500
+
+
+@reports_bp.route("/api/reports/vulnerabilities/<int:vuln_id>/verify-fix", methods=["POST"])
+@login_required
+@limiter.limit("30/minute")
+def api_verify_vulnerability_fix(vuln_id: int):
+    """Authoritatively verify and mark a vulnerability finding as fixed (SEC-05 Report Ownership Gate)."""
+    is_admin = getattr(current_user, "role", "") == "admin"
+    user_id = getattr(current_user, "id", 0)
+    data = request.get_json(silent=True) or {}
+    notes = data.get("notes", "")
+
+    ok, msg, result_data = verify_and_resolve_vulnerability(
+        vuln_id=vuln_id,
+        user_id=user_id,
+        is_admin=is_admin,
+        notes=notes,
+    )
+    if not ok:
+        if "SEC-05" in msg or "ownership" in msg.lower():
+            log_event(
+                "idor_blocked", current_user.username, current_user.id,
+                category="security", resource=f"vuln_{vuln_id}", status="denied",
+                details=f"SEC-05 violation: attempted to verify-fix vulnerability {vuln_id} on unowned report",
+            )
+            return jsonify({
+                "error": "Access denied: you do not own the parent scan report for this vulnerability.",
+                "code": "IDOR_BLOCKED",
+            }), 403
+        return jsonify({"error": msg}), 404
+
+    log_event(
+        "vulnerability_fix_verified", current_user.username, current_user.id,
+        category="security", resource=f"vuln_{vuln_id}", status="success",
+        details=json.dumps({"vuln_id": vuln_id, "status": "Resolved", "is_fixed": 1}),
+    )
+    return jsonify({
+        "ok": True,
+        "message": msg,
+        "vulnerability": result_data,
+    })
 
 
 @reports_bp.route("/api/reports/<token>/consent-pdf")

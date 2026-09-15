@@ -366,6 +366,7 @@ def record_capability_evidence(
     is_verified: int = 0,
     score: Optional[float] = None,
     notes: Optional[str] = None,
+    commit: bool = True,
 ) -> dict[str, Any]:
     """Record capability evidence for a user and vulnerability type.
 
@@ -375,14 +376,36 @@ def record_capability_evidence(
     db = _get_db()
     now = _utcnow_iso()
     v_flag = 1 if is_verified else 0
-    cur = db.execute(
-        "INSERT INTO skill_capability_evidence "
-        "(user_id, vuln_type, capability, evidence_type, evidence_source, source_id, is_verified, score, notes, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (user_id, vuln_type, capability, evidence_type, evidence_source, source_id, v_flag, score, notes, now),
-    )
-    db.commit()
-    ev_id = getattr(cur, "lastrowid", None)
+    try:
+        cur = db.execute(
+            "INSERT INTO skill_capability_evidence "
+            "(user_id, vuln_type, capability, evidence_type, evidence_source, source_id, is_verified, score, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, vuln_type, capability, evidence_type, evidence_source, source_id, v_flag, score, notes, now),
+        )
+        ev_id = getattr(cur, "lastrowid", None)
+    except Exception as exc:
+        exc_str = str(exc).upper()
+        if "UNIQUE" in exc_str or "INTEGRITY" in exc_str or "DUPLICATE" in exc_str:
+            # P0-2: Duplicate Evidence Defense — merge with existing record instead of accumulating duplicates
+            db.execute(
+                "UPDATE skill_capability_evidence "
+                "SET is_verified = CASE WHEN is_verified > ? THEN is_verified ELSE ? END, "
+                "score = CASE WHEN COALESCE(score, 0) > COALESCE(?, 0) THEN score ELSE ? END, "
+                "notes = ?, created_at = ? "
+                "WHERE user_id = ? AND vuln_type = ? AND capability = ? AND evidence_source = ?",
+                (v_flag, v_flag, score, score, notes, now, user_id, vuln_type, capability, evidence_source),
+            )
+            row = db.execute(
+                "SELECT id FROM skill_capability_evidence WHERE user_id = ? AND vuln_type = ? AND capability = ? AND evidence_source = ?",
+                (user_id, vuln_type, capability, evidence_source),
+            ).fetchone()
+            ev_id = row["id"] if row else None
+        else:
+            raise exc
+
+    if commit:
+        db.commit()
     return {
         "id": ev_id,
         "user_id": user_id,

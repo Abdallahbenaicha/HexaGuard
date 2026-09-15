@@ -90,9 +90,9 @@ def api_start_attempt():
 def api_complete_attempt():
     """Complete an exercise attempt with backend-only evaluation.
 
-    CRITICAL (Rule D / D-07):
-    Client submits attempt_id and submission_text only.
-    Any client-supplied score, evaluation_status, or is_verified fields are ignored.
+    CRITICAL (Rule D / D-07 / Anti-Cheat Invariants):
+    Client submits attempt_id, submission_text, and optional metadata only.
+    Any client-supplied score, evaluation_status, is_verified, or result fields are strictly stripped/ignored.
     """
     data = request.get_json(silent=True) or {}
     attempt_id = data.get("attempt_id")
@@ -101,11 +101,26 @@ def api_complete_attempt():
 
     submission_text = str(data.get("submission_text", "")).strip()
 
+    # Extract clean metadata (sandbox_id, flag) if present, strictly ignoring any client score claims
+    metadata: dict[str, Any] = {}
+    if isinstance(data.get("metadata"), dict):
+        raw_meta = data["metadata"]
+        if "sandbox_id" in raw_meta:
+            metadata["sandbox_id"] = str(raw_meta["sandbox_id"]).strip()
+        if "flag" in raw_meta:
+            metadata["flag"] = str(raw_meta["flag"]).strip()
+    # Support top-level sandbox_id or flag if submitted directly
+    if "sandbox_id" in data and "sandbox_id" not in metadata:
+        metadata["sandbox_id"] = str(data["sandbox_id"]).strip()
+    if "flag" in data and "flag" not in metadata:
+        metadata["flag"] = str(data["flag"]).strip()
+
     try:
         res = complete_exercise_attempt(
             attempt_id=int(attempt_id),
             user_id=current_user.id,
             submission_text=submission_text,
+            metadata=metadata if metadata else None,
         )
         return jsonify(res), 200
     except PermissionError:

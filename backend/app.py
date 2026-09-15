@@ -42,6 +42,33 @@ def create_app() -> Flask:
             "  SECRET_KEY=your-very-long-random-secret-key"
         )
 
+    # ── P0-3: Multi-Worker Concurrency Guard & Startup Assertion ──────────────
+    # ARCHITECTURAL CONCURRENCY RISK:
+    # SecuraX sandbox verification currently relies on process-local `threading.RLock()` in
+    # `backend/blueprints/sandbox.py`. SQLite currently executes:
+    #   UPDATE active_sandboxes SET status = ?, completed = ? WHERE id = ?
+    # which lacks an atomic Compare-And-Swap condition (`WHERE id = ? AND completed = 0`).
+    # Running multiple worker processes (workers > 1) without an Atomic DB CAS Guard creates
+    # a cross-process race condition vulnerability where concurrent requests to different
+    # workers can achieve double-completion of the same sandbox challenge.
+    # Therefore, the platform strictly mandates workers=1 (single-process + multi-threaded I/O)
+    # until an Atomic DB CAS Guard is implemented.
+    for _w_var in ("WEB_CONCURRENCY", "GUNICORN_WORKERS", "WORKERS"):
+        _val = os.environ.get(_w_var)
+        if _val:
+            try:
+                _w_count = int(_val.strip())
+                if _w_count > 1:
+                    raise RuntimeError(
+                        f"CRITICAL ARCHITECTURAL CONCURRENCY RISK: {_w_var}={_w_count}. "
+                        "SecuraX sandbox verification relies on in-process threading.RLock(). "
+                        "Running with multiple worker processes (workers > 1) without an Atomic DB CAS Guard "
+                        "permits cross-process race conditions on sandbox verification. "
+                        f"Enforce workers=1 (or unset {_w_var}) until Atomic DB CAS Guard is deployed."
+                    )
+            except ValueError:
+                pass
+
     app.config.update(
         SECRET_KEY=SECRET_KEY,
         WTF_CSRF_ENABLED=True,
