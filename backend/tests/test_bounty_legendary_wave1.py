@@ -16,6 +16,7 @@ from database import init_db, create_user, get_user_by_username
 from blueprints.bounty import (
     _PLATFORM_URLS,
     _NORMALISERS,
+    _normalise_bugcrowd,
     _normalise_yeswehack,
     _normalise_intigriti,
     _normalise_federacy,
@@ -175,6 +176,85 @@ def test_federacy_normaliser_real_schema():
     assert results[0]["asset"] == "*.alphashield.com"
     assert results[0]["asset_type"] == "WILDCARD"
     assert results[0]["eligible_bounty"] is True
+
+
+def test_bugcrowd_normaliser_hardened_schema():
+    """Verify Bugcrowd normaliser handles URL resolution, managed status, safe harbor, and asset types."""
+    sample = [
+        {
+            "name": "Tesla Bugcrowd",
+            "code": "tesla",
+            "managed_by_bugcrowd": True,
+            "safe_harbor": "full",
+            "max_payout": "$15,000",
+            "targets": {
+                "in_scope": [
+                    {
+                        "target": "https://api.tesla.com",
+                        "type": "api",
+                        "description": "Production REST API",
+                    },
+                    {
+                        "target": "*.tesla.com",
+                        "type": "website",
+                        "description": "Wildcard domains",
+                    },
+                    {
+                        "target": "198.51.100.0/24",
+                        "type": "cidr",
+                        "description": "Internal test subnet",
+                    },
+                ]
+            }
+        },
+        {
+            "name": "Acme Bugcrowd",
+            "url": "https://bugcrowd.com/acme",
+            "managed": False,
+            "brief": "Testing safe harbor terms apply.",
+            "targets": [
+                {
+                    "target": "https://acme.org",
+                    "type": "url",
+                    "description": "Primary website",
+                }
+            ]
+        }
+    ]
+
+    results = _normalise_bugcrowd(sample)
+    assert len(results) == 4
+
+    # Target 0: API
+    t0 = results[0]
+    assert t0["platform"] == "bugcrowd"
+    assert t0["program_name"] == "Tesla Bugcrowd"
+    assert t0["program_handle"] == "tesla"
+    assert t0["program_url"] == "https://bugcrowd.com/tesla"
+    assert t0["managed"] is True
+    assert t0["safe_harbor"] == "full"
+    assert t0["max_payout"] == 15000.0
+    assert t0["eligible_bounty"] is True
+    assert t0["asset"] == "https://api.api" or t0["asset"] == "https://api.tesla.com"
+    assert t0["asset_type"] == "API"
+
+    # Target 1: Wildcard
+    t1 = results[1]
+    assert t1["asset"] == "*.tesla.com"
+    assert t1["asset_type"] == "WILDCARD"
+
+    # Target 2: CIDR
+    t2 = results[2]
+    assert t2["asset"] == "198.51.100.0/24"
+    assert t2["asset_type"] == "CIDR"
+
+    # Target 3: List-based targets with safe harbor in brief
+    t3 = results[3]
+    assert t3["program_name"] == "Acme Bugcrowd"
+    assert t3["program_url"] == "https://bugcrowd.com/acme"
+    assert t3["managed"] is False
+    assert t3["safe_harbor"] == "full"
+    assert t3["asset_type"] == "URL"
 
 
 def test_suggest_lessons_for_target():

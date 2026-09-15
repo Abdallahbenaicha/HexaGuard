@@ -243,11 +243,29 @@ def _normalise_hackerone(programs: list) -> list:
 def _normalise_bugcrowd(programs: list) -> list:
     out = []
     for prog in programs:
-        if not prog.get("targets"):
+        raw_targets = prog.get("targets") if isinstance(prog.get("targets"), dict) else {}
+        in_scope = (
+            raw_targets.get("in_scope")
+            or (prog.get("targets") if isinstance(prog.get("targets"), list) else [])
+            or (prog.get("scopes", {}).get("in_scope") if isinstance(prog.get("scopes"), dict) else [])
+            or []
+        )
+        if not in_scope:
             continue
-        prog_brief  = prog.get("brief", "") or ""
-        prog_extra  = prog.get("target_groups_extra", "") or ""
+
+        prog_name = prog.get("name", "") or ""
+        prog_code = prog.get("code") or prog.get("handle") or ""
+        prog_handle = prog_code or (prog_name.lower().replace(" ", "-") if prog_name else "")
+        prog_url = (
+            prog.get("program_url")
+            or prog.get("url")
+            or (f"https://bugcrowd.com/{prog_code}" if prog_code else "")
+        )
+
+        prog_brief = prog.get("brief", "") or ""
+        prog_extra = prog.get("target_groups_extra", "") or ""
         prog_policy = (prog_brief + " " + prog_extra).strip() or None
+
         rewards = prog.get("rewards", {}) or {}
         if rewards.get("critical"):
             prog_max_sev = "critical"
@@ -255,32 +273,90 @@ def _normalise_bugcrowd(programs: list) -> list:
             prog_max_sev = "high"
         elif rewards.get("medium"):
             prog_max_sev = "medium"
+        elif rewards.get("low"):
+            prog_max_sev = "low"
         else:
             prog_max_sev = "low"
-        for scope_item in prog.get("targets", {}).get("in_scope", []):
-            asset_type = scope_item.get("type", "")
-            if asset_type.lower() not in {"website", "web application", "api", "wildcard"}:
+
+        # Max payout extraction
+        max_p = prog.get("max_payout") or prog.get("max_bounty")
+        if isinstance(max_p, dict):
+            max_p_val = max_p.get("value", 0)
+        elif isinstance(max_p, (int, float)):
+            max_p_val = max_p
+        elif isinstance(max_p, str):
+            clean_p = re.sub(r"[^\d.]", "", max_p)
+            try:
+                max_p_val = float(clean_p) if clean_p else 0
+            except ValueError:
+                max_p_val = 0
+        else:
+            max_p_val = 0
+
+        has_rewards = bool(
+            rewards.get("critical")
+            or rewards.get("high")
+            or rewards.get("medium")
+            or rewards.get("low")
+        )
+        is_managed = bool(
+            prog.get("managed_by_bugcrowd")
+            or prog.get("managed")
+            or prog.get("managed_program", False)
+        )
+
+        # Safe harbor normalization
+        sh_raw = prog.get("safe_harbor")
+        safe_harbor_str = (
+            str(sh_raw)
+            if sh_raw
+            else ("full" if "safe harbor" in (prog_policy or "").lower() else None)
+        )
+
+        for scope_item in in_scope:
+            target = scope_item.get("target") or scope_item.get("endpoint") or ""
+            if not target:
                 continue
-            scope_desc  = scope_item.get("description") or ""
-            combined    = (scope_desc + " " + (prog_policy or "")).strip() or None
-            policy      = _analyse_policy(combined)
+
+            raw_type = str(scope_item.get("type") or "").lower()
+            if raw_type and raw_type not in {
+                "website", "web application", "api", "wildcard", "url", "domain",
+                "ip-address", "ip_address", "cidr", "other"
+            } and not (target.startswith("http") or target.startswith("*.") or "." in target):
+                continue
+
+            asset_type = "URL"
+            if target.startswith("*.") or raw_type == "wildcard":
+                asset_type = "WILDCARD"
+            elif "api" in raw_type or "api" in target.lower():
+                asset_type = "API"
+            elif raw_type in ("ip-address", "ip_address") or ("/" in target and not target.startswith("http")):
+                asset_type = "CIDR" if "/" in target else "IP_ADDRESS"
+
+            scope_desc = scope_item.get("description") or ""
+            combined = (scope_desc + " " + (prog_policy or "")).strip() or None
+            policy = _analyse_policy(combined)
+
             out.append({
                 "platform":         "bugcrowd",
-                "program_name":     prog.get("name", ""),
-                "program_handle":   prog.get("name", "").lower().replace(" ", "-"),
-                "program_url":      prog.get("program_url", ""),
-                "website":          scope_item.get("target", ""),
-                "asset":            scope_item.get("target", ""),
-                "asset_type":       "URL",
+                "program_name":     prog_name,
+                "program_handle":   prog_handle,
+                "program_url":      prog_url,
+                "website":          target,
+                "asset":            target,
+                "asset_type":       asset_type,
                 "max_severity":     prog_max_sev,
-                "eligible_bounty":  bool(prog.get("max_payout")),
+                "eligible_bounty":  bool(max_p_val > 0 or has_rewards or prog.get("bounty", False)),
+                "max_payout":       max_p_val if max_p_val > 0 else None,
                 "scan_policy":      policy,
                 "auto_scan_ok":     policy["status"] == "ALLOWED",
                 "instruction":      scope_desc,
-                "managed":          False,
-                "avg_response_h":   None,
+                "managed":          is_managed,
+                "safe_harbor":      safe_harbor_str,
+                "avg_response_h":   prog.get("average_time_to_first_program_response"),
             })
     return out
+
 
 
 def _normalise_yeswehack(programs: list) -> list:
