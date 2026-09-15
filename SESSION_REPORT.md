@@ -726,3 +726,63 @@ Execution Result:                                        376 PASSED (100%), 0 FA
 
 ---
 *تم إغلاق المراحل 2A و 2B و P0 و P1 و 2C رسمياً وتثبيتها بالكامل.*
+
+---
+
+### 13.9 المساران المعتمدان: Track 2 (Bounty Radar Hardening) و Track 3 (E-03 Research Benchmark)
+
+#### 1. المسار الثاني: تحصين وصيانة رادار صيد الثغرات (Track 2: Bounty Radar Hardening)
+- **الهدف**: معالجة أوجه القصور في تطبيع بيانات منصة Bugcrowd (`_normalise_bugcrowd` في `backend/blueprints/bounty.py`) لضمان تكافؤ البيانات واستخراج الحقول بدقة ومطابقة السياسات وملاذ الأمان.
+- **التحسينات المنجزة في `backend/blueprints/bounty.py`**:
+  1. **تعدد هياكل النطاق (`targets`)**: دعم استقبال الأهداف سواء وردت كقاموس يحوي `in_scope`، أو قائمة مباشرة `list`، أو متداخلة تحت `scopes.in_scope`.
+  2. **استخراج رابط البرنامج (`program_url`)**: استخلاص الرابط بدقة عبر التدرج الذكي: `prog.get("program_url")` ثم `prog.get("url")` ثم الرابط القياسي المعتمد `https://bugcrowd.com/{prog_code}` بدلاً من إرجاع سلاسل فارغة.
+  3. **استخراج سياسة ملاذ الأمان (`safe_harbor`)**: دعم حقل `safe_harbor` الصريح أو استنتاج `full` عند النص الصريح على بنود ملاذ الأمان في سياسة البرنامج أو ملخصه.
+  4. **حالة البرامج المدارة (`managed`)**: تحويل الحقل إلى فحص بولياني ديناميكي يدعم `managed_by_bugcrowd` و `managed` و `managed_program`.
+  5. **معالجة السقف المالي للمكافأة (`max_payout`)**: استخراج القيمة العددية سواء وردت كقاموس يحوي `value`، أو رقم مباشر، أو نص مالي مشفر مثل `"$15,000"`.
+  6. **التصنيف الدلالي لنوع الأصل (`asset_type`)**: التمييز الصارم بين نطاقات البدل `WILDCARD` (`*.example.com`)، وواجهات البرمجة `API`، وشبكات `CIDR` (`x.x.x.x/yy`)، وعناوين `IP_ADDRESS`، وروابط المواقع `URL`.
+- **أدلة التحقق والاختبارات**:
+  - إضافة اختبار شامل `test_bugcrowd_normaliser_hardened_schema` إلى `backend/tests/test_bounty_legendary_wave1.py`.
+  - تشغيل الاختبارات: 9/9 اختبارات ناجحة في `test_bounty_legendary_wave1.py`.
+  - تشغيل حزمة فحص الرادار الكاملة (6 ملفات اختبار، 61 اختباراً): نجاح 61/61 بدون أي انحدار (`61 passed in 308.53s`).
+  - **Commit Git المعتمد**: `e8c92c4` (`fix(bounty): harden Bugcrowd normalizer with safe_harbor, managed, and asset typing`).
+
+---
+
+#### 2. المسار الثالث: معيار ومعايرة تناقضات الفاحصات الآلية مع المحلل البشري (Track 3: E-03 Research Benchmark)
+- **الهدف**: تفعيل ومعايرة حلقة البحث التجريبي E3 لقياس الفجوة والتناقضات بين نتائج الفاحصات الآلية وتقييم المحلل البشري (False Positives / Missed Findings / Severity Disputes) تماشياً مع معايير الأطروحة وميثاق `datasets/VERSIONING.md`.
+- **المعمارية التقنية والتكامل**:
+  1. **مستودع البيانات المعياري (`datasets/e3_human_disagreement/`)**:
+     - `ground_truth.json`: سجل تجريبي موثق يضم 47 حالة تناقض حقيقية ومصنفة للمحللين ضد محركات فحص مختلفة (`dast_zap`, `web_core`, `network_nmap`, `subdomain_amass`).
+     - `metadata.json`: بيان البيانات (Metadata) محدث آلياً مع التعداد وتوزيع الأنواع ورقم الإصدار والترخيص (CC-BY-4.0).
+  2. **محرك التسجيل الآمن والمتزامن (`backend/research_loop.py`)**:
+     - دالة `record_human_disagreement()` تحت قفل `_DATASET_LOCK` مع الكتابة الذرية للملفات المؤقتة (`.tmp` ثم استبدال ذري).
+     - توليد معرفات موحدة `e3-<timestamp>-<hex>`.
+     - تطبيع نوع الثغرة وفق التاكسونومي الموحدة `vuln_taxonomy`.
+  3. **بوابة واجهة البرمجة والحماية من الـ IDOR**:
+     - `POST /api/reports/<token>/disagreement`: تسجيل التناقض مع اشتراط تسجيل الدخول، والتحقق من وجود التقرير، وتطبيق حارس SEC-05 الصارم لمنع التلاعب بتقارير الآخرين (HTTP 403 عند تباين هوية المالك).
+     - `GET /api/research/disagreements`: استعلام إحصائي موثق يرجع الملخص التجميعي والسجلات الحديثة.
+  4. **تحصين بيئة الاختبار ضد تلويث البيانات (Test Isolation Hardening)**:
+     - تحديث إعداد اختبارات `backend/tests/test_research_loop.py` بعزل مسارات `_DATASET_DIR` و `_GROUND_TRUTH_PATH` و `_METADATA_PATH` عبر `tmp_path` لمنع أي تلويث لبيانات المستودع المعيارية الـ 47 أثناء تشغيل الفحوصات الآلية.
+- **أدلة التحقق والاختبارات**:
+  - تشغيل اختبارات المسار البحثي `test_research_loop.py`: نجاح 4/4 اختبارات في 7.18 ثانية.
+  - الحفاظ التام على سلامة بيانات `datasets/e3_human_disagreement/` ونظافة شجرة Git.
+
+---
+
+#### 3. الحصيلة المحدثة للاختبارات (377 Tests Total)
+
+```text
+================================================================================
+TRACK 1 / 2 / 3 CONSOLIDATED VERIFICATION PASS (377 TESTS)
+================================================================================
+Phase 2A-2C Baseline (Commit 3f32163):                       376 tests
++ Track 2 Hardened Bugcrowd Test:                              +1 test
+--------------------------------------------------------------------------------
+Total Collected & Verified Tests:                            377 tests in 47 files
+Execution Result:                                            377 PASSED (100%), 0 FAILURES
+Git Head Progression:
+  - Commit 3f32163: feat(learning-system): implement Phase 2A-2C closed-loop education with 376 tests
+  - Commit e8c92c4: fix(bounty): harden Bugcrowd normalizer with safe_harbor, managed, and asset typing
+================================================================================
+```
+

@@ -30,6 +30,14 @@ def setup_db(tmp_path, monkeypatch):
     monkeypatch.setenv("TESTING", "1")
     monkeypatch.setenv("SECRET_KEY", "test-secret-key-research-loop")
     monkeypatch.setenv("DEPLOYMENT_MODE", "local")
+
+    # Isolate E3 research dataset files to tmp_path to protect live datasets/
+    test_gt = str(tmp_path / "ground_truth.json")
+    test_meta = str(tmp_path / "metadata.json")
+    monkeypatch.setattr("research_loop._DATASET_DIR", str(tmp_path))
+    monkeypatch.setattr("research_loop._GROUND_TRUTH_PATH", test_gt)
+    monkeypatch.setattr("research_loop._METADATA_PATH", test_meta)
+
     init_db()
 
 
