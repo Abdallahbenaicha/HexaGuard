@@ -1,10 +1,10 @@
-"""Seed initial Phase 1 learning exercises into the learning_exercises table.
+"""Seed Phase 1 + Phase 1-B learning exercises into the learning_exercises table.
 
-Creates 4 core exercises:
-- XSS Knowledge (Assessment)
-- XSS Lab Exploitation (Lab)
-- SQLi Knowledge (Assessment)
-- SQLi Lab Exploitation (Lab)
+Phase 1  (SEED_EXERCISES)    — 40 exercises across 12 skills (original)
+Phase 1-B (SEED_EXERCISES_B) — 56 exercises filling the capability gap so every
+                                skill reaches 8-capability full coverage.
+
+Total after both batches: 96 exercises = 12 skills × 8 capabilities.
 """
 
 import json
@@ -752,19 +752,780 @@ SEED_EXERCISES = [
     },
 ]
 
+# ── Phase 1-B: 56 missing-capability exercises (Repair B) ─────────────────────
+# Adds the remaining capabilities so all 12 skills reach 8-capability coverage.
+SEED_EXERCISES_B = [
+    # ── broken_auth: knowledge, manual_detection, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "broken_auth",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "Authentication vs Authorisation: Concepts & Weak Mechanisms",
+        "description_en": "Explain the difference between authentication and authorisation. Describe common weak authentication mechanisms: default credentials, credential stuffing, password spraying, and missing account lockout.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["authentication", "authorisation", "credential stuffing", "lockout", "session"],
+        },
+        "cert_hint": "CompTIA Security+ / OWASP A07:2021 Identification and Authentication Failures.",
+    },
+    {
+        "vuln_type": "broken_auth",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Probing Login Endpoints for Weak Authentication Controls",
+        "description_en": "Demonstrate manual detection of broken authentication by crafting repeated login requests with common credentials (admin/admin, admin/password) and observing lockout (or lack thereof) responses and session token predictability.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "-X POST", "--data"],
+            "expected_artifacts": ["Set-Cookie", "200 OK", "session", "no lockout"],
+        },
+        "cert_hint": "eJPT / OSCP manual authentication testing methodology.",
+    },
+    {
+        "vuln_type": "broken_auth",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Business Impact of Account Takeover via Broken Authentication",
+        "description_en": "Formulate the business and security impact of an account takeover achieved through credential stuffing on a financial application: data exfiltration risk, regulatory consequences (GDPR, PCI-DSS), and reputational damage.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["account takeover", "data breach", "pci-dss", "gdpr", "reputational", "financial loss"],
+        },
+        "cert_hint": "CompTIA Security+ / CISSP Business Impact Analysis.",
+    },
+    {
+        "vuln_type": "broken_auth",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Designing Multi-Factor Authentication & Account Lockout Controls",
+        "description_en": "Design a remediation plan for broken authentication: implement MFA (TOTP/FIDO2), enforce account lockout after N failed attempts, invalidate sessions on logout, and rotate session identifiers post-authentication.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["mfa", "totp", "lockout", "session invalidation", "fido2", "rotate tokens"],
+            "prohibited_patterns": ["increase timeout only", "captcha alone"],
+        },
+        "cert_hint": "OWASP Authentication Cheatsheet / NIST SP 800-63B.",
+    },
+    {
+        "vuln_type": "broken_auth",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a Credential Stuffing / Broken Authentication Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for a broken authentication finding: Summary, Steps to Reproduce (with request/response), Technical Impact (account takeover), Business Impact, and Remediation recommendations.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd Quality Triage Submission Standards.",
+    },
 
-def seed():
-    init_db()
-    db = _get_db()
+    # ── bug_bounty_reporting: knowledge, recognition, manual_detection, validation, lab_exploitation
+    {
+        "vuln_type": "bug_bounty_reporting",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "Bug Bounty Ecosystem: Scopes, VRTs, Safe Harbour & Triage Workflow",
+        "description_en": "Explain the key elements of a bug bounty program: scope definition (in-scope vs out-of-scope assets), VRT (Vulnerability Rating Taxonomy), safe harbour clauses, responsible disclosure timelines, and the triage lifecycle.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["scope", "vrt", "safe harbour", "triage", "disclosure", "severity"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd Program Policy Fundamentals.",
+    },
+    {
+        "vuln_type": "bug_bounty_reporting",
+        "capability": "recognition",
+        "exercise_type": "pattern_recognition",
+        "title_en": "Identifying Reportable vs Informational Findings in Bug Bounty Scope",
+        "description_en": "Given a list of findings (open redirect, informational disclosure of server version, stored XSS, rate-limit absence, and self-XSS), classify each as reportable (in-scope, meaningful impact) or informational/out-of-scope per HackerOne/Bugcrowd VRT norms.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 15,
+            "target_indicators": ["stored xss", "open redirect", "self-xss out of scope", "server version informational"],
+            "pattern_keywords": ["in-scope", "out-of-scope", "vrt", "impact", "reportable"],
+        },
+        "cert_hint": "HackerOne VRT classification and triage decision-making.",
+    },
+    {
+        "vuln_type": "bug_bounty_reporting",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Enumerating Bug Bounty Program Scope via API & Recon",
+        "description_en": "Demonstrate manual enumeration of a bug bounty program's in-scope assets using the HackerOne/Bugcrowd public API or program page: extract domain scope, asset types (web, mobile, API), and restrictions (no DDoS, no social engineering).",
+        "difficulty": "easy",
+        "content_json": {
+            "required_commands": ["curl", "grep", "jq"],
+            "expected_artifacts": ["in_scope", "asset_type", "instruction", "max_severity"],
+        },
+        "cert_hint": "Bug bounty reconnaissance and program scoping methodology.",
+    },
+    {
+        "vuln_type": "bug_bounty_reporting",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Validating Report Quality Before Submission",
+        "description_en": "Review two draft vulnerability reports — one high quality (PoC steps, impact quantified, remediation provided) and one low quality (vague description, no reproduction steps) — and classify each as 'ready to submit' or 'needs improvement'.",
+        "difficulty": "easy",
+        "content_json": {
+            "expected_classification": "high_quality",
+            "proof_indicators": ["reproducible", "steps to reproduce", "impact", "remediation", "poc"],
+        },
+        "cert_hint": "Bugcrowd / HackerOne report quality triage checklist.",
+    },
+    {
+        "vuln_type": "bug_bounty_reporting",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "End-to-End Bug Bounty Simulation: Find, Exploit & Report",
+        "description_en": "In a sandboxed environment, identify a deliberately introduced vulnerability (IDOR or XSS), reproduce it with a PoC, then draft a complete bug bounty report following Bugcrowd VRT severity scoring.",
+        "difficulty": "hard",
+        "content_json": {
+            "lab_type": "local_challenge",
+            "objectives": ["identify vulnerability", "reproduce PoC", "document report", "severity classification"],
+            "expected_artifacts": ["summary", "steps to reproduce", "impact", "severity"],
+        },
+        "cert_hint": "BSCP / eJPT full-chain exploitation and disclosure simulation.",
+    },
 
-    for item in SEED_EXERCISES:
+    # ── cve_cvss_epss: recognition, manual_detection, validation, lab_exploitation, remediation
+    {
+        "vuln_type": "cve_cvss_epss",
+        "capability": "recognition",
+        "exercise_type": "pattern_recognition",
+        "title_en": "Identifying High-Risk CVEs by CVSS Vector Analysis",
+        "description_en": "Given a set of CVE entries with CVSS v3.1 vectors, identify which ones represent Critical network-exploitable vulnerabilities (AV:N/AC:L/PR:N) versus Low-risk local vulnerabilities requiring user interaction.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 15,
+            "target_indicators": ["AV:N", "AC:L", "PR:N", "UI:N", "CVSS:3.1"],
+            "pattern_keywords": ["critical", "network", "unauthenticated", "low complexity", "remote"],
+        },
+        "cert_hint": "CompTIA Security+ / CASP+ CVE and CVSS triage skills.",
+    },
+    {
+        "vuln_type": "cve_cvss_epss",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Querying NVD & EPSS API for Live CVE Data",
+        "description_en": "Demonstrate manual CVE intelligence gathering using the NVD REST API (api.nvd.nist.gov) and FIRST EPSS API (api.first.org) to retrieve CVE details, CVSS score, and current exploitation probability for a given CVE ID.",
+        "difficulty": "easy",
+        "content_json": {
+            "required_commands": ["curl", "jq", "api.nvd.nist.gov", "api.first.org"],
+            "expected_artifacts": ["cvssV3", "epss", "baseScore", "percentile"],
+        },
+        "cert_hint": "Threat-informed vulnerability management with NVD + EPSS.",
+    },
+    {
+        "vuln_type": "cve_cvss_epss",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Validating CVE Applicability: Affected Versions & Environment Context",
+        "description_en": "Given a CVE advisory and a software inventory, determine whether the vulnerability is applicable: validate affected version ranges, check OS/platform constraints, and confirm whether mitigating factors (WAF, network isolation) reduce effective risk.",
+        "difficulty": "medium",
+        "content_json": {
+            "expected_classification": "applicable",
+            "proof_indicators": ["version range", "cpe", "affected", "mitigating factor", "not applicable"],
+        },
+        "cert_hint": "Enterprise patch management and CVE applicability triage.",
+    },
+    {
+        "vuln_type": "cve_cvss_epss",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "Leveraging a Published CVE PoC in a Sandboxed Environment",
+        "description_en": "In a sandboxed lab environment, locate a published CVE PoC for a deliberately vulnerable service version, understand its exploitation mechanism (e.g., path traversal, command injection), and reproduce the vulnerability safely without targeting live systems.",
+        "difficulty": "hard",
+        "content_json": {
+            "lab_type": "local_challenge",
+            "objectives": ["identify cve", "locate poc", "understand mechanism", "reproduce safely"],
+            "expected_artifacts": ["cve id", "cvss score", "affected version", "proof of concept"],
+        },
+        "cert_hint": "OSCP / eJPT CVE research and public exploit adaptation.",
+    },
+    {
+        "vuln_type": "cve_cvss_epss",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Designing a Risk-Based Patch Prioritisation Strategy",
+        "description_en": "Design a patch prioritisation policy that integrates CVSS Base Score, EPSS exploitation probability, CISA KEV catalogue membership, and asset criticality to produce a ranked patching schedule with SLAs (Critical: 24h, High: 7d, Medium: 30d).",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["cvss", "epss", "cisa kev", "patch sla", "asset criticality", "risk-based"],
+            "prohibited_patterns": ["patch everything equally", "ignore epss"],
+        },
+        "cert_hint": "RBVM / CISA KEV-driven patch management best practices.",
+    },
+
+    # ── dns_recon: knowledge, validation, lab_exploitation, remediation, reporting
+    {
+        "vuln_type": "dns_recon",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "DNS Record Types & Subdomain Enumeration Concepts",
+        "description_en": "Explain key DNS record types (A, AAAA, CNAME, MX, TXT, NS, PTR, SOA) and their security implications. Describe passive (certificate transparency, DNS dumpster) vs active (brute force, zone transfer) subdomain enumeration techniques.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["a record", "cname", "mx", "txt", "ns", "zone transfer", "subdomain"],
+        },
+        "cert_hint": "CompTIA Security+ / CEH DNS Reconnaissance Fundamentals.",
+    },
+    {
+        "vuln_type": "dns_recon",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Validating DNS Takeover Eligibility for Discovered Subdomains",
+        "description_en": "Given DNS reconnaissance output showing CNAME records pointing to unclaimed cloud services (Heroku, S3, GitHub Pages), validate which subdomains are vulnerable to DNS takeover by checking whether the target service responds with a claimable indicator.",
+        "difficulty": "hard",
+        "content_json": {
+            "expected_classification": "vulnerable_takeover",
+            "proof_indicators": ["cname", "no such app", "there isn't a github pages site here", "noip", "unclaimed"],
+        },
+        "cert_hint": "Bug bounty DNS takeover detection and validation methodology.",
+    },
+    {
+        "vuln_type": "dns_recon",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "Performing Passive & Active DNS Reconnaissance on a Practice Domain",
+        "description_en": "In a safe lab environment, perform complete DNS reconnaissance against a deliberately configured practice domain: passive enumeration (certificate transparency via crt.sh), active enumeration (subfinder/amass), and zone transfer attempt (dig AXFR).",
+        "difficulty": "hard",
+        "content_json": {
+            "lab_type": "local_challenge",
+            "objectives": ["crt.sh enumeration", "active subdomain brute force", "zone transfer attempt", "compile subdomain list"],
+            "expected_artifacts": ["subdomain list", "axfr result", "cname records", "takeover candidates"],
+        },
+        "cert_hint": "OSCP / eJPT external reconnaissance methodology.",
+    },
+    {
+        "vuln_type": "dns_recon",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Hardening DNS Against Zone Transfer & Subdomain Takeover",
+        "description_en": "Design a DNS hardening plan: restrict AXFR to authorised secondaries only, implement DNSSEC, audit dangling CNAME records pointing to decommissioned services, and configure monitoring for new subdomain registrations.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["axfr restriction", "dnssec", "dangling cname", "subdomain monitoring", "ns acl"],
+            "prohibited_patterns": ["allow axfr from any", "ignore cname audits"],
+        },
+        "cert_hint": "DNS Security Hardening per CIS Controls and NIST.",
+    },
+    {
+        "vuln_type": "dns_recon",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a DNS Subdomain Takeover Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for a DNS subdomain takeover: Summary, Steps to Reproduce (showing CNAME chain and unclaimed service), Technical Impact, Business Impact (phishing, credential harvesting), and Remediation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd DNS Takeover Report Standards.",
+    },
+
+    # ── file_upload: knowledge, manual_detection, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "file_upload",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "File Upload Vulnerabilities: Bypass Techniques & Attack Vectors",
+        "description_en": "Explain the attack surface of insecure file upload functionality: MIME type spoofing, extension bypasses (shell.php.jpg, shell.pHp), null byte injection, polyglot files, and the conditions required for Remote Code Execution via uploaded shells.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["mime type", "extension bypass", "webshell", "rce", "polyglot", "null byte"],
+        },
+        "cert_hint": "OWASP A04:2021 / PortSwigger File Upload Vulnerability concepts.",
+    },
+    {
+        "vuln_type": "file_upload",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Probing File Upload Endpoints for Extension & MIME Bypass",
+        "description_en": "Demonstrate manual detection of insecure file upload controls by crafting multipart/form-data requests with mismatched Content-Type headers and double-extension filenames (shell.php.jpg) to determine if server-side validation is client-controlled.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "-F", "Content-Type", "--upload-file"],
+            "expected_artifacts": ["200 OK", "file uploaded", "Content-Type: application/octet-stream"],
+        },
+        "cert_hint": "eJPT / OSCP manual file upload vulnerability testing.",
+    },
+    {
+        "vuln_type": "file_upload",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Business Impact of RCE via Malicious File Upload",
+        "description_en": "Formulate the full business impact chain of a successful file upload leading to Remote Code Execution: server compromise, data exfiltration, lateral movement, supply chain risk, and regulatory consequences under GDPR Article 33.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["rce", "server compromise", "data exfiltration", "lateral movement", "gdpr", "supply chain"],
+        },
+        "cert_hint": "OWASP Top 10 Impact Assessment / CISSP Risk Analysis.",
+    },
+    {
+        "vuln_type": "file_upload",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Designing Secure File Upload Controls",
+        "description_en": "Design a defence-in-depth file upload hardening plan: server-side MIME detection (libmagic), allowlist extension validation, store outside webroot, randomise filenames, antivirus scanning, disable execution in upload directories, and CSP.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["allowlist", "server-side mime", "outside webroot", "randomise filename", "antivirus", "no execute"],
+            "prohibited_patterns": ["client-side only", "blacklist extension", "rely on content-type header"],
+        },
+        "cert_hint": "OWASP File Upload Cheatsheet & CWE-434 remediation.",
+    },
+    {
+        "vuln_type": "file_upload",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a Malicious File Upload / RCE Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for an insecure file upload vulnerability leading to RCE: Summary, Steps to Reproduce (with curl PoC), Technical and Business Impact, CVSS score, and Remediation recommendations.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd Critical Severity File Upload Report Standards.",
+    },
+
+    # ── http_fundamentals: validation, lab_exploitation, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Validating HTTP Method Tampering & Access Control Bypasses",
+        "description_en": "Differentiate true access control bypasses via alternative HTTP methods (HEAD, OPTIONS, PUT) from standard 403 Forbidden or 405 Method Not Allowed responses using canary validation and response body analysis.",
+        "difficulty": "medium",
+        "content_json": {
+            "expected_classification": "true_positive",
+            "proof_indicators": ["method override", "verb bypass", "200 ok", "unauthorized access", "head bypass", "options disclosure"],
+        },
+        "cert_hint": "CompTIA Security+ / CEH HTTP Protocol and Access Control Triage.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "HTTP Verb Tampering & Request Smuggling in a Practice Environment",
+        "description_en": "In a sandboxed environment, exploit HTTP verb tampering to bypass access controls on a restricted endpoint, and demonstrate a basic HTTP request smuggling concept (CL.TE discrepancy) using crafted raw requests.",
+        "difficulty": "hard",
+        "content_json": {
+            "lab_type": "local_challenge",
+            "objectives": ["bypass with HEAD", "bypass with OPTIONS", "demonstrate smuggling concept"],
+            "expected_artifacts": ["200 ok", "restricted content", "desync"],
+        },
+        "cert_hint": "PortSwigger Web Security Academy HTTP Verb Tampering & Smuggling.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Impact of Insecure HTTP Configurations on Web Application Security",
+        "description_en": "Analyse the security impact of insecure HTTP configurations: cleartext credential transmission over HTTP, missing HSTS allowing MITM downgrade attacks, insecure cookie flags (no Secure/HttpOnly), and CORS misconfigurations enabling cross-origin data theft.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["mitm", "hsts downgrade", "cookie theft", "cors", "cleartext", "data exposure"],
+        },
+        "cert_hint": "OWASP Top 10 / CompTIA Security+ HTTP Security Architecture.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Hardening HTTP: HSTS, Secure Cookies & CORS Policy",
+        "description_en": "Design a comprehensive HTTP hardening plan: enforce HTTPS with HSTS (max-age=31536000; includeSubDomains; preload), set Secure+HttpOnly+SameSite cookie flags, implement restrictive CORS policy (specific origins, no wildcard with credentials), and disable dangerous HTTP methods.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["hsts", "secure cookie", "httponly", "samesite", "cors allowlist", "http methods"],
+            "prohibited_patterns": ["access-control-allow-origin: *", "no hsts"],
+        },
+        "cert_hint": "OWASP HTTP Security Headers Cheatsheet / RFC 6797 HSTS.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting HTTP Security Misconfiguration Findings",
+        "description_en": "Draft a professional vulnerability report covering multiple HTTP security misconfigurations (missing HSTS, cleartext credentials, CORS wildcard): Summary per finding, Technical Evidence (response headers), Impact, and consolidated Remediation.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "CompTIA Security+ / OWASP Security Misconfiguration Reporting.",
+    },
+
+    # ── idor: knowledge, manual_detection, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "idor",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "IDOR: Direct Object Reference Patterns & Access Control Theory",
+        "description_en": "Explain Insecure Direct Object References (IDOR): what constitutes a direct object reference (numeric IDs, GUIDs, filenames in parameters), why they arise from missing server-side authorisation checks, and the difference between horizontal and vertical privilege escalation via IDOR.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["direct object reference", "authorisation", "horizontal", "vertical", "access control", "parameter"],
+        },
+        "cert_hint": "OWASP A01:2021 Broken Access Control / eJPT IDOR concepts.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Detecting IDOR by Manipulating User-Controlled Object References",
+        "description_en": "Demonstrate manual IDOR detection by authenticating as User A, capturing a request referencing User A's resource (e.g., /api/orders/1001), then replacing the reference with User B's ID (/api/orders/1002) and observing whether User B's data is returned.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "-H Authorization", "--cookie"],
+            "expected_artifacts": ["200 OK", "another user's data", "id parameter"],
+        },
+        "cert_hint": "eJPT / OSCP manual access control bypass testing.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Business Impact of IDOR Enabling Mass Data Exfiltration",
+        "description_en": "Formulate the business impact of an IDOR vulnerability in a healthcare API exposing patient records: HIPAA/GDPR regulatory penalties, class action liability, breach notification obligations, and reputational consequences.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["data exfiltration", "hipaa", "gdpr", "breach notification", "class action", "mass exposure"],
+        },
+        "cert_hint": "CISSP / CISA Business Impact Analysis for Data Breaches.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Fixing IDOR: Server-Side Authorisation & Indirect Reference Maps",
+        "description_en": "Design a remediation plan for IDOR: implement server-side ownership checks on every resource access, replace predictable sequential IDs with UUIDs in public-facing parameters, implement Indirect Reference Maps (session-scoped), and add automated access control tests.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["server-side check", "uuid", "indirect reference map", "ownership validation", "automated tests"],
+            "prohibited_patterns": ["client-side check only", "obfuscation only", "rely on sequential id"],
+        },
+        "cert_hint": "OWASP Access Control Cheatsheet / CWE-639 IDOR remediation.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting an IDOR Vulnerability Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for an IDOR finding: Summary, Steps to Reproduce (request/response pairs showing cross-user data access), Technical and Business Impact (data exposure scale), CVSS score rationale, and Remediation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd High/Critical IDOR Disclosure Standards.",
+    },
+
+    # ── missing_security_headers: knowledge, validation, lab_exploitation, impact_analysis, reporting
+    {
+        "vuln_type": "missing_security_headers",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "HTTP Security Headers: Purpose, Risk & Browser Enforcement",
+        "description_en": "Explain the purpose and browser enforcement mechanisms of key security headers: Content-Security-Policy (XSS mitigation), Strict-Transport-Security (MITM downgrade prevention), X-Frame-Options (clickjacking), X-Content-Type-Options (MIME sniffing), and Referrer-Policy.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["csp", "hsts", "x-frame-options", "x-content-type-options", "referrer-policy", "clickjacking"],
+        },
+        "cert_hint": "OWASP Security Headers Project / CompTIA Security+ A03:2021.",
+    },
+    {
+        "vuln_type": "missing_security_headers",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Classifying Security Header Findings: Critical vs Informational",
+        "description_en": "Given a list of missing security headers detected during a scan (missing HSTS, missing CSP, missing X-Content-Type-Options, missing X-Powered-By removal), classify each by severity: Critical/High (HSTS, CSP) vs Informational (X-Powered-By).",
+        "difficulty": "easy",
+        "content_json": {
+            "expected_classification": "severity_stratification",
+            "proof_indicators": ["hsts missing high", "csp missing high", "x-powered-by informational", "referrer-policy low"],
+        },
+        "cert_hint": "OWASP Security Headers severity classification methodology.",
+    },
+    {
+        "vuln_type": "missing_security_headers",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "Demonstrating Clickjacking & MIME Sniffing in a Practice Environment",
+        "description_en": "In a sandboxed lab, demonstrate the practical impact of missing X-Frame-Options (construct a clickjacking iframe PoC) and missing X-Content-Type-Options (demonstrate MIME sniffing leading to script execution from a non-script response).",
+        "difficulty": "hard",
+        "content_json": {
+            "lab_type": "local_challenge",
+            "objectives": ["iframe clickjacking poc", "mime sniffing demonstration", "document missing headers"],
+            "expected_artifacts": ["iframe poc html", "content-type mismatch", "script execution"],
+        },
+        "cert_hint": "PortSwigger / OWASP Clickjacking Defence Cheatsheet.",
+    },
+    {
+        "vuln_type": "missing_security_headers",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Security Risk Impact of Missing HTTP Security Headers",
+        "description_en": "Analyse the cascading security risk from an application missing both CSP and HSTS: absence of CSP enables XSS attacks bypassing same-origin restrictions, while absence of HSTS allows SSL stripping MITM attacks. Quantify the combined attack surface.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["xss", "ssl stripping", "mitm", "clickjacking", "data theft", "session hijack"],
+        },
+        "cert_hint": "OWASP A05:2021 Security Misconfiguration Impact Analysis.",
+    },
+    {
+        "vuln_type": "missing_security_headers",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting Missing Security Header Findings in a Pentest Report",
+        "description_en": "Draft a vulnerability section for a penetration test report covering missing security headers: per-header finding with evidence (response header dump), severity, business impact, and prioritised remediation recommendations.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "OSCP / CEH Penetration Testing Report Writing Standards.",
+    },
+
+    # ── path_traversal: knowledge, manual_detection, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "path_traversal",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "Path Traversal: Directory Traversal Sequences & Target Files",
+        "description_en": "Explain path traversal vulnerabilities: how ../../../etc/passwd sequences work, URL encoding bypasses (%2e%2e%2f), null byte injection (%00), and what sensitive files are typically targeted (passwd, shadow, web.config, application.properties, .env).",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["directory traversal", "../", "url encoding", "null byte", "/etc/passwd", "sensitive files"],
+        },
+        "cert_hint": "OWASP Path Traversal / eJPT LFI and Directory Traversal concepts.",
+    },
+    {
+        "vuln_type": "path_traversal",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Testing for Path Traversal with cURL & Encoded Payloads",
+        "description_en": "Demonstrate manual path traversal detection by injecting traversal sequences into a file parameter (?file=../../etc/passwd) and URL-encoded variants (?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd) using cURL, observing whether file contents are returned.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "--path-as-is", "../"],
+            "expected_artifacts": ["root:x:0:0", "passwd", "200 OK"],
+        },
+        "cert_hint": "eJPT / OSCP manual LFI / path traversal testing methodology.",
+    },
+    {
+        "vuln_type": "path_traversal",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Impact of Path Traversal Enabling Server File Disclosure",
+        "description_en": "Formulate the impact chain of a path traversal vulnerability in a web application: reading /etc/shadow (offline password cracking), accessing .env files (database credentials exposure), pivoting to RCE via LFI chain (log poisoning), and subsequent lateral movement.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["credential exposure", "password cracking", "rce", "log poisoning", "lateral movement", "env file"],
+        },
+        "cert_hint": "OWASP A01:2021 / OSCP LFI-to-RCE impact chain analysis.",
+    },
+    {
+        "vuln_type": "path_traversal",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Fixing Path Traversal: Canonical Path Validation & Chroot Jails",
+        "description_en": "Design a remediation plan for path traversal: canonicalise file paths server-side (realpath()), validate the resolved path starts with the allowed base directory, use chroot jails for file access processes, avoid passing user-supplied filenames directly to file system calls.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["realpath", "canonical path", "allowlist", "chroot", "no user-controlled filename"],
+            "prohibited_patterns": ["blacklist only", "strip ../ client-side", "rely on url encoding"],
+        },
+        "cert_hint": "CWE-22 Path Traversal Remediation / OWASP File System Cheatsheet.",
+    },
+    {
+        "vuln_type": "path_traversal",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a Path Traversal / LFI Vulnerability Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for a path traversal finding: Summary, Steps to Reproduce (curl PoC showing /etc/passwd disclosure), Technical Impact, Business Impact, CVSS rationale, and Remediation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd High Severity LFI Disclosure Standards.",
+    },
+
+    # ── sqli: manual_detection, remediation, reporting
+    {
+        "vuln_type": "sqli",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manual SQLi Detection via Error-Based and Time-Based Probing",
+        "description_en": "Demonstrate manual SQL injection detection using error-based probing (single quote injection causing database error), boolean-based probing (1=1 vs 1=2 response difference), and time-based blind detection (SLEEP(5) causing a 5-second delay in response).",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "--data", "sqlmap --technique"],
+            "expected_artifacts": ["SQL syntax error", "1=1 different response", "5 second delay", "sleep"],
+        },
+        "cert_hint": "eJPT / OSCP manual SQL injection detection methodology.",
+    },
+    {
+        "vuln_type": "sqli",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Fixing SQL Injection: Parameterised Queries & WAF Configuration",
+        "description_en": "Design a comprehensive SQL injection remediation plan: migrate all dynamic queries to parameterised statements / prepared statements, implement least-privilege DB accounts (no DROP TABLE permission), deploy WAF rules as a secondary control, and add automated SQLi regression tests to CI/CD.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["parameterised queries", "prepared statements", "least privilege", "waf", "ci/cd tests", "stored procedures"],
+            "prohibited_patterns": ["string concatenation", "blacklist only", "rely on waf alone"],
+        },
+        "cert_hint": "OWASP SQL Injection Prevention Cheatsheet / CWE-89 remediation.",
+    },
+    {
+        "vuln_type": "sqli",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a SQL Injection Vulnerability Finding",
+        "description_en": "Draft a professional penetration test report section for a SQL injection finding: Summary, Steps to Reproduce (error-based and UNION-based PoC), Technical Impact (data exfiltration, authentication bypass), Business Impact, CVSS score, and Remediation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "OSCP / BSCP SQL Injection Penetration Test Report Standards.",
+    },
+
+    # ── ssrf: knowledge, manual_detection, impact_analysis, remediation, reporting
+    {
+        "vuln_type": "ssrf",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "SSRF: Server-Side Request Forgery Attack Vectors & Impact",
+        "description_en": "Explain Server-Side Request Forgery (SSRF): how attackers force the server to make requests to internal services (169.254.169.254 cloud metadata, internal APIs, localhost), SSRF to RCE chains, and blind vs semi-blind SSRF detection approaches.",
+        "difficulty": "easy",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["ssrf", "internal service", "cloud metadata", "169.254.169.254", "blind ssrf", "request forgery"],
+        },
+        "cert_hint": "OWASP A10:2021 SSRF / eJPT SSRF attack vector concepts.",
+    },
+    {
+        "vuln_type": "ssrf",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Detecting SSRF via Out-of-Band DNS & HTTP Interaction",
+        "description_en": "Demonstrate manual SSRF detection by injecting attacker-controlled URLs (Burp Collaborator / interactsh webhook) into URL parameters and request bodies, then monitoring for out-of-band DNS and HTTP callbacks confirming server-side request execution.",
+        "difficulty": "hard",
+        "content_json": {
+            "required_commands": ["curl", "--data", "interactsh", "burp collaborator"],
+            "expected_artifacts": ["dns callback", "http callback", "oob interaction", "server-side request"],
+        },
+        "cert_hint": "eJPT / OSCP / PortSwigger SSRF out-of-band detection methodology.",
+    },
+    {
+        "vuln_type": "ssrf",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "Impact of SSRF Enabling Cloud Metadata Access & Internal Service Pivoting",
+        "description_en": "Formulate the full impact chain of an SSRF vulnerability in a cloud-hosted application: access to AWS EC2 metadata (169.254.169.254) leaking IAM credentials, lateral movement to internal services (Redis, Elasticsearch), and potential full cloud account compromise.",
+        "difficulty": "hard",
+        "content_json": {
+            "min_words": 20,
+            "impact_keywords": ["iam credentials", "cloud metadata", "lateral movement", "redis", "internal services", "cloud takeover"],
+        },
+        "cert_hint": "OWASP SSRF / AWS IMDSv1 metadata exploitation impact analysis.",
+    },
+    {
+        "vuln_type": "ssrf",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Fixing SSRF: Allowlists, IMDS Protection & Network Segmentation",
+        "description_en": "Design a defence-in-depth SSRF remediation plan: allowlist valid external domains, block all RFC 1918 / link-local destinations server-side, enforce IMDSv2 (token-required) on AWS instances, implement egress firewall rules, and remove user-controlled URL parameters where possible.",
+        "difficulty": "hard",
+        "content_json": {
+            "defense_concepts": ["allowlist", "block rfc1918", "imdsv2", "egress firewall", "no user url", "network segmentation"],
+            "prohibited_patterns": ["blacklist only", "rely on waf", "imdsv1"],
+        },
+        "cert_hint": "OWASP SSRF Prevention Cheatsheet / AWS IMDSv2 Hardening Guide.",
+    },
+    {
+        "vuln_type": "ssrf",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting an SSRF Vulnerability Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for an SSRF finding reaching the cloud metadata endpoint: Summary, Steps to Reproduce (PoC request/response showing 169.254.169.254 access), Technical Impact (IAM credential exposure), Business Impact, CVSS score, and Remediation.",
+        "difficulty": "hard",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd Critical Severity SSRF Disclosure Standards.",
+    },
+
+    # ── xss: manual_detection, remediation, reporting
+    {
+        "vuln_type": "xss",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Manually Detecting XSS via Reflection Probing & Browser DevTools",
+        "description_en": "Demonstrate manual XSS detection: inject a canary string (<script>console.log(1)</script> and event-handler variants) into text fields and URL parameters, then inspect the HTML response source in browser DevTools to confirm unsanitised reflection and identify the injection context (HTML/attribute/JS).",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "browser devtools", "view-source"],
+            "expected_artifacts": ["reflected payload", "script tag", "injection context", "unsanitised"],
+        },
+        "cert_hint": "eJPT / OSCP / PortSwigger manual XSS detection methodology.",
+    },
+    {
+        "vuln_type": "xss",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Fixing XSS: Output Encoding, CSP & Trusted Types",
+        "description_en": "Design a defence-in-depth XSS remediation plan: HTML-encode all untrusted output (htmlspecialchars / DOMPurify), implement a strict Content-Security-Policy (no 'unsafe-inline'), enable Trusted Types API, set HttpOnly cookies, and add automated XSS regression tests to CI/CD pipeline.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["output encoding", "csp", "trusted types", "httponly", "dompurify", "no unsafe-inline"],
+            "prohibited_patterns": ["input blacklist only", "allow unsafe-inline", "rely on waf alone"],
+        },
+        "cert_hint": "OWASP XSS Prevention Cheatsheet / W3C Trusted Types API.",
+    },
+    {
+        "vuln_type": "xss",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Documenting a Cross-Site Scripting Vulnerability Finding",
+        "description_en": "Draft a professional vulnerability disclosure report for a stored XSS finding: Summary, Steps to Reproduce (PoC payload with alert(document.cookie)), Technical Impact (session hijacking, credential theft), Business Impact, CVSS score rationale, and Remediation recommendations.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd High Severity XSS Disclosure Standards.",
+    },
+]
+
+
+def _seed_batch(db, items: list) -> tuple[int, int]:
+    """Seed a batch of exercises. Returns (created, skipped)."""
+    created = skipped = 0
+    for item in items:
         existing = db.execute(
             "SELECT id FROM learning_exercises WHERE vuln_type = ? AND capability = ? AND exercise_type = ?",
             (item["vuln_type"], item["capability"], item["exercise_type"]),
         ).fetchone()
-
         if not existing:
-            created = create_exercise(
+            result = create_exercise(
                 vuln_type=item["vuln_type"],
                 capability=item["capability"],
                 exercise_type=item["exercise_type"],
@@ -774,9 +1535,42 @@ def seed():
                 content_json=item["content_json"],
                 cert_hint=item["cert_hint"],
             )
-            logger.info("Created exercise: %s (%s - %s)", created["title_en"], created["vuln_type"], created["capability"])
+            logger.info(
+                "Created exercise: %s (%s - %s)",
+                result["title_en"],
+                result["vuln_type"],
+                result["capability"],
+            )
+            created += 1
         else:
-            logger.info("Exercise already exists: %s (%s - %s)", item["title_en"], item["vuln_type"], item["capability"])
+            logger.info(
+                "Exercise already exists: %s (%s - %s)",
+                item["title_en"],
+                item["vuln_type"],
+                item["capability"],
+            )
+            skipped += 1
+    return created, skipped
+
+
+def seed():
+    """Idempotent seed: Phase 1 (40 exercises) + Phase 1-B (56 exercises) = 96 total."""
+    init_db()
+    db = _get_db()
+
+    c1, s1 = _seed_batch(db, SEED_EXERCISES)
+    logger.info("Phase 1 batch done: %d created, %d skipped.", c1, s1)
+
+    c2, s2 = _seed_batch(db, SEED_EXERCISES_B)
+    logger.info("Phase 1-B batch done: %d created, %d skipped.", c2, s2)
+
+    total_created = c1 + c2
+    total_skipped = s1 + s2
+    logger.info(
+        "Seed complete: %d exercises created, %d already existed. Total target: 96.",
+        total_created,
+        total_skipped,
+    )
 
 
 if __name__ == "__main__":

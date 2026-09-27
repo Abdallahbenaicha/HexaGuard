@@ -663,3 +663,196 @@ def compute_mastery_matrix(user_id: int, vuln_type: str) -> dict[str, Any]:
         "summary": summary_counts,
     }
 
+
+def compute_mastery_matrix_all(user_id: int, vuln_types: list[str]) -> dict[str, dict[str, Any]]:
+    """Batch-optimised variant of compute_mastery_matrix for multiple vuln_types.
+
+    Repair D — eliminates N+1 query:
+    Instead of 2 SQL queries per vuln_type (O(N×2)), this function issues exactly
+    2 queries total for all requested vuln_types, then fans out the results
+    through the same deterministic mastery machine logic.
+
+    API contract: returns {vuln_type: mastery_dict} where each mastery_dict is
+    identical in shape to what compute_mastery_matrix() returns for that type.
+    The existing compute_mastery_matrix() function is NOT modified.
+    """
+    if not vuln_types:
+        return {}
+
+    db = _get_db()
+    now_dt = datetime.now(timezone.utc)
+    ninety_days_ago = now_dt - timedelta(days=90)
+    thirty_days_ago = now_dt - timedelta(days=30)
+
+    # ── 2 queries total (vs 2N previously) ──────────────────────────────────────
+    placeholders = ",".join("?" * len(vuln_types))
+
+    all_attempts_rows = db.execute(
+        f"SELECT id, exercise_id, vuln_type, capability, attempt_number, started_at, "
+        f"completed_at, score, hints_used, aria_calls_used, solution_viewed, "
+        f"result, evaluation_status "
+        f"FROM exercise_attempts "
+        f"WHERE user_id = ? AND vuln_type IN ({placeholders}) "
+        f"ORDER BY id ASC",
+        (user_id, *vuln_types),
+    ).fetchall()
+
+    all_evidence_rows = db.execute(
+        f"SELECT id, user_id, vuln_type, capability, evidence_type, evidence_source, "
+        f"source_id, is_verified, score, notes, created_at "
+        f"FROM skill_capability_evidence "
+        f"WHERE user_id = ? AND vuln_type IN ({placeholders}) "
+        f"ORDER BY created_at ASC",
+        (user_id, *vuln_types),
+    ).fetchall()
+
+    # Group by vuln_type for O(1) fan-out
+    attempts_by_type: dict[str, list[dict]] = {vt: [] for vt in vuln_types}
+    for row in all_attempts_rows:
+        r = dict(row)
+        vt = r["vuln_type"]
+        if vt in attempts_by_type:
+            attempts_by_type[vt].append(r)
+
+    evidence_by_type: dict[str, list[dict]] = {vt: [] for vt in vuln_types}
+    for row in all_evidence_rows:
+        r = dict(row)
+        vt = r["vuln_type"]
+        if vt in evidence_by_type:
+            evidence_by_type[vt].append(r)
+
+    # ── Per-vuln_type mastery computation (identical logic, zero extra DB calls) ─
+    results: dict[str, dict[str, Any]] = {}
+
+    for vuln_type in vuln_types:
+        attempts = attempts_by_type[vuln_type]
+        evidence = evidence_by_type[vuln_type]
+
+        cap_details: dict[str, dict[str, Any]] = {}
+        cap_states: dict[str, str] = {}
+
+        for cap in SKILL_CAPABILITIES:
+            cap_att = [a for a in attempts if a["capability"] == cap]
+            cap_ev = [e for e in evidence if e["capability"] == cap]
+
+            if not cap_att:
+                has_verified_ev = any(int(e.get("is_verified", 0)) == 1 for e in cap_ev)
+                if not has_verified_ev:
+                    cap_states[cap] = "NOT_STARTED"
+                    cap_details[cap] = {
+                        "state": "NOT_STARTED",
+                        "attempts_count": 0,
+                        "evidence_count": len(cap_ev),
+                        "verified_evidence_count": 0,
+                        "latest_score": None,
+                        "latest_activity_at": None,
+                    }
+                    continue
+
+            state = "INTRODUCED" if cap_att else "NOT_STARTED"
+
+            practiced_attempts = [
+                a for a in cap_att
+                if a.get("completed_at")
+                and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated")
+                and a.get("score") is not None
+                and float(a["score"]) >= 0.5
+            ]
+            if practiced_attempts:
+                state = "PRACTICED"
+
+            verified_evidence = [e for e in cap_ev if int(e.get("is_verified", 0)) == 1]
+            high_score_attempts = [
+                a for a in cap_att
+                if a.get("completed_at")
+                and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated", "system_verified")
+                and a.get("score") is not None
+                and float(a["score"]) >= 0.8
+            ]
+            if verified_evidence or high_score_attempts:
+                state = "DEMONSTRATED"
+
+            if state == "DEMONSTRATED":
+                qualifying_dates: list[datetime] = []
+                for e in verified_evidence:
+                    if e.get("created_at"):
+                        qualifying_dates.append(_parse_iso(e["created_at"]))
+                for a in high_score_attempts:
+                    if a.get("completed_at"):
+                        qualifying_dates.append(_parse_iso(a["completed_at"]))
+
+                if qualifying_dates:
+                    latest_qualifying_success_dt = max(qualifying_dates)
+                    m2_passes = (latest_qualifying_success_dt >= ninety_days_ago)
+                else:
+                    m2_passes = False
+                    latest_qualifying_success_dt = None
+
+                blocking_failures = [
+                    a for a in cap_att
+                    if a.get("completed_at")
+                    and a.get("evaluation_status") in ("auto_evaluated", "human_evaluated")
+                    and a.get("score") is not None
+                    and float(a["score"]) < 0.3
+                    and _parse_iso(a["completed_at"]) >= thirty_days_ago
+                ]
+                if not blocking_failures:
+                    m3_passes = True
+                else:
+                    latest_blocking_failure_dt = max(_parse_iso(a["completed_at"]) for a in blocking_failures)
+                    if latest_qualifying_success_dt and latest_qualifying_success_dt > latest_blocking_failure_dt:
+                        m3_passes = True
+                    else:
+                        m3_passes = False
+
+                prereqs = CAPABILITY_PREREQUISITES.get(cap, [])
+                m4_passes = all(cap_states.get(p) in ("DEMONSTRATED", "MASTERED") for p in prereqs)
+
+                if m2_passes and m3_passes and m4_passes:
+                    state = "MASTERED"
+
+            cap_states[cap] = state
+
+            latest_score = None
+            for a in reversed(cap_att):
+                if a.get("score") is not None:
+                    latest_score = float(a["score"])
+                    break
+
+            latest_ts = None
+            if cap_att and cap_att[-1].get("completed_at"):
+                latest_ts = cap_att[-1]["completed_at"]
+            elif cap_att and cap_att[-1].get("started_at"):
+                latest_ts = cap_att[-1]["started_at"]
+            elif cap_ev:
+                latest_ts = cap_ev[-1]["created_at"]
+
+            cap_details[cap] = {
+                "state": state,
+                "attempts_count": len(cap_att),
+                "evidence_count": len(cap_ev),
+                "verified_evidence_count": len(verified_evidence),
+                "latest_score": latest_score,
+                "latest_activity_at": latest_ts,
+            }
+
+        skill_level = skill_mastery_level(cap_states)
+        summary_counts = {
+            "NOT_STARTED": sum(1 for s in cap_states.values() if s == "NOT_STARTED"),
+            "INTRODUCED": sum(1 for s in cap_states.values() if s == "INTRODUCED"),
+            "PRACTICED": sum(1 for s in cap_states.values() if s == "PRACTICED"),
+            "DEMONSTRATED": sum(1 for s in cap_states.values() if s == "DEMONSTRATED"),
+            "MASTERED": sum(1 for s in cap_states.values() if s == "MASTERED"),
+        }
+
+        results[vuln_type] = {
+            "vuln_type": vuln_type,
+            "user_id": user_id,
+            "capabilities": cap_details,
+            "capability_states": cap_states,
+            "skill_level": skill_level,
+            "summary": summary_counts,
+        }
+
+    return results
+

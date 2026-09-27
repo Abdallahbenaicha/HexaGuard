@@ -85,25 +85,35 @@ def get_methodology():
 
 @learn_bp.route("/mastery", methods=["GET"])
 def get_learn_mastery():
-    """Return capability mastery overview across canonical vulnerability taxonomy."""
+    """Return capability mastery overview across canonical vulnerability taxonomy.
+
+    Repair D: the bulk (no vuln_type filter) path now uses compute_mastery_matrix_all()
+    which issues exactly 2 SQL queries regardless of how many vuln_types exist,
+    eliminating the previous O(N×2) N+1 query pattern.
+    """
     from flask_login import current_user
     if not current_user.is_authenticated:
         return jsonify({"ok": True, "skills": {}, "authenticated": False}), 200
 
-    from database import compute_mastery_matrix
+    from database import compute_mastery_matrix, compute_mastery_matrix_all
     vuln_type = request.args.get("vuln_type")
     if vuln_type:
+        # Single-skill path: unchanged
         matrix = compute_mastery_matrix(user_id=current_user.id, vuln_type=vuln_type)
         return jsonify({"ok": True, "vuln_type": vuln_type, "mastery": matrix, "authenticated": True}), 200
 
-    results = {}
-    for vt in VULN_TAXONOMY.keys():
-        matrix = compute_mastery_matrix(user_id=current_user.id, vuln_type=vt)
-        results[vt] = {
-            "skill_level": matrix["skill_level"],
-            "summary": matrix["summary"],
-            "capability_states": matrix["capability_states"],
+    # Bulk path: Repair D — 2 queries for all skills (was 2N queries)
+    all_vuln_types = list(VULN_TAXONOMY.keys())
+    all_matrices = compute_mastery_matrix_all(user_id=current_user.id, vuln_types=all_vuln_types)
+
+    results = {
+        vt: {
+            "skill_level": m["skill_level"],
+            "summary": m["summary"],
+            "capability_states": m["capability_states"],
         }
+        for vt, m in all_matrices.items()
+    }
     return jsonify({
         "ok": True,
         "skills": results,
