@@ -51,6 +51,7 @@ import SkillLedgerPage from './pages/SkillLedgerPage';
 import DojoPage from './pages/DojoPage';
 import TracksPage from './pages/TracksPage';
 import CaseFilesPage from './pages/CaseFilesPage';
+import CertificationPage from './pages/CertificationPage';
 
 
 
@@ -235,6 +236,7 @@ function AppInner() {
                 <Route path="/dojo"                  element={<ProtectedRoute element={<DojoPage />} />} />
                 <Route path="/tracks"                element={<ProtectedRoute element={<TracksPage />} />} />
                 <Route path="/casefiles"             element={<ProtectedRoute element={<CaseFilesPage />} />} />
+                <Route path="/learn/certification"   element={<ProtectedRoute element={<CertificationPage />} />} />
 
 
                 {/* Scheduled Scans & Help */}

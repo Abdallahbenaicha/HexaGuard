@@ -61,6 +61,73 @@ SEED_EXERCISES = [
         },
         "cert_hint": "Practical CLI reconnaissance standard for penetration testers.",
     },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "validation",
+        "exercise_type": "payload_validation",
+        "title_en": "Validating HTTP Method Tampering & Access Control Bypasses",
+        "description_en": "Differentiate true access control bypasses via alternative HTTP methods (HEAD, OPTIONS, PUT) from standard 403 Forbidden or 405 Method Not Allowed responses using canary validation and response body analysis.",
+        "difficulty": "medium",
+        "content_json": {
+            "expected_classification": "true_positive",
+            "proof_indicators": ["method override", "verb bypass", "200 ok", "unauthorized access", "head bypass", "options disclosure"],
+        },
+        "cert_hint": "CompTIA Security+ / CEH HTTP Protocol and Access Control Triage.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "lab_exploitation",
+        "exercise_type": "safe_lab",
+        "title_en": "Safe Local HTTP Protocol & Header Manipulation Lab",
+        "description_en": "Execute safe local protocol analysis probing header injection, method overrides, and status code behavior using cURL to extract the required protocol verification signature.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "-X", "-H"],
+            "expected_artifacts": ["HTTP/1.1", "200 OK", "Content-Type:", "Server:"],
+            "min_words": 20,
+        },
+        "cert_hint": "Practical HTTP protocol manipulation for penetration testers.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "HTTP Protocol Desynchronization CVSS v3.1 Scoring & Risk Analysis",
+        "description_en": "Assess technical and business blast radius of HTTP verb tampering, request smuggling, and header injection, and determine the CVSS v3.1 score vector.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "expected_cvss_components": {"AV": "N", "AC": "L", "PR": "N", "UI": "N", "S": "U", "C": "L", "I": "L", "A": "N"},
+            "impact_keywords": ["request smuggling", "cache poisoning", "verb tampering", "authorization bypass", "confidentiality", "integrity"],
+        },
+        "cert_hint": "CVSS v3.1 Threat Modeling for Web Protocols.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Reverse Proxy HTTP Method Whitelisting & Header Normalization",
+        "description_en": "Review reverse proxy configurations (Nginx/Envoy) enforcing strict HTTP method whitelisting, header normalization, and stripping descriptive server banners.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["whitelist", "limit_except", "servertokens off", "proxy_hide_header", "rfc 9110", "crlf"],
+            "prohibited_patterns": ["allow all", "traceenable on", "proxy_pass http://"],
+        },
+        "cert_hint": "Web Server Hardening and Reverse Proxy Security Architecture.",
+    },
+    {
+        "vuln_type": "http_fundamentals",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Authoring a Vulnerability Disclosure: Insecure HTTP Methods & Information Leakage",
+        "description_en": "Draft a professional vulnerability report documenting insecure HTTP method enablement (TRACE/OPTIONS), verbose banner exposure, impact narrative, and remediation directives.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "Professional Security Assessment Reporting Standard.",
+    },
 
     # ── Reference Skill 2: xss (Adversarial / Containerized) ───────────────────
     {
@@ -129,6 +196,45 @@ SEED_EXERCISES = [
             "impact_keywords": ["session hijacking", "cookie theft", "account takeover", "privilege escalation", "confidentiality", "integrity"],
         },
         "cert_hint": "CVSS v3.1 specification and threat modeling standard.",
+    },
+    {
+        "vuln_type": "xss",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Probing Parameter Reflection & Content-Security-Policy via cURL",
+        "description_en": "Use cURL to submit benign canary probe strings into target parameters and inspect response headers and reflection contexts for Content-Security-Policy directives.",
+        "difficulty": "easy",
+        "content_json": {
+            "required_commands": ["curl", "-i", "-s"],
+            "expected_artifacts": ["HTTP/1.1 200", "Content-Type: text/html", "content-security-policy"],
+        },
+        "cert_hint": "OSWE / eWPT CLI Canary Reflection Probing.",
+    },
+    {
+        "vuln_type": "xss",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Context-Aware Output Encoding & Content Security Policy Defense",
+        "description_en": "Formulate defensive controls incorporating contextual output encoding (DOMPurify, template auto-escaping) and strict Content Security Policy directives to mitigate XSS execution.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["content-security-policy", "default-src 'self'", "dompurify", "contextual encoding", "httponly", "nonce"],
+            "prohibited_patterns": ["unsafe-inline", "unsafe-eval", "document.write", "innerhtml"],
+        },
+        "cert_hint": "OWASP Cross-Site Scripting Prevention & PCI-DSS 6.4.3.",
+    },
+    {
+        "vuln_type": "xss",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Professional Bug Bounty Report: Stored / Reflected Cross-Site Scripting",
+        "description_en": "Draft a vulnerability report documenting XSS injection vectors, browser execution proof, session hijacking risk, and contextual defense implementation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "Bug Bounty Vulnerability Disclosure Reporting Standard.",
     },
 
     # ── Batch 1 Skill 1: dns_recon (Local / Non-containerized) ───────────────
@@ -261,6 +367,19 @@ SEED_EXERCISES = [
     # ── Batch 1 Skill 4: idor (Container Lab: Juice Shop) ─────────────────────
     {
         "vuln_type": "idor",
+        "capability": "knowledge",
+        "exercise_type": "concept_assessment",
+        "title_en": "Insecure Direct Object References (IDOR/BOLA) Core Mechanics",
+        "description_en": "Explain Insecure Direct Object References (IDOR/BOLA), horizontal vs vertical privilege escalation, and why client-supplied object identifiers without server-side ownership checks cause critical authorization failures.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 30,
+            "expected_concepts": ["authorization", "ownership", "horizontal", "vertical", "tenant", "access control", "bola"],
+        },
+        "cert_hint": "OWASP Top 10 A01 / CompTIA Security+ Broken Access Control.",
+    },
+    {
+        "vuln_type": "idor",
         "capability": "recognition",
         "exercise_type": "pattern_recognition",
         "title_en": "Spotting Unchecked Direct Object References in API Endpoints",
@@ -272,6 +391,19 @@ SEED_EXERCISES = [
             "pattern_keywords": ["ownership", "authorization", "direct object reference", "cross-tenant", "missing check"],
         },
         "cert_hint": "OWASP ASVS V4 & PortSwigger BSCP Access Control.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "manual_detection",
+        "exercise_type": "cli_detection",
+        "title_en": "Multi-Session IDOR Probing via cURL",
+        "description_en": "Perform manual API probing using cURL with distinct session tokens across two accounts to identify object endpoints that return unauthorized records.",
+        "difficulty": "medium",
+        "content_json": {
+            "required_commands": ["curl", "-H", "Authorization:"],
+            "expected_artifacts": ["200 OK", "id", "user_id"],
+        },
+        "cert_hint": "eWPTX / OSCP Multi-Session API Authorization Testing.",
     },
     {
         "vuln_type": "idor",
@@ -298,6 +430,46 @@ SEED_EXERCISES = [
             "proof_flag": "FLAG{idor_insecure_direct_object_reference_extracted}",
         },
         "cert_hint": "eWPTX / PortSwigger IDOR Proof Capture.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "impact_analysis",
+        "exercise_type": "impact_analysis",
+        "title_en": "IDOR CVSS v3.1 Blast Radius & Data Breach Exposure",
+        "description_en": "Formulate technical and business blast radius for mass customer data exfiltration via IDOR, including regulatory fines (GDPR), and compute CVSS v3.1 base score.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 20,
+            "expected_cvss_components": {"AV": "N", "AC": "L", "PR": "L", "UI": "N", "S": "U", "C": "H", "I": "H", "A": "N"},
+            "impact_keywords": ["horizontal escalation", "cross-tenant", "pii breach", "data exfiltration", "gdpr", "privilege escalation"],
+        },
+        "cert_hint": "Enterprise Threat Modeling & Risk Scoring for Access Control.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "remediation",
+        "exercise_type": "remediation_review",
+        "title_en": "Authoritative Server-Side Ownership Enforcement",
+        "description_en": "Design and review database query access control patterns that bind record lookup to authenticated session context (`current_user.id`) and eliminate client-supplied identity parameters.",
+        "difficulty": "medium",
+        "content_json": {
+            "defense_concepts": ["current_user.id", "where user_id", "row-level security", "ownership", "404 not found", "session context"],
+            "prohibited_patterns": ["select * from orders where id = id", "trust client", "admin_override = true"],
+        },
+        "cert_hint": "OWASP ASVS V4 Access Control Verification Standard.",
+    },
+    {
+        "vuln_type": "idor",
+        "capability": "reporting",
+        "exercise_type": "vulnerability_report",
+        "title_en": "Professional Bug Bounty Report: Broken Object-Level Authorization (IDOR)",
+        "description_en": "Draft an executive-ready vulnerability disclosure report detailing cross-tenant order/profile access, dual-account reproduction steps, business impact, and code-level remediation.",
+        "difficulty": "medium",
+        "content_json": {
+            "min_words": 40,
+            "required_sections": ["summary", "steps to reproduce", "impact", "remediation"],
+        },
+        "cert_hint": "HackerOne / Bugcrowd Quality Triage Submission Standards.",
     },
 
     # ── Batch 1 Skill 5: sqli (Container Lab: DVWA) ───────────────────────────

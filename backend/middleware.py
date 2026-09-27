@@ -111,6 +111,10 @@ def register_middleware(app) -> None:
     @app.errorhandler(404)
     def not_found(e):
         from flask import jsonify
+        # Preserve custom error bodies already set by blueprints (e.g. bounty gate)
+        desc = getattr(e, "description", None)
+        if desc and desc != "404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.":
+            return jsonify({"error": desc}), 404
         return jsonify({"error": "Resource not found."}), 404
 
     @app.errorhandler(413)

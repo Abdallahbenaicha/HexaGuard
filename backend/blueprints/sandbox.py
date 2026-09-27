@@ -139,6 +139,14 @@ SANDBOX_ALLOWLIST: dict[str, dict[str, Any]] = {
         "proof_flag": "FLAG{arbitrary_file_upload_shell_executed}",
         "timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
     },
+    "http_fundamentals": {
+        "image": "bkimminich/juice-shop",
+        "name": "Juice Shop — HTTP Protocol & Verb Tampering Lab",
+        "description": "Probe HTTP methods, headers, and protocol semantics against Juice Shop REST endpoints.",
+        "internal_port": 3000,
+        "proof_flag": "FLAG{http_protocol_verbs_and_headers_mastered}",
+        "timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
+    },
 }
 
 
@@ -481,6 +489,42 @@ def complete_sandbox(sandbox_id: str):
             "error": msg,
             "code": "INVALID_SANDBOX_PROOF",
         }), 400
+
+    # Ensure an authoritative exercise_attempt record is recorded for this lab completion
+    try:
+        from db.connection import _get_db
+        db = _get_db()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        open_att = db.execute(
+            "SELECT id FROM exercise_attempts WHERE user_id = ? AND vuln_type = ? AND capability = 'lab_exploitation' AND completed_at IS NULL ORDER BY id DESC LIMIT 1",
+            (current_user.id, vuln_type),
+        ).fetchone()
+        if open_att:
+            db.execute(
+                "UPDATE exercise_attempts SET completed_at = ?, submission_text = ?, score = 1.0, result = 'passed', evaluation_status = 'system_verified', evidence_id = ? WHERE id = ?",
+                (now_iso, submitted_flag, ev["id"] if ev else None, open_att["id"]),
+            )
+        else:
+            ex_row = db.execute(
+                "SELECT id FROM learning_exercises WHERE vuln_type = ? AND (capability = 'lab_exploitation' OR exercise_type = 'lab') ORDER BY id ASC LIMIT 1",
+                (vuln_type,),
+            ).fetchone()
+            ex_id = ex_row["id"] if ex_row else None
+            if ex_id:
+                count_row = db.execute(
+                    "SELECT COUNT(*) as cnt FROM exercise_attempts WHERE user_id = ? AND exercise_id = ?",
+                    (current_user.id, ex_id),
+                ).fetchone()
+                attempt_num = (count_row["cnt"] if count_row else 0) + 1
+                db.execute(
+                    "INSERT INTO exercise_attempts "
+                    "(user_id, exercise_id, vuln_type, capability, attempt_number, started_at, completed_at, submission_text, score, result, evaluation_status, hints_used, aria_calls_used, solution_viewed, evidence_id) "
+                    "VALUES (?, ?, ?, 'lab_exploitation', ?, ?, ?, ?, 1.0, 'passed', 'system_verified', 0, 0, 0, ?)",
+                    (current_user.id, ex_id, vuln_type, attempt_num, now_iso, now_iso, submitted_flag, ev["id"] if ev else None),
+                )
+        db.commit()
+    except Exception as exc:
+        logger.warning("Could not record attempt for sandbox completion: %s", exc)
 
     return jsonify({
         "ok": True,

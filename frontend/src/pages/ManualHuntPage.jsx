@@ -179,12 +179,12 @@ const ManualHuntPage = () => {
                                             </span>
                                             {step.title}
                                         </h3>
-                                        {step.vuln && VULN_RESOURCES[step.vuln] && (
+                                        {step.vuln && (
                                             <Link
-                                                to="/learn/vulnerabilities"
+                                                to={`/learn/${step.vuln}`}
                                                 className="text-[11px] font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
                                             >
-                                                Learn in Encyclopedia
+                                                <span>Practice Lesson</span>
                                                 <ExternalLink className="w-3 h-3" />
                                             </Link>
                                         )}
@@ -209,6 +209,105 @@ const ManualHuntPage = () => {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* Core Manual Testing Educational Methodology Slices */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-orbitron font-bold text-sm text-white tracking-wider flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-cyan-400" />
+                                Core Manual Testing Educational Tracks
+                            </h3>
+                            <p className="text-xs text-slate-400">
+                                8-Capability progressive learning paths covering detection, validation, safe exploitation, and remediation
+                            </p>
+                        </div>
+                        <Link
+                            to="/tracks"
+                            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                        >
+                            <span>All Tracks</span>
+                            <ChevronRight className="w-3 h-3" />
+                        </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Link
+                            to="/learn/http_fundamentals"
+                            className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all group space-y-3"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-mono">
+                                    Protocol Slice
+                                </span>
+                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-sm text-white group-hover:text-cyan-300 transition-colors">
+                                    HTTP Protocol & Verb Tampering
+                                </h4>
+                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                    Method tampering, status code analysis, header injection, and reverse-proxy protocol desynchronization.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono pt-1">
+                                <span>8 Capabilities</span>
+                                <span>•</span>
+                                <span>cURL & Local Lab</span>
+                            </div>
+                        </Link>
+
+                        <Link
+                            to="/learn/idor"
+                            className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition-all group space-y-3"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-mono">
+                                    Access Control Slice
+                                </span>
+                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-sm text-white group-hover:text-amber-300 transition-colors">
+                                    IDOR / Broken Object-Level Auth
+                                </h4>
+                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                    Multi-user dual-account testing, cross-tenant resource leakage, horizontal escalation, and server ownership.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono pt-1">
+                                <span>8 Capabilities</span>
+                                <span>•</span>
+                                <span>Juice Shop Lab</span>
+                            </div>
+                        </Link>
+
+                        <Link
+                            to="/learn/xss"
+                            className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/40 transition-all group space-y-3"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 font-mono">
+                                    Injection Slice
+                                </span>
+                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-sm text-white group-hover:text-purple-300 transition-colors">
+                                    Cross-Site Scripting (Reflected & DOM)
+                                </h4>
+                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                    Canary breakout, DOM sink taint analysis, CSP bypass, and contextual output encoding defenses.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono pt-1">
+                                <span>8 Capabilities</span>
+                                <span>•</span>
+                                <span>Twin Sandbox Lab</span>
+                            </div>
+                        </Link>
                     </div>
                 </div>
 

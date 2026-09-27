@@ -693,6 +693,58 @@ def evaluate_reporting_submission(
     }
 
 
+def evaluate_safe_lab_submission(
+    submission_text: str,
+    content: dict[str, Any],
+) -> dict[str, Any]:
+    """Evaluates safe local protocol lab submissions (e.g. non-containerized curl probes).
+
+    Evaluates:
+    - Minimum word count & structural integrity.
+    - Observed required commands and expected response artifacts.
+    - Strictly capped at score <= 0.9 with is_verified = 0 (EVALUATED evidence).
+    Score = 1.0 / is_verified = 1 is strictly reserved for live sandboxes.
+    """
+    required_commands: list[str] = content.get("required_commands", [])
+    expected_artifacts: list[str] = content.get("expected_artifacts", [])
+    min_words: int = content.get("min_words", 15)
+
+    valid, reason, sentences = _validate_structural_integrity(
+        submission_text,
+        min_words=min_words,
+        min_sentences=1,
+        min_lexical_diversity=0.35,
+    )
+    if not valid:
+        return {
+            "score": 0.25,
+            "result": "failed",
+            "evaluation_status": "auto_evaluated",
+            "notes": reason,
+            "is_verified": 0,
+            "evidence_type": None,
+        }
+
+    text_lower = submission_text.lower()
+    cmd_matches = sum(1 for cmd in required_commands if cmd.lower() in text_lower)
+    cmd_ratio = (cmd_matches / len(required_commands)) if required_commands else 1.0
+
+    art_matches = sum(1 for art in expected_artifacts if art.lower() in text_lower)
+    art_ratio = (art_matches / len(expected_artifacts)) if expected_artifacts else 1.0
+
+    score = round(min(MAX_AUTOMATED_SCORE, 0.35 + (cmd_ratio * 0.25) + (art_ratio * 0.30)), 2)
+    passed = score >= 0.5
+
+    return {
+        "score": score,
+        "result": "passed" if passed else "failed",
+        "evaluation_status": "auto_evaluated",
+        "notes": f"Safe local protocol lab verified: matched {cmd_matches}/{len(required_commands)} commands and {art_matches}/{len(expected_artifacts)} artifacts.",
+        "is_verified": 0,
+        "evidence_type": "EVALUATED" if passed else None,
+    }
+
+
 def evaluate_lab_attempt(
     attempt: dict[str, Any],
     user_id: int,
@@ -776,8 +828,25 @@ def evaluate_submission(
     ex_type = exercise.get("exercise_type", "assessment")
     content = _parse_content_json(exercise.get("content_json"))
 
-    # 1. Lab exploitation -> authoritative sandbox verification
-    if ex_type == "lab" or capability == "lab_exploitation":
+    # 1. Lab exploitation -> authoritative sandbox verification OR safe local protocol lab
+    if ex_type == "lab":
+        return evaluate_lab_attempt(
+            attempt=attempt,
+            user_id=user_id,
+            submission_text=submission_text,
+            metadata=metadata,
+        )
+
+    if capability == "lab_exploitation":
+        if ex_type == "safe_lab" or exercise.get("exercise_type") == "safe_lab":
+            if metadata and metadata.get("sandbox_id"):
+                return evaluate_lab_attempt(
+                    attempt=attempt,
+                    user_id=user_id,
+                    submission_text=submission_text,
+                    metadata=metadata,
+                )
+            return evaluate_safe_lab_submission(submission_text, content)
         return evaluate_lab_attempt(
             attempt=attempt,
             user_id=user_id,

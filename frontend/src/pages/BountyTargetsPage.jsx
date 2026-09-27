@@ -7,7 +7,7 @@ import {
   ChevronRight, Shield, AlertTriangle, CheckCircle,
   XCircle, Crosshair, Calendar, Info, Star,
   HelpCircle, Lock, Unlock, ChevronDown, ChevronUp,
-  Globe, Sliders, GraduationCap,
+  Globe, Sliders, GraduationCap, ShieldAlert,
 } from 'lucide-react';
 import {
   PLATFORM_META, SEVERITY_CONFIG, ASSET_TYPE_META, METHODOLOGY,
@@ -57,16 +57,29 @@ const SeverityBadge = ({ sev }) => {
   );
 };
 
-// ─── Policy Badge ──────────────────────────────────────────────────────────────
+// ─── Policy & Tier Badge ──────────────────────────────────────────────────────
+// Maps 3-tier model and 5-bucket classification statuses to UI config.
 const POLICY_CFG = {
-  ALLOWED:    { icon: CheckCircle, label: 'Scan Allowed',    cls: 'text-green-400',  bg: 'bg-green-500/8  border-green-500/25' },
-  RESTRICTED: { icon: Lock,        label: 'Restricted',      cls: 'text-yellow-400', bg: 'bg-yellow-500/8 border-yellow-500/25' },
-  UNKNOWN:    { icon: HelpCircle,  label: 'Policy Unknown',  cls: 'text-slate-400',  bg: 'bg-slate-500/8  border-slate-500/25' },
-};
+  // Mandatory Part B Tiers
+  VERIFIED_AUTOMATED_ALLOWED:        { icon: CheckCircle, label: 'Verified Automated Allowed (Tier 1)', cls: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30' },
+  MANUAL_VERIFICATION_REQUIRED:      { icon: ShieldAlert, label: 'Manual Verification Required (Tier 0)', cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  OUT_OF_SCOPE:                      { icon: Lock,        label: 'Out of Scope / Prohibited',           cls: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30' },
 
-const PolicyBadge = ({ policy, expanded, onToggle }) => {
-  const s   = policy?.status ?? 'UNKNOWN';
-  const cfg = POLICY_CFG[s] ?? POLICY_CFG.UNKNOWN;
+  // Five-bucket status constants
+  AUTHORIZED_FOR_AUTOMATED_SCANNING: { icon: CheckCircle, label: 'Auto Scan Authorized (Tier 1)',      cls: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30' },
+  AUTHORIZED_FOR_MANUAL_REVIEW:      { icon: Unlock,       label: 'Manual Review OK (Tier 0)',           cls: 'text-blue-400',   bg: 'bg-blue-500/10  border-blue-500/30' },
+  UNKNOWN_AUTHORIZATION:             { icon: HelpCircle,   label: 'Manual Verification Required (Tier 0)', cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+
+  // Legacy aliases
+  ALLOWED:    { icon: CheckCircle, label: 'Scan Allowed',   cls: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30' },
+  RESTRICTED: { icon: Lock,        label: 'Restricted',     cls: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30' },
+  UNKNOWN:    { icon: HelpCircle,  label: 'Policy Unknown', cls: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/30' },
+};
+const DEFAULT_POLICY_CFG = { icon: HelpCircle, label: 'Manual Verification Required (Tier 0)', cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' };
+
+const PolicyBadge = ({ policy, tier, expanded, onToggle }) => {
+  const s   = tier ?? policy?.status ?? 'MANUAL_VERIFICATION_REQUIRED';
+  const cfg = POLICY_CFG[s] ?? DEFAULT_POLICY_CFG;
   const Icon = cfg.icon;
   const conf = policy?.confidence ?? 0;
   return (
@@ -180,9 +193,10 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
         )}
       </div>
 
-      {/* Policy badge — expandable signals */}
+      {/* Policy & Tier badge — expandable signals */}
       <PolicyBadge
         policy={policy}
+        tier={target.authorization_tier}
         expanded={policyExpanded}
         onToggle={() => setPolicyExpanded(v => !v)}
       />
@@ -256,12 +270,20 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
           <Clock className="w-3 h-3 text-indigo-400" /> History
         </button>
 
-        {/* Launch Scan — always clickable, gate handled in modal */}
+        {/* Launch Scan / Policy Review */}
         <button
           onClick={() => onLaunchScan(target)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all shadow-sm shadow-cyan-500/20"
+          title={target.auto_scan_ok ? 'Launch automated scan' : 'Review target policy before testing'}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm ${
+            target.auto_scan_ok
+              ? 'text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20'
+              : target.authorization_tier === 'OUT_OF_SCOPE'
+              ? 'text-red-400 bg-red-950/40 border border-red-900/50'
+              : 'text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-800/60'
+          }`}
         >
-          <Zap className="w-3 h-3" /> Scan Now
+          {target.auto_scan_ok ? <Zap className="w-3 h-3" /> : target.authorization_tier === 'OUT_OF_SCOPE' ? <Lock className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+          {target.auto_scan_ok ? 'Scan Now' : target.authorization_tier === 'OUT_OF_SCOPE' ? 'Prohibited' : 'Policy / Gate'}
         </button>
 
         {/* Schedule */}
@@ -276,36 +298,37 @@ const TargetCard = ({ target, bookmarked, onToggleBookmark, onHuntGuide, onLaunc
   );
 };
 
-// ─── Policy Gate Modal (P1.1 with Engine & Rate Controls) ──────────────────────
+// ─── Policy Gate Modal (Tier-aware with Engine & Rate Controls) ────────────────
 const PolicyGateModal = ({ target, onClose, onConfirm }) => {
   const policy    = target?.scan_policy ?? { status: 'UNKNOWN', confidence: 0, signals: [] };
   const status    = policy.status;
+  const tier      = target?.authorization_tier ?? 'MANUAL_VERIFICATION_REQUIRED';
   const asset     = target?.asset?.replace(/^\*\./, '') ?? '';
   const [checked, setChecked] = useState(false);
 
+  const isTier1    = tier === 'VERIFIED_AUTOMATED_ALLOWED';
+  const isBlocked  = tier === 'OUT_OF_SCOPE' || status === 'OUT_OF_SCOPE';
+  const isTier0    = !isTier1 && !isBlocked;
+
   // P1.1: Engine selection and rate limits
-  const [rateLimit, setRateLimit] = useState(status === 'RESTRICTED' ? 5 : 50);
-  const [threads, setThreads] = useState(status === 'RESTRICTED' ? 1 : 3);
+  const [rateLimit, setRateLimit] = useState(isBlocked ? 5 : 50);
+  const [threads, setThreads] = useState(isBlocked ? 1 : 3);
   const [engineNuclei, setEngineNuclei] = useState(true);
   const [engineZap, setEngineZap] = useState(true);
   const [engineNikto, setEngineNikto] = useState(true);
   const [customAttribution, setCustomAttribution] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const isAllowed    = status === 'ALLOWED';
-  const isRestricted = status === 'RESTRICTED';
-  const isUnknown    = status === 'UNKNOWN';
-
-  const needsCheck   = isRestricted || isUnknown;
   const hasEngines   = engineNuclei || engineZap || engineNikto;
-  const canProceed   = (isAllowed || checked) && hasEngines;
+  // Safety Boundary B7: Automated scanning is ONLY enabled for Tier 1 verified affirmative targets.
+  const canProceed   = isTier1 && hasEngines;
 
   const statusConfig = {
-    ALLOWED:    { icon: CheckCircle, title: 'Scan Policy: Allowed',    color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30',   msg: 'Automated scanning is explicitly allowed by this program.' },
-    RESTRICTED: { icon: Lock,        title: 'Scan Policy: Restricted',  color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30', msg: 'This program has restrictions. Review them before scanning.' },
-    UNKNOWN:    { icon: HelpCircle,  title: 'Scan Policy: Unknown',     color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/30',   msg: 'No clear automation policy found. Manual review is required.' },
+    VERIFIED_AUTOMATED_ALLOWED:   { icon: CheckCircle, title: 'Tier 1: Verified Automated Allowed',   color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30',   msg: 'Affirmative written authorization for automated testing has been verified for this program.' },
+    MANUAL_VERIFICATION_REQUIRED: { icon: ShieldAlert, title: 'Tier 0: Manual Verification Required',  color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/30',   msg: 'SecuraX cannot prove affirmative automated authorization from this data source. Automated scanning is locked. Only manual testing following program rules is permitted.' },
+    OUT_OF_SCOPE:                 { icon: Lock,        title: 'Out of Scope / Prohibited',            color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',       msg: 'This target is explicitly OUT OF SCOPE or prohibits automated scanning. Testing is prohibited.' },
   };
-  const sc = statusConfig[status] ?? statusConfig.UNKNOWN;
+  const sc = statusConfig[tier] ?? statusConfig.MANUAL_VERIFICATION_REQUIRED;
   const Ico = sc.icon;
 
   const handleProceed = () => {
@@ -469,19 +492,23 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
             )}
           </div>
 
-          {/* Acknowledgement checkbox for non-ALLOWED */}
-          {needsCheck && (
-            <label className="flex items-start gap-3 cursor-pointer bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={e => setChecked(e.target.checked)}
-                className="w-4 h-4 mt-0.5 accent-yellow-400 flex-shrink-0"
-              />
-              <span className="text-xs text-yellow-200 leading-relaxed">
-                I have manually reviewed the program policy and confirm I am authorized to run automated scans on this target. I accept full responsibility.
-              </span>
-            </label>
+          {/* Tier 0 / Out of Scope Safety Notice */}
+          {!isTier1 && (
+            <div className={`rounded-xl p-4 border text-xs leading-relaxed flex gap-3 ${
+              isBlocked
+                ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            }`}>
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong>{isBlocked ? 'Automated Scanning Prohibited' : 'Tier 0: Automated Scanning Locked'}</strong>
+                <p className="mt-1 text-slate-300">
+                  {isBlocked
+                    ? 'This target prohibits automated testing or is out of scope. Automated scanning cannot be launched.'
+                    : 'SecuraX cannot verify affirmative written authorization for automated scanning on this target. Automated scanners are locked by default. Always verify target policy on the official program page before manual testing.'}
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -491,16 +518,28 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-semibold hover:bg-slate-800 transition-colors"
           >
-            Cancel
+            Close
           </button>
-          <button
-            onClick={handleProceed}
-            disabled={!canProceed}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-semibold transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Zap className="w-3.5 h-3.5 inline mr-1.5" />
-            {isAllowed ? 'Launch Scan' : 'Proceed Anyway'}
-          </button>
+          {isTier1 ? (
+            <button
+              onClick={handleProceed}
+              disabled={!canProceed}
+              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-semibold transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Zap className="w-3.5 h-3.5 inline mr-1.5" />
+              Launch Scan
+            </button>
+          ) : (
+            <a
+              href={target?.program_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-2.5 rounded-xl text-center inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-slate-800 to-slate-700 hover:from-slate-700 hover:to-slate-600 border border-slate-600 text-white text-sm font-semibold transition-all shadow-sm"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open Program Scope
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -921,6 +960,7 @@ export default function BountyTargetsPage() {
   const [total, setTotal]         = useState(0);
   const [pages, setPages]         = useState(1);
   const [cacheInfo, setCacheInfo] = useState({});
+  const [diagnostics, setDiagnostics] = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [stats, setStats]         = useState(null);
@@ -968,6 +1008,7 @@ export default function BountyTargetsPage() {
       setTotal(data.total ?? 0);
       setPages(data.pages ?? 1);
       setCacheInfo(data.cache_info ?? {});
+      setDiagnostics(data.diagnostics ?? null);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load bug bounty targets.');
     } finally {
@@ -1088,10 +1129,11 @@ export default function BountyTargetsPage() {
     : `${Math.round(cacheAge / 60)}m ago`;
 
   // ─ Total stats breakdown ───────────────────────────────────────────────────
-  const totalAllowed     = stats ? Object.values(stats).reduce((s, p) => s + (p.allowed ?? p.auto_ok ?? 0), 0) : null;
-  const totalRestricted  = stats ? Object.values(stats).reduce((s, p) => s + (p.restricted ?? 0), 0) : null;
-  const totalUnknown     = stats ? Object.values(stats).reduce((s, p) => s + (p.unknown ?? 0), 0) : null;
-  const totalBounty      = stats ? Object.values(stats).reduce((s, p) => s + p.with_bounty, 0) : null;
+  const totalAutoScan   = stats ? Object.values(stats).reduce((s, p) => s + (p.authorized_for_automated_scanning ?? p.allowed ?? p.auto_ok ?? 0), 0) : null;
+  const totalManualOk   = stats ? Object.values(stats).reduce((s, p) => s + (p.authorized_for_manual_review ?? 0), 0) : null;
+  const totalUnknown    = stats ? Object.values(stats).reduce((s, p) => s + (p.unknown_authorization ?? p.unknown ?? 0), 0) : null;
+  const totalBounty     = stats ? Object.values(stats).reduce((s, p) => s + (p.with_bounty ?? 0), 0) : null;
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6 space-y-6">
@@ -1137,10 +1179,41 @@ export default function BountyTargetsPage() {
       {/* -- Stats Row -- */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MiniStat label="Scan Allowed"  value={totalAllowed}    icon={CheckCircle}  color="bg-green-500/10 text-green-400" />
-          <MiniStat label="Restricted"    value={totalRestricted} icon={Lock}         color="bg-yellow-500/10 text-yellow-400" />
-          <MiniStat label="Policy Unknown" value={totalUnknown}   icon={HelpCircle}   color="bg-slate-500/10 text-slate-400" />
-          <MiniStat label="Bounty + Allowed" value={totalBounty} icon={Star}          color="bg-orange-500/10 text-orange-400" />
+          <MiniStat
+            label="Tier 1 (Auto Scan OK)"
+            value={Object.values(stats).reduce((s, p) => s + (p.verified_automated_allowed ?? p.authorized_for_automated_scanning ?? 0), 0)}
+            icon={CheckCircle}
+            color="bg-green-500/10 text-green-400"
+          />
+          <MiniStat
+            label="Tier 0 (Manual Verification)"
+            value={Object.values(stats).reduce((s, p) => s + (p.manual_verification_required ?? (p.authorized_for_manual_review + p.unknown_authorization) ?? 0), 0)}
+            icon={ShieldAlert}
+            color="bg-amber-500/10 text-amber-400"
+          />
+          <MiniStat
+            label="Out of Scope / Blocked"
+            value={Object.values(stats).reduce((s, p) => s + (p.out_of_scope ?? p.restricted ?? 0), 0)}
+            icon={Lock}
+            color="bg-red-500/10 text-red-400"
+          />
+          <MiniStat
+            label="With Bounty Reward"
+            value={totalBounty}
+            icon={Star}
+            color="bg-orange-500/10 text-orange-400"
+          />
+        </div>
+      )}
+
+      {/* ── Partial results diagnostics banner ── */}
+      {diagnostics?.failed_platforms?.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 text-amber-300 text-xs flex items-center gap-2.5">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          <span>
+            <strong>Partial Results:</strong> Could not connect to {diagnostics.failed_platforms.map(f => f.platform).join(', ')}.
+            Displaying targets from accessible platforms ({diagnostics.successful_platforms.join(', ')}).
+          </span>
         </div>
       )}
 
@@ -1185,16 +1258,18 @@ export default function BountyTargetsPage() {
           <option value="DOMAIN">Domain</option>
         </select>
 
-        {/* Policy filter -- replaces binary auto-scan checkbox */}
+        {/* Policy filter -- Tier 1 / Tier 0 / Out of Scope */}
         <select
           value={policyFilter}
           onChange={e => setPolicyFilter(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
         >
-          <option value="ALL">All policies</option>
-          <option value="ALLOWED">Scan Allowed only</option>
-          <option value="RESTRICTED">Restricted only</option>
-          <option value="UNKNOWN">Policy Unknown</option>
+          <option value="ALL">All Targets (Discovered)</option>
+          <option value="VERIFIED_AUTOMATED_ALLOWED">Tier 1: Verified Auto Scan</option>
+          <option value="MANUAL_VERIFICATION_REQUIRED">Tier 0: Manual Verification Required</option>
+          <option value="AUTHORIZED_FOR_MANUAL_REVIEW">Tier 0: Manual Review OK</option>
+          <option value="UNKNOWN_AUTHORIZATION">Tier 0: Unknown Policy</option>
+          <option value="OUT_OF_SCOPE">Out of Scope / Prohibited</option>
         </select>
 
         {/* Bounty toggle */}
@@ -1281,15 +1356,21 @@ export default function BountyTargetsPage() {
 
       {/* ── Empty state ── */}
       {!loading && displayedTargets.length === 0 && (
-        <div className="text-center py-20">
+        <div className="text-center py-20 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-8 max-w-2xl mx-auto my-8">
           <div className="text-6xl mb-4">🎯</div>
           <div className="text-xl font-bold text-white mb-2">
-            {showBookmarked ? 'No bookmarks yet' : 'No targets found'}
+            {showBookmarked
+              ? 'No bookmarks yet'
+              : (policyFilter === 'VERIFIED_AUTOMATED_ALLOWED' || policyFilter === 'AUTHORIZED_FOR_AUTOMATED_SCANNING')
+              ? '0 Verified Tier 1 Targets'
+              : 'No targets found'}
           </div>
-          <p className="text-slate-400 text-sm">
+          <p className="text-slate-400 text-sm leading-relaxed">
             {showBookmarked
               ? 'Bookmark targets to save them here for quick access.'
-              : 'Try adjusting your filters or refreshing the cache.'}
+              : (policyFilter === 'VERIFIED_AUTOMATED_ALLOWED' || policyFilter === 'AUTHORIZED_FOR_AUTOMATED_SCANNING')
+              ? 'Currently, no targets have verified affirmative written authorization for automated scanning (Tier 1). HexaGuard enforces strict evidence-based safety rules. Switch to "All Targets" or "Tier 0" to explore all discovered targets.'
+              : 'Try adjusting your filters or search keywords.'}
           </p>
         </div>
       )}

@@ -32,7 +32,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import requests
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, make_response, request
 from flask_login import current_user, login_required
 
 from database import get_target_scan_history, log_event
@@ -65,9 +65,21 @@ def local_only_required(f):
 
 @bounty_bp.before_request
 def enforce_bounty_local_only_gate():
-    """Centrally enforce that all bounty blueprint routes return 404 unless DEPLOYMENT_MODE == 'local'."""
+    """Centrally enforce that all bounty blueprint routes return 404 unless DEPLOYMENT_MODE == 'local'.
+    When ENABLE_LIVE_BOUNTY_SCANNING is false, browsing endpoints return 404 while active recon endpoints
+    are delegated to _enforce_bounty_policy_gate() to return 403 BOUNTY_SCANNING_DISABLED.
+    """
     mode = os.environ.get("DEPLOYMENT_MODE", "").strip().lower()
     if mode != "local":
+        return jsonify({
+            "error": "Bug Bounty Radar endpoints are restricted to local deployment mode only.",
+            "deployment_mode": mode or "cloud",
+        }), 404
+
+    is_live = os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "true").strip().lower() in ("true", "1", "yes")
+    if not is_live:
+        if request.path.startswith("/api/bounty/recon"):
+            return None
         return jsonify({
             "error": "Bug Bounty Radar endpoints are restricted to local deployment mode only.",
             "deployment_mode": mode or "cloud",
@@ -81,6 +93,7 @@ def enforce_bounty_local_only_gate():
 _BB_CACHE_TTL   = 3600          # 1 hour
 _BB_CACHE_LOCK  = threading.Lock()
 _BB_CACHE: dict = {}            # platform → {"data": [...], "ts": float}
+_BB_TARGETS_CACHE: dict = {}    # platform → {"targets": [...], "ts": float}
 _BB_INFLIGHT: set = set()       # single-flight: platforms being fetched right now
 
 _PLATFORM_URLS = {
@@ -92,6 +105,8 @@ _PLATFORM_URLS = {
 }
 
 # ── Scan-policy detection ────────────────────────────────────────────────────
+# Terms that constitute EXPLICIT affirmative permission for automated scanning.
+# Must be present to classify as AUTHORIZED_FOR_AUTOMATED_SCANNING.
 _ALLOW_TERMS = [
     "automated scanning allowed", "automated scanning is allowed",
     "automated testing allowed", "automated tools allowed",
@@ -99,8 +114,12 @@ _ALLOW_TERMS = [
     "feel free to use automated", "scanners are allowed",
     "you may use automated", "automated tools are fine",
     "burp suite is allowed", "zap is allowed",
+    "tools are allowed", "active scanning is allowed",
+    "scanning is permitted", "automated tools permitted",
+    "active testing allowed", "active testing is permitted",
 ]
 
+# Terms that constitute EXPLICIT prohibition of automated scanning.
 _BLOCK_TERMS = [
     "no automated scanning", "no automated testing",
     "do not use automated", "do not run automated",
@@ -110,9 +129,11 @@ _BLOCK_TERMS = [
     "no scanners", "scanners not allowed", "scanners are not permitted",
     "no vulnerability scanner", "no automated vulnerability",
     "without prior permission", "without written permission",
-    "please do not run",
+    "please do not run", "do not perform automated",
+    "do not conduct automated",
 ]
 
+# Terms indicating operational restrictions (rate limiting, no DoS) but not full prohibition.
 _RESTRICT_TERMS = [
     "rate limit", "rate-limit", "rate limiting",
     "no dos", "no denial of service", "no brute force", "no bruteforce",
@@ -122,19 +143,78 @@ _RESTRICT_TERMS = [
     "production only", "no testing on production",
 ]
 
+# ── Five-bucket classification status constants ───────────────────────────────
+# These map to the five conceptual categories required by the mission spec.
+# Backend and frontend must agree on these values.
+#
+# AUTHORIZED_FOR_AUTOMATED_SCANNING  — explicit affirmative policy evidence
+# AUTHORIZED_FOR_MANUAL_REVIEW       — open program, no automation prohibition
+#                                      (legitimate opportunity, not auto-scannable)
+# UNKNOWN_AUTHORIZATION              — genuinely ambiguous / no policy text at all
+# OUT_OF_SCOPE                       — explicit prohibition of automated scanning
+# DISCOVERED                         — raw record (pre-classification, should not
+#                                      appear in normal API responses)
+
+STATUS_AUTOMATED  = "AUTHORIZED_FOR_AUTOMATED_SCANNING"
+STATUS_MANUAL     = "AUTHORIZED_FOR_MANUAL_REVIEW"
+STATUS_UNKNOWN    = "UNKNOWN_AUTHORIZATION"
+STATUS_BLOCKED    = "OUT_OF_SCOPE"
+STATUS_DISCOVERED = "DISCOVERED"
+
+# ── Three-tier authorization constants (Mandatory Part B1) ────────────────────
+TIER_AUTOMATED = "VERIFIED_AUTOMATED_ALLOWED"
+TIER_MANUAL    = "MANUAL_VERIFICATION_REQUIRED"
+TIER_BLOCKED   = "OUT_OF_SCOPE"
+
+# ── Tier 1 source guard ───────────────────────────────────────────────────────
+# CRITICAL ARCHITECTURAL CONSTRAINT:
+# TIER_AUTOMATED (VERIFIED_AUTOMATED_ALLOWED) is STRUCTURALLY UNREACHABLE
+# from the arkadiyt/bounty-targets-data aggregated source.
+#
+# Reason: _analyse_policy() uses keyword matching on scraped policy text.
+# A keyword hit (e.g. "automated scanning allowed" in a description field)
+# is NOT proof that the platform has granted automated-scanning authorization
+# to HexaGuard or any external tool. It only means the policy text mentions
+# the concept. The distinction matters:
+#   - eligible_for_bounty     → eligible for monetary bounty payment, NOT scan authorization
+#   - in_scope                → target is within program scope, NOT scan authorization
+#   - keyword in policy text  → mentions automation, NOT platform-confirmed permission
+#
+# Tier 1 may only be granted via an explicit owner-confirmed allowlist
+# (future feature). Until then, all targets from this source are Tier 0 or Tier 2.
+#
+# This constant documents that the automated path is disabled for this source:
+_TIER1_ARKADIYT_SOURCE_DISABLED = True   # Must be True; set False only with owner-confirmed allowlist
+
+# Legacy 3-bucket aliases for backward compat with tests written before this patch.
+# Do NOT use these for new code.
+_LEGACY_ALLOWED     = STATUS_AUTOMATED
+_LEGACY_RESTRICTED  = STATUS_BLOCKED
+_LEGACY_UNKNOWN     = STATUS_UNKNOWN
+
 
 def _analyse_policy(text: str | None) -> dict:
-    """Return a rich scan-policy dict instead of a binary bool.
+    """Return a rich scan-policy dict using the five-bucket classification model.
 
     Returns:
         {
-            "status":     "ALLOWED" | "RESTRICTED" | "UNKNOWN",
+            "status":     one of the STATUS_* constants above,
             "confidence": 0 .. 100,
             "signals":    [ "matched phrase 1", ... ]
         }
+
+    Classification logic:
+        - Explicit ALLOW hit (no BLOCK) → AUTHORIZED_FOR_AUTOMATED_SCANNING
+        - Explicit BLOCK hit (no ALLOW)  → OUT_OF_SCOPE
+        - Both ALLOW and BLOCK           → OUT_OF_SCOPE (contradictory, safe default)
+        - Only RESTRICT hits (no ALLOW/BLOCK) → AUTHORIZED_FOR_MANUAL_REVIEW
+          (operational limits apply but automation is not prohibited)
+        - No policy text at all          → UNKNOWN_AUTHORIZATION
+        - Policy text but no relevant terms → AUTHORIZED_FOR_MANUAL_REVIEW
+          (open program with no automation restrictions mentioned)
     """
-    if not text:
-        return {"status": "UNKNOWN", "confidence": 0,
+    if not text or not text.strip():
+        return {"status": STATUS_UNKNOWN, "confidence": 0,
                 "signals": ["No policy or instruction text provided by program"]}
 
     t = text.lower()
@@ -151,22 +231,23 @@ def _analyse_policy(text: str | None) -> dict:
     for term in restrict_hits:
         signals.append(f"⚠ Operational limit: \"{term}\"")
 
-    if block_hits and not allow_hits:
-        return {"status": "RESTRICTED", "confidence": 85, "signals": signals}
+    # Explicit prohibition wins (safe default)
+    if block_hits:
+        return {"status": STATUS_BLOCKED, "confidence": 85 if not allow_hits else 50,
+                "signals": signals + (["Contradictory signals — automation prohibited"] if allow_hits else [])}
 
-    if allow_hits and not block_hits:
+    # Explicit affirmative permission with no block
+    if allow_hits:
         conf = 90 if not restrict_hits else 70
-        stat = "ALLOWED" if not restrict_hits else "RESTRICTED"
-        return {"status": stat, "confidence": conf, "signals": signals}
+        return {"status": STATUS_AUTOMATED, "confidence": conf, "signals": signals}
 
-    if allow_hits and block_hits:
-        return {"status": "RESTRICTED", "confidence": 50,
-                "signals": signals + ["Contradictory signals — manual review required"]}
-
+    # Only rate-limit / no-DoS style restrictions — manual review ok, no automation prohibition
     if restrict_hits:
-        return {"status": "RESTRICTED", "confidence": 40, "signals": signals}
+        return {"status": STATUS_MANUAL, "confidence": 55,
+                "signals": signals + ["Program has operational limits but does not prohibit all scanning"]}
 
-    return {"status": "UNKNOWN", "confidence": 20,
+    # Policy text present but no automation-related terms — unknown authorization (Phase 3 baseline)
+    return {"status": STATUS_UNKNOWN, "confidence": 20,
             "signals": ["No automation-related terms found in instructions"]}
 
 
@@ -174,7 +255,7 @@ _WEB_ASSET_TYPES = {"URL", "WILDCARD", "DOMAIN", "WEB_APPLICATION"}
 
 
 def _fetch_platform(platform: str) -> list:
-    """Fetch and parse one platform JSON, cached for TTL seconds."""
+    """Fetch and parse one platform JSON with bounded streaming, timeout, and caching."""
     with _BB_CACHE_LOCK:
         cached = _BB_CACHE.get(platform)
         if cached and (time.time() - cached["ts"]) < _BB_CACHE_TTL:
@@ -187,12 +268,26 @@ def _fetch_platform(platform: str) -> list:
         url = _PLATFORM_URLS.get(platform)
         if not url:
             return []
-        req = urllib.request.Request(
+
+        resp = requests.get(
             url,
             headers={"User-Agent": "HexaGuard/1.0 (bug-bounty-browser)"},
+            timeout=(5.0, 30.0),
+            stream=True,
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
-            raw = json.loads(resp.read().decode())
+        resp.raise_for_status()
+
+        # Bounded streaming read with safety ceiling (60MB)
+        max_bytes = 60 * 1024 * 1024
+        chunks = []
+        bytes_read = 0
+        for chunk in resp.iter_content(chunk_size=1024 * 512):
+            chunks.append(chunk)
+            bytes_read += len(chunk)
+            if bytes_read > max_bytes:
+                raise ValueError(f"Payload for {platform} exceeded safety limit ({max_bytes} bytes)")
+
+        raw = json.loads(b"".join(chunks).decode("utf-8"))
         with _BB_CACHE_LOCK:
             _BB_CACHE[platform] = {"data": raw, "ts": time.time()}
         return raw
@@ -200,7 +295,10 @@ def _fetch_platform(platform: str) -> list:
         logger.warning("bounty-targets: failed to fetch %s — %s", platform, exc)
         with _BB_CACHE_LOCK:
             cached = _BB_CACHE.get(platform)
-        return cached["data"] if cached else []
+        if cached and cached.get("data"):
+            logger.info("Serving stale cached raw data for %s", platform)
+            return cached["data"]
+        raise
     finally:
         with _BB_CACHE_LOCK:
             _BB_INFLIGHT.discard(platform)
@@ -232,7 +330,7 @@ def _normalise_hackerone(programs: list) -> list:
                 "max_severity":     max_sev,
                 "eligible_bounty":  scope_item.get("eligible_for_bounty", False),
                 "scan_policy":      policy,
-                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "auto_scan_ok":     policy["status"] == STATUS_AUTOMATED,
                 "instruction":      scope_instr,
                 "managed":          prog.get("managed_program", False),
                 "avg_response_h":   prog.get("average_time_to_first_program_response"),
@@ -349,7 +447,7 @@ def _normalise_bugcrowd(programs: list) -> list:
                 "eligible_bounty":  bool(max_p_val > 0 or has_rewards or prog.get("bounty", False)),
                 "max_payout":       max_p_val if max_p_val > 0 else None,
                 "scan_policy":      policy,
-                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "auto_scan_ok":     policy["status"] == STATUS_AUTOMATED,
                 "instruction":      scope_desc,
                 "managed":          is_managed,
                 "safe_harbor":      safe_harbor_str,
@@ -424,7 +522,7 @@ def _normalise_yeswehack(programs: list) -> list:
                 "max_severity":     prog_max_sev,
                 "eligible_bounty":  bool(max_b or prog.get("bounty", False)),
                 "scan_policy":      policy,
-                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "auto_scan_ok":     policy["status"] == STATUS_AUTOMATED,
                 "instruction":      scope_desc,
                 "managed":          bool(prog.get("managed", False)),
                 "avg_response_h":   None,
@@ -491,7 +589,7 @@ def _normalise_intigriti(programs: list) -> list:
                 "max_severity":     prog_max_sev,
                 "eligible_bounty":  bool(max_val),
                 "scan_policy":      policy,
-                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "auto_scan_ok":     policy["status"] == STATUS_AUTOMATED,
                 "instruction":      scope_desc,
                 "managed":          False,
                 "avg_response_h":   None,
@@ -535,7 +633,7 @@ def _normalise_federacy(programs: list) -> list:
                 "max_severity":     prog_max_sev,
                 "eligible_bounty":  bool(offers_awards),
                 "scan_policy":      policy,
-                "auto_scan_ok":     policy["status"] == "ALLOWED",
+                "auto_scan_ok":     policy["status"] == STATUS_AUTOMATED,
                 "instruction":      scope_desc,
                 "managed":          False,
                 "avg_response_h":   None,
@@ -749,12 +847,43 @@ def _enforce_bounty_policy_gate(
         instruction = ctx.get("instruction")
         policy = _analyse_policy(instruction)
 
-    status       = policy.get("status", "UNKNOWN")
+    status       = policy.get("status", STATUS_UNKNOWN)
     acknowledged = bool(ctx.get("acknowledged", False))
     platform     = ctx.get("platform", "")
     program      = ctx.get("program_handle", "")
 
-    if status in ("RESTRICTED", "UNKNOWN") and not acknowledged:
+    # Server-side rule: OUT_OF_SCOPE is ALWAYS rejected — acknowledged flag is irrelevant.
+    # UNKNOWN_AUTHORIZATION and AUTHORIZED_FOR_MANUAL_REVIEW require explicit acknowledgment
+    # for manual testing. AUTHORIZED_FOR_AUTOMATED_SCANNING is the only status that
+    # permits automated scan-job creation without additional restrictions.
+    if status in (STATUS_BLOCKED, TIER_BLOCKED, "OUT_OF_SCOPE"):
+        log_event(
+            "bounty_scan_blocked_out_of_scope",
+            username, user_id,
+            category="bounty", resource=asset, status="blocked",
+            details=json.dumps({
+                "policy":   status,
+                "platform": platform,
+                "program":  program,
+                "signals":  policy.get("signals", []),
+            }),
+        )
+        return False, (
+            jsonify({
+                "error": (
+                    f"Scan of '{asset}' is permanently blocked: the program explicitly prohibits "
+                    "automated scanning (OUT_OF_SCOPE). This restriction cannot be overridden."
+                ),
+                "code":     "OUT_OF_SCOPE_BLOCKED",
+                "status":   status,
+                "signals":  policy.get("signals", []),
+                "platform": platform,
+                "program":  program,
+            }),
+            403,
+        )
+
+    if (status in (STATUS_MANUAL, STATUS_UNKNOWN, "RESTRICTED", "UNKNOWN", TIER_MANUAL) or not status) and not acknowledged:
         log_event(
             "bounty_scan_blocked_unacknowledged",
             username, user_id,
@@ -834,10 +963,14 @@ def verify_bounty_policy():
         policy_snapshot = _analyse_policy(instruction or None)
 
     status    = policy_snapshot.get("status", "UNKNOWN")
-    blocked   = status in ("RESTRICTED", "UNKNOWN")
+    legacy_status = "RESTRICTED" if status in (STATUS_BLOCKED, "RESTRICTED", TIER_BLOCKED) else (
+        "ALLOWED" if status in (STATUS_AUTOMATED, "ALLOWED", TIER_AUTOMATED) else "UNKNOWN"
+    )
+    blocked   = status in ("RESTRICTED", "UNKNOWN", STATUS_BLOCKED, STATUS_UNKNOWN, STATUS_MANUAL, TIER_BLOCKED, TIER_MANUAL)
 
     return jsonify({
-        "status":     status,
+        "status":     legacy_status if status not in ("RESTRICTED", "UNKNOWN", "ALLOWED") else status,
+        "policy_status": status,
         "confidence": policy_snapshot.get("confidence", 0),
         "signals":    policy_snapshot.get("signals", []),
         "blocked":    blocked,
@@ -1185,6 +1318,82 @@ def api_target_scan_history():
     return jsonify(history)
 
 
+def _fetch_and_normalize_platform(plat: str) -> tuple[str, list, Exception | None]:
+    """Fetch, parse, normalize, and enrich targets for one platform.
+    Thread-safe, bounded, and cached with TTL.
+    """
+    if plat not in _NORMALISERS:
+        return plat, [], ValueError(f"Unknown platform: {plat}")
+
+    # Check targets cache first (fast-path)
+    with _BB_CACHE_LOCK:
+        cached_raw = _BB_CACHE.get(plat)
+        cached_targets = _BB_TARGETS_CACHE.get(plat)
+        if cached_targets and (time.time() - cached_targets["ts"]) < _BB_CACHE_TTL:
+            if not cached_raw or cached_targets["ts"] >= cached_raw.get("ts", 0):
+                return plat, [dict(t) for t in cached_targets["targets"]], None
+
+    try:
+        fetch_fn, norm_fn = _NORMALISERS[plat]
+        raw = fetch_fn(plat)
+        targets = norm_fn(raw)
+
+        # Enrich targets with strict authorization tier guarantees and static metadata.
+        #
+        # TIER ASSIGNMENT RULES (enforced here, not in normalizers):
+        #
+        # Tier 1 (VERIFIED_AUTOMATED_ALLOWED) — UNREACHABLE from arkadiyt source.
+        #   Even if _analyse_policy() returns STATUS_AUTOMATED (keyword match),
+        #   this is NOT sufficient authorization evidence. Keyword presence in scraped
+        #   text ≠ platform-confirmed scanning permission. Tier 1 requires an explicit
+        #   owner-confirmed allowlist entry (_TIER1_ARKADIYT_SOURCE_DISABLED guards this).
+        #
+        # Tier 0 (MANUAL_VERIFICATION_REQUIRED) — All targets where automated scanning
+        #   is not explicitly prohibited. Includes STATUS_AUTOMATED, STATUS_MANUAL,
+        #   STATUS_UNKNOWN, and STATUS_DISCOVERED. The researcher must verify manually.
+        #
+        # Tier 2 (OUT_OF_SCOPE) — Only targets where automated scanning is explicitly
+        #   prohibited (STATUS_BLOCKED from _analyse_policy).
+        for t in targets:
+            st = t.get("scan_policy", {}).get("status")
+            if not _TIER1_ARKADIYT_SOURCE_DISABLED and st == STATUS_AUTOMATED:
+                # Tier 1 path — only reachable when owner-confirmed allowlist is active
+                t["authorization_tier"] = TIER_AUTOMATED
+                t["auto_scan_ok"] = True
+            elif st == STATUS_BLOCKED:
+                # Explicit prohibition detected in policy text
+                t["authorization_tier"] = TIER_BLOCKED
+                t["auto_scan_ok"] = False
+            else:
+                # STATUS_AUTOMATED (keyword hit only), STATUS_MANUAL, STATUS_UNKNOWN,
+                # STATUS_DISCOVERED → all map to Tier 0 (manual verification required).
+                # eligible_for_bounty and in_scope are NOT authorization signals.
+                t["authorization_tier"] = TIER_MANUAL
+                t["auto_scan_ok"] = False
+
+            sh = _detect_safe_harbor(t)
+            t["safe_harbor"] = sh
+            t["has_safe_harbor"] = sh["has_safe_harbor"]
+            t["expected_value_score"] = _calculate_expected_roi(t)
+            t["roi_score"] = t["expected_value_score"]
+            t["suggested_lessons"] = _suggest_lessons_for_target(t)
+            t["manual_hunt_guide"] = _build_manual_hunt_guide(t)
+            t["learn_earn_score"] = _calculate_learn_earn_score(t, None)
+
+        with _BB_CACHE_LOCK:
+            _BB_TARGETS_CACHE[plat] = {"targets": targets, "ts": time.time()}
+
+        return plat, [dict(t) for t in targets], None
+    except Exception as exc:
+        logger.warning("bounty-targets: error processing platform %s: %s", plat, exc)
+        with _BB_CACHE_LOCK:
+            cached_targets = _BB_TARGETS_CACHE.get(plat)
+            if cached_targets and cached_targets.get("targets"):
+                logger.info("Serving stale cached targets for %s due to fetch failure", plat)
+                return plat, [dict(t) for t in cached_targets["targets"]], None
+        return plat, [], exc
+
+
 @bounty_bp.route("/api/admin/bounty-targets")
 @admin_required
 def api_bounty_targets():
@@ -1196,55 +1405,79 @@ def api_bounty_targets():
     sort_by    = request.args.get("sort", "").lower().strip()
     policy_filter = request.args.get("policy", "ALL").upper()
     if "auto_only" in request.args and "policy" not in request.args:
-        policy_filter = "ALLOWED" if request.args.get("auto_only", "0") == "1" else "ALL"
+        policy_filter = STATUS_AUTOMATED if request.args.get("auto_only", "0") == "1" else "ALL"
+    # Map legacy filter values to new constants for backward compat
+    _LEGACY_MAP = {
+        "ALLOWED":     STATUS_AUTOMATED,
+        "RESTRICTED":  STATUS_BLOCKED,
+        "UNKNOWN":     STATUS_UNKNOWN,
+    }
+    if policy_filter in _LEGACY_MAP:
+        policy_filter = _LEGACY_MAP[policy_filter]
+
     search     = request.args.get("search", "").lower().strip()
     page       = max(1, request.args.get("page", 1, type=int))
     per_page   = min(100, max(1, request.args.get("per_page", 30, type=int)))
 
     platforms = list(_NORMALISERS) if platform == "all" else [platform]
     all_targets: list = []
+    successful_platforms: list = []
+    failed_platforms: list = []
+    platform_results: dict = {}
 
+    # Parallel platform fetching with isolated exceptions
+    with ThreadPoolExecutor(max_workers=min(len(platforms), 5)) as pool:
+        futures = {pool.submit(_fetch_and_normalize_platform, p): p for p in platforms}
+        for future in as_completed(futures):
+            plat, p_targets, err = future.result()
+            if err:
+                failed_platforms.append({"platform": plat, "error": str(err)[:200]})
+            else:
+                successful_platforms.append(plat)
+                platform_results[plat] = p_targets
+
+    # Preserve deterministic platform order
     for plat in platforms:
-        if plat not in _NORMALISERS:
-            continue
-        fetch_fn, norm_fn = _NORMALISERS[plat]
-        raw = fetch_fn(plat)
-        all_targets.extend(norm_fn(raw))
+        if plat in platform_results:
+            all_targets.extend(platform_results[plat])
 
-    # Fetch user skill ledger for personalized Learn+Earn ranking
-    user_id = getattr(current_user, "id", None)
-    user_ledger = None
-    if user_id:
-        try:
-            from db.skills import get_user_skill_ledger
-            user_ledger = get_user_skill_ledger(user_id)
-        except Exception as exc:
-            logger.debug("Could not load user ledger for bounty ranking: %s", exc)
+    # Fetch user skill ledger only if personalized ranking is requested
+    if sort_by in ("learn_earn", "learn-earn", "learn"):
+        user_id = getattr(current_user, "id", None)
+        user_ledger = None
+        if user_id:
+            try:
+                from db.skills import get_user_skill_ledger
+                user_ledger = get_user_skill_ledger(user_id)
+            except Exception as exc:
+                logger.debug("Could not load user ledger for bounty ranking: %s", exc)
+        if user_ledger:
+            for t in all_targets:
+                t["learn_earn_score"] = _calculate_learn_earn_score(t, user_ledger)
 
-    # Enrich with Safe Harbor, Expected ROI, Learn+Earn scoring, suggested lessons, and manual hunt guide
-    for t in all_targets:
-        sh = _detect_safe_harbor(t)
-        t["safe_harbor"] = sh
-        t["has_safe_harbor"] = sh["has_safe_harbor"]
-        t["expected_value_score"] = _calculate_expected_roi(t)
-        t["roi_score"] = t["expected_value_score"]
-        t["learn_earn_score"] = _calculate_learn_earn_score(t, user_ledger)
-        t["suggested_lessons"] = _suggest_lessons_for_target(t)
-        t["manual_hunt_guide"] = _build_manual_hunt_guide(t)
-
+    # Filtering
     if policy_filter != "ALL":
-        all_targets = [t for t in all_targets
-                       if t["scan_policy"]["status"] == policy_filter]
+        if policy_filter in (TIER_AUTOMATED, STATUS_AUTOMATED, "ALLOWED", "AUTOMATED", "TIER_1"):
+            all_targets = [t for t in all_targets if t.get("authorization_tier") == TIER_AUTOMATED]
+        elif policy_filter in (TIER_MANUAL, STATUS_MANUAL, "MANUAL", "TIER_0", "MANUAL_VERIFICATION_REQUIRED"):
+            all_targets = [t for t in all_targets if t.get("authorization_tier") == TIER_MANUAL]
+        elif policy_filter in (TIER_BLOCKED, STATUS_BLOCKED, "RESTRICTED", "BLOCKED", "OUT_OF_SCOPE"):
+            all_targets = [t for t in all_targets if t.get("authorization_tier") == TIER_BLOCKED]
+        elif policy_filter in (STATUS_UNKNOWN, "UNKNOWN"):
+            all_targets = [t for t in all_targets if t.get("scan_policy", {}).get("status") == STATUS_UNKNOWN]
+        else:
+            all_targets = [t for t in all_targets if t.get("scan_policy", {}).get("status") == policy_filter]
+
     if bounty:
-        all_targets = [t for t in all_targets if t["eligible_bounty"]]
+        all_targets = [t for t in all_targets if t.get("eligible_bounty")]
     if safe_harbor_filter:
-        all_targets = [t for t in all_targets if t["has_safe_harbor"]]
+        all_targets = [t for t in all_targets if t.get("has_safe_harbor")]
     if asset_type != "ALL":
-        all_targets = [t for t in all_targets if t["asset_type"] == asset_type]
+        all_targets = [t for t in all_targets if t.get("asset_type") == asset_type]
     if search:
         all_targets = [
             t for t in all_targets
-            if search in t["asset"].lower() or search in t["program_name"].lower()
+            if search in (t.get("asset") or "").lower() or search in (t.get("program_name") or "").lower()
         ]
 
     # Sorting options
@@ -1261,7 +1494,8 @@ def api_bounty_targets():
 
     cache_info = {}
     for plat in platforms:
-        cached = _BB_CACHE.get(plat)
+        with _BB_CACHE_LOCK:
+            cached = _BB_TARGETS_CACHE.get(plat) or _BB_CACHE.get(plat)
         if cached:
             age = int(time.time() - cached["ts"])
             cache_info[plat] = {"age_seconds": age, "expires_in": max(0, _BB_CACHE_TTL - age)}
@@ -1275,6 +1509,12 @@ def api_bounty_targets():
         "per_page":   per_page,
         "pages":      max(1, -(-total // per_page)),
         "cache_info": cache_info,
+        "diagnostics": {
+            "successful_platforms": successful_platforms,
+            "failed_platforms": failed_platforms,
+            "total_platforms_queried": len(platforms),
+            "partial_results": len(failed_platforms) > 0 and len(successful_platforms) > 0,
+        },
     })
 
 
@@ -1284,6 +1524,7 @@ def api_bounty_targets_refresh():
     """Force-invalidate the in-memory cache for all platforms."""
     with _BB_CACHE_LOCK:
         _BB_CACHE.clear()
+        _BB_TARGETS_CACHE.clear()
     log_event("bounty_cache_refresh", current_user.username, current_user.id,
               category="admin", status="success")
     return jsonify({"ok": True, "message": "Cache cleared — data will be re-fetched on next request."})
@@ -1292,25 +1533,45 @@ def api_bounty_targets_refresh():
 @bounty_bp.route("/api/admin/bounty-targets/stats")
 @admin_required
 def api_bounty_targets_stats():
-    """Return high-level stats (totals per platform) without pagination."""
+    """Return high-level stats (totals per platform) without pagination.
+    Uses ThreadPoolExecutor for concurrency and respects Tier classification.
+    """
     stats = {}
-    for plat in _NORMALISERS:
-        fetch_fn, norm_fn = _NORMALISERS[plat]
-        raw     = fetch_fn(plat)
-        targets = norm_fn(raw)
-        allowed     = [t for t in targets if t["scan_policy"]["status"] == "ALLOWED"]
-        restricted  = [t for t in targets if t["scan_policy"]["status"] == "RESTRICTED"]
-        unknown     = [t for t in targets if t["scan_policy"]["status"] == "UNKNOWN"]
-        bounty_list = [t for t in allowed  if t["eligible_bounty"]]
+    platforms = list(_NORMALISERS)
+    results = {}
+
+    with ThreadPoolExecutor(max_workers=min(len(platforms), 5)) as pool:
+        futures = {pool.submit(_fetch_and_normalize_platform, p): p for p in platforms}
+        for future in as_completed(futures):
+            plat, targets, err = future.result()
+            results[plat] = targets
+
+    for plat in platforms:
+        targets = results.get(plat, [])
+        tier_1       = [t for t in targets if t.get("authorization_tier") == TIER_AUTOMATED]
+        tier_0       = [t for t in targets if t.get("authorization_tier") == TIER_MANUAL]
+        blocked      = [t for t in targets if t.get("authorization_tier") == TIER_BLOCKED]
+        manual_ok    = [t for t in targets if t.get("scan_policy", {}).get("status") == STATUS_MANUAL]
+        unknown_auth = [t for t in targets if t.get("scan_policy", {}).get("status") == STATUS_UNKNOWN]
+        bounty_list  = [t for t in targets if t.get("eligible_bounty")]
+
         stats[plat] = {
-            "total":        len(targets),
-            "allowed":      len(allowed),
-            "restricted":   len(restricted),
-            "unknown":      len(unknown),
-            "auto_ok":      len(allowed),
-            "with_bounty":  len(bounty_list),
+            "total":                             len(targets),
+            "verified_automated_allowed":        len(tier_1),
+            "manual_verification_required":      len(tier_0),
+            "out_of_scope":                      len(blocked),
+            "authorized_for_automated_scanning": len(tier_1),
+            "authorized_for_manual_review":      len(manual_ok),
+            "unknown_authorization":             len(unknown_auth),
+            # Legacy aliases kept for backward compat with existing tests
+            "allowed":                           len(tier_1),
+            "restricted":                        len(blocked),
+            "unknown":                           len(unknown_auth),
+            "auto_ok":                           len(tier_1),
+            "with_bounty":                       len(bounty_list),
         }
     return jsonify({"stats": stats})
+
 
 
 # ════════════════════════════════════════════════════════════════════════════

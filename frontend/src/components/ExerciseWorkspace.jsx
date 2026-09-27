@@ -31,6 +31,9 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
   const [submissionText, setSubmissionText] = useState('');
   const [cliCommand, setCliCommand] = useState('');
   const [cliOutput, setCliOutput] = useState('');
+  const [flagInput, setFlagInput] = useState('');
+  const [activeSandboxes, setActiveSandboxes] = useState([]);
+  const [selectedSandboxId, setSelectedSandboxId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Authoritative server-side evaluation result
@@ -41,6 +44,16 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
   useEffect(() => {
     if (!vulnType) return;
     loadExercises();
+    axios.get('/api/sandbox/active')
+      .then(res => {
+        const active = res.data?.active || [];
+        const matching = active.filter(sb => sb.vuln_type === vulnType);
+        setActiveSandboxes(matching);
+        if (matching.length > 0) {
+          setSelectedSandboxId(matching[0].id);
+        }
+      })
+      .catch(() => {});
   }, [vulnType]);
 
   async function loadExercises() {
@@ -49,11 +62,10 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
     try {
       const res = await axios.get(`/api/learning/exercises/${vulnType}`);
       if (res.data?.ok) {
-        // Filter for non-lab exercises (or show all exercises that require textual/payload submission)
-        const nonLabExs = (res.data.exercises || []).filter(ex => ex.exercise_type !== 'lab');
-        setExercises(nonLabExs);
-        if (nonLabExs.length > 0) {
-          setSelectedExId(nonLabExs[0].id);
+        const allExs = res.data.exercises || [];
+        setExercises(allExs);
+        if (allExs.length > 0) {
+          setSelectedExId(allExs[0].id);
         }
       } else {
         setError(res.data?.error || 'Failed to load exercises.');
@@ -74,6 +86,7 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
     setSubmissionText('');
     setCliCommand('');
     setCliOutput('');
+    setFlagInput('');
     try {
       const res = await axios.post('/api/learning/attempt/start', { exercise_id: exerciseId });
       if (res.data?.ok && res.data?.attempt) {
@@ -94,7 +107,16 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
 
     // Compose submission payload based on modality
     let finalSubmission = submissionText.trim();
-    if (currentExercise?.exercise_type === 'cli_detection') {
+    let metadata = undefined;
+
+    if (currentExercise?.exercise_type === 'lab' || currentExercise?.capability === 'lab_exploitation') {
+      const flag = flagInput.trim() || submissionText.trim();
+      finalSubmission = flag;
+      metadata = {
+        sandbox_id: selectedSandboxId || undefined,
+        flag: flag,
+      };
+    } else if (currentExercise?.exercise_type === 'cli_detection' || currentExercise?.exercise_type === 'safe_lab') {
       const cmd = cliCommand.trim();
       const out = cliOutput.trim();
       finalSubmission = `Command:\n${cmd}\n\nOutput:\n${out}`;
@@ -112,6 +134,7 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
       const res = await axios.post('/api/learning/attempt/complete', {
         attempt_id: activeAttempt.id,
         submission_text: finalSubmission,
+        metadata: metadata,
       });
 
       if (res.data?.ok) {
@@ -251,7 +274,7 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
           {activeAttempt && !evaluationResult && (
             <form onSubmit={handleSubmitAttempt} className="space-y-4 pt-2">
               {/* Dynamic Modality Input Rendering */}
-              {currentExercise.exercise_type === 'cli_detection' ? (
+              {currentExercise.exercise_type === 'cli_detection' || currentExercise.exercise_type === 'safe_lab' ? (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-2">
@@ -278,6 +301,53 @@ export default function ExerciseWorkspace({ vulnType, onAttemptCompleted }) {
                       onChange={(e) => setCliOutput(e.target.value)}
                       placeholder="Paste raw terminal response headers or status output here..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500/50 transition-all leading-relaxed"
+                      required
+                    />
+                  </div>
+                </div>
+              ) : currentExercise.exercise_type === 'lab' || currentExercise.capability === 'lab_exploitation' ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 text-xs text-indigo-300 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                      <span>Adversarial Twin Sandbox Lab Proof</span>
+                    </div>
+                    <p className="text-slate-400 leading-relaxed">
+                      Launch the sandbox challenge container in the panel above, exploit the vulnerability, and submit the authentic proof flag (e.g. <code>FLAG&#123;...&#125;</code>) captured from the live target.
+                    </p>
+                  </div>
+                  {activeSandboxes.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Target Sandbox Container</label>
+                      <select
+                        value={selectedSandboxId}
+                        onChange={(e) => setSelectedSandboxId(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500/50"
+                      >
+                        {activeSandboxes.map((sb) => (
+                          <option key={sb.id} value={sb.id}>
+                            {sb.name || sb.vuln_type} (Port: {sb.port || '3000'}) — ID: {sb.id.slice(0, 8)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Award className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Proof Flag</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        Authoritative Server-Verified Proof
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={flagInput}
+                      onChange={(e) => setFlagInput(e.target.value)}
+                      placeholder="FLAG{...}"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 transition-all"
                       required
                     />
                   </div>

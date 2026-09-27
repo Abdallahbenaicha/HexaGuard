@@ -5,36 +5,100 @@ import {
     LogOut, Settings, Clock, HelpCircle,
     Box, Globe, LayoutGrid, Crosshair, GraduationCap,
     CreditCard, Award, Flame, Compass, ShieldAlert,
+    BookOpen, ChevronDown, ChevronRight, Bug, Target,
+    FlaskConical, Search, FileText, Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
+
+// ── Section grouping for the sidebar ──────────────────────────────────────────
+// Each group has a label and an array of nav items.
+// Items without a group key are shown in a flat "Other" section.
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
     const { pathname } = useLocation();
     const { lang, toggleLang, t } = useLang();
     const [isHovered, setIsHovered] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState({
+        learn: true,
+        security: false,
+        bounty: false,
+        admin: false,
+        other: false,
+    });
 
     if (!user) return null;
 
-    const ADMIN_NAV = [
-        { labelKey: 'user_management', descKey: 'user_mgmt_desc',   to: '/admin/users', icon: Users,          adminOnly: true  },
-        { labelKey: 'scan_records',    descKey: 'scan_records_desc', to: '/admin/scans', icon: ScanLine,       adminOnly: true  },
-        { labelKey: 'audit_log',       descKey: 'audit_log_desc',    to: '/audit',       icon: ScrollText,     adminOnly: true  },
-        { labelKey: 'bounty_targets',  descKey: 'bounty_targets_desc', to: '/admin/bounty-targets', icon: Crosshair, adminOnly: true  },
-        { labelKey: 'my_dashboard',    descKey: 'dashboard_desc',    to: '/dashboard',           icon: LayoutDashboard, adminOnly: false },
-        { labelKey: 'scheduled_scans', descKey: 'scheduled_desc',    to: '/scheduled',           icon: Clock,           adminOnly: false },
-        { labelKey: 'docker_scan',     descKey: 'docker_scan_desc',  to: '/scan/docker',         icon: Box,             adminOnly: false },
-        { labelKey: 'dns_scan',        descKey: 'dns_scan_desc',     to: '/scan/dns',            icon: Globe,           adminOnly: false },
-        { labelKey: 'wordpress_scan',  descKey: 'wp_scan_desc',      to: '/scan/wordpress',      icon: LayoutGrid,      adminOnly: false },
-        { labelKey: 'vuln_library',    descKey: 'vuln_library_desc', to: '/learn/vulnerabilities', icon: GraduationCap, adminOnly: false },
-        { labelKey: 'skill_ledger',    descKey: 'skill_ledger_desc', to: '/skills',              icon: Award,         adminOnly: false },
-        { labelKey: 'daily_dojo',      descKey: 'daily_dojo_desc',   to: '/dojo',                icon: Flame,         adminOnly: false },
-        { labelKey: 'learning_tracks', descKey: 'learning_tracks_desc', to: '/tracks',          icon: Compass,       adminOnly: false },
-        { labelKey: 'case_files',      descKey: 'case_files_desc',   to: '/casefiles',           icon: ShieldAlert,   adminOnly: false },
-        { labelKey: 'pricing_plans',   descKey: 'pricing_desc',      to: '/pricing',             icon: CreditCard,    adminOnly: false },
-        { labelKey: 'help',            descKey: 'help_desc',         to: '/help',                icon: HelpCircle,      adminOnly: false },
-        { labelKey: 'profile_settings',descKey: 'profile_desc',      to: '/profile',             icon: Settings,        adminOnly: false },
+    const toggleGroup = (key) => {
+        if (!isHovered) return; // only interactive when expanded
+        setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const isAdmin = user.role === 'admin';
+
+    // ── Nav groups definition ────────────────────────────────────────────────
+    const NAV_GROUPS = [
+        {
+            key: 'main',
+            label: null, // no header for main items
+            items: [
+                { labelKey: 'my_dashboard', descKey: 'dashboard_desc', to: '/dashboard', icon: LayoutDashboard },
+            ],
+        },
+        {
+            key: 'learn',
+            label: 'Learn',
+            items: [
+                { labelKey: 'vuln_library',       descKey: 'vuln_library_desc',       to: '/learn/vulnerabilities', icon: BookOpen },
+                { labelKey: 'manual_testing',     descKey: 'manual_testing_desc',      to: '/hunt/manual',           icon: Search },
+                { labelKey: 'learning_tracks',    descKey: 'learning_tracks_desc',     to: '/tracks',                icon: Compass },
+                { labelKey: 'skill_ledger',       descKey: 'skill_ledger_desc',        to: '/skills',                icon: Award },
+                { labelKey: 'daily_dojo',         descKey: 'daily_dojo_desc',          to: '/dojo',                  icon: Flame },
+                { labelKey: 'certification_prep', descKey: 'certification_prep_desc',  to: '/learn/certification',   icon: GraduationCap },
+            ],
+        },
+        {
+            key: 'security',
+            label: 'Security Testing',
+            items: [
+                { labelKey: 'scanner_hub',       descKey: 'scanner_hub_desc',    to: '/scan',             icon: Zap },
+                { labelKey: 'reports',           descKey: 'reports_desc',         to: '/reports',          icon: FileText },
+                { labelKey: 'case_files',        descKey: 'case_files_desc',      to: '/casefiles',        icon: ShieldAlert },
+                { labelKey: 'scheduled_scans',   descKey: 'scheduled_desc',       to: '/scheduled',        icon: Clock },
+                { labelKey: 'docker_scan',       descKey: 'docker_scan_desc',     to: '/scan/docker',      icon: Box },
+                { labelKey: 'dns_scan',          descKey: 'dns_scan_desc',        to: '/scan/dns',         icon: Globe },
+                { labelKey: 'wordpress_scan',    descKey: 'wp_scan_desc',         to: '/scan/wordpress',   icon: LayoutGrid },
+            ],
+        },
+        {
+            key: 'bounty',
+            label: 'Bug Bounty',
+            show: import.meta.env.VITE_ENABLE_BOUNTY === 'true',
+            items: [
+                { labelKey: 'bounty_radar',       descKey: 'bounty_radar_desc',         to: '/admin/bounty-targets', icon: Target },
+                { labelKey: 'manual_hunt_guide',  descKey: 'manual_hunt_desc',           to: '/hunt/manual',          icon: Crosshair },
+            ],
+        },
+        {
+            key: 'admin',
+            label: 'Admin',
+            adminOnly: true,
+            items: [
+                { labelKey: 'user_management',  descKey: 'user_mgmt_desc',    to: '/admin/users', icon: Users },
+                { labelKey: 'scan_records',     descKey: 'scan_records_desc', to: '/admin/scans', icon: ScanLine },
+                { labelKey: 'audit_log',        descKey: 'audit_log_desc',    to: '/audit',       icon: ScrollText },
+            ],
+        },
+        {
+            key: 'other',
+            label: null,
+            items: [
+                { labelKey: 'pricing_plans',    descKey: 'pricing_desc',    to: '/pricing', icon: CreditCard },
+                { labelKey: 'help',             descKey: 'help_desc',       to: '/help',    icon: HelpCircle },
+                { labelKey: 'profile_settings', descKey: 'profile_desc',    to: '/profile', icon: Settings },
+            ],
+        },
     ];
 
     const ROLE_BADGE = {
@@ -42,12 +106,10 @@ const Sidebar = () => {
         analyst: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
     };
 
-    const visibleItems = ADMIN_NAV.filter(item => {
-        if (item.to === '/admin/bounty-targets' && import.meta.env.VITE_ENABLE_BOUNTY !== 'true') {
-            return false;
-        }
-        return !item.adminOnly || user.role === 'admin';
-    });
+    const isActive = (to) => {
+        if (to === '/dashboard') return pathname === to;
+        return pathname === to || pathname.startsWith(to + '/');
+    };
 
     return (
         <aside
@@ -58,59 +120,91 @@ const Sidebar = () => {
                 bg-white dark:bg-slate-900
                 border-r border-slate-200 dark:border-slate-800
                 transition-all duration-300 ease-in-out z-30
-                ${isHovered ? 'w-60 shadow-xl' : 'w-16'}
+                ${isHovered ? 'w-64 shadow-xl' : 'w-16'}
             `}
         >
             {/* Nav Items */}
-            <nav className="flex-1 py-6 px-2.5 space-y-1.5 overflow-y-auto">
-                <p
-                    className={`
-                        px-3 mb-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest
-                        transition-all duration-300 whitespace-nowrap
-                        ${isHovered ? 'opacity-100 max-h-5' : 'opacity-0 max-h-0 overflow-hidden mb-0'}
-                    `}
-                >
-                    {user.role === 'admin' ? t('admin_panel') : t('navigation')}
-                </p>
+            <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
+                {NAV_GROUPS.map((group) => {
+                    // Skip admin groups for non-admins
+                    if (group.adminOnly && !isAdmin) return null;
+                    // Skip groups with show=false
+                    if (group.show === false) return null;
 
-                {visibleItems.map(item => {
-                    const Icon = item.icon;
-                    const active = pathname === item.to || (item.to !== '/dashboard' && pathname.startsWith(item.to));
+                    const visibleItems = group.items.filter(item => {
+                        // Legacy bounty-targets hidden when feature flag off
+                        if (item.to === '/admin/bounty-targets' && import.meta.env.VITE_ENABLE_BOUNTY !== 'true') return false;
+                        return true;
+                    });
+
+                    if (!visibleItems.length) return null;
+
+                    const isExpanded = !group.label || expandedGroups[group.key];
 
                     return (
-                        <Link
-                            key={item.to}
-                            to={item.to}
-                            title={!isHovered ? t(item.labelKey) : undefined}
-                            className={`
-                                group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150
-                                ${!isHovered ? 'justify-center' : ''}
-                                ${active
-                                    ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-                                }
-                            `}
-                        >
-                            <div className={`
-                                flex-shrink-0 p-1.5 rounded-md transition-colors
-                                ${active
-                                    ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
-                                }
-                            `}>
-                                <Icon className="w-3.5 h-3.5" />
-                            </div>
+                        <div key={group.key} className="mb-1">
+                            {/* Group Header */}
+                            {group.label && isHovered && (
+                                <button
+                                    onClick={() => toggleGroup(group.key)}
+                                    className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-md"
+                                >
+                                    <span>{group.label}</span>
+                                    {isExpanded
+                                        ? <ChevronDown className="w-3 h-3" />
+                                        : <ChevronRight className="w-3 h-3" />
+                                    }
+                                </button>
+                            )}
+                            {/* Group separator line when collapsed */}
+                            {group.label && !isHovered && (
+                                <div className="mx-3 my-2 border-t border-slate-100 dark:border-slate-800" />
+                            )}
 
-                            <div
-                                className={`
-                                    min-w-0 flex-1 transition-all duration-300
-                                    ${isHovered ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0 overflow-hidden pointer-events-none'}
-                                `}
-                            >
-                                <div className="text-sm font-semibold leading-tight truncate">{t(item.labelKey)}</div>
-                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-tight truncate">{t(item.descKey)}</div>
-                            </div>
-                        </Link>
+                            {/* Items */}
+                            {(isExpanded || !group.label) && visibleItems.map(item => {
+                                const Icon = item.icon;
+                                const active = isActive(item.to);
+
+                                return (
+                                    <Link
+                                        key={item.to + item.labelKey}
+                                        to={item.to}
+                                        title={!isHovered ? t(item.labelKey) : undefined}
+                                        className={`
+                                            group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150
+                                            ${!isHovered ? 'justify-center' : ''}
+                                            ${active
+                                                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+                                            }
+                                        `}
+                                    >
+                                        <div className={`
+                                            flex-shrink-0 p-1.5 rounded-md transition-colors
+                                            ${active
+                                                ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
+                                            }
+                                        `}>
+                                            <Icon className="w-3.5 h-3.5" />
+                                        </div>
+
+                                        <div
+                                            className={`
+                                                min-w-0 flex-1 transition-all duration-300
+                                                ${isHovered ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0 overflow-hidden pointer-events-none'}
+                                            `}
+                                        >
+                                            <div className="text-sm font-semibold leading-tight truncate">{t(item.labelKey)}</div>
+                                            {item.descKey && (
+                                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-tight truncate">{t(item.descKey)}</div>
+                                            )}
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     );
                 })}
             </nav>

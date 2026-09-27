@@ -147,9 +147,13 @@ def create_app() -> Flask:
     app.register_blueprint(learn_bp)
     app.register_blueprint(learning_bp)
 
-    # Bug Bounty live scanning blueprint (Feature Flag: enabled locally, 404 in public deploy)
-    if os.environ.get("ENABLE_LIVE_BOUNTY_SCANNING", "false").lower() in ("true", "1", "yes"):
-        app.register_blueprint(bounty_bp)
+    # Bug Bounty Radar blueprint:
+    # - Read-only browsing (targets, stats, history) available whenever DEPLOYMENT_MODE=local
+    # - Live scan-job creation is controlled server-side by ENABLE_LIVE_BOUNTY_SCANNING
+    #   via _enforce_bounty_policy_gate() in each scan bridge
+    # - The blueprint's before_request gate returns 404 for all routes when not in local mode.
+    #   Register always so the gate can fire (Werkzeug's generic 404 fires if routes aren't registered).
+    app.register_blueprint(bounty_bp)
 
     @app.route("/api/config/deployment-mode", methods=["GET"])
     def get_deployment_mode():
