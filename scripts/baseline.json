@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-13",
+  "pytest": {
+    "total": 505,
+    "passed": 504,
+    "failed": 1,
+    "failed_names": [
+      "tests/test_bounty_legendary_wave1.py::test_api_bounty_targets_by_skill_endpoint"
+    ]
+  },
+  "vite_build": {
+    "status": "pending",
+    "bundle_size_kb": 0,
+    "chunk_warnings": 0
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "npm_test": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "note": "no frontend tests configured"
+  },
+  "server_startup_seconds": 3,
+  "notes": "Baseline measured 2026-10-13 on Python 3.13.1, Node 22.14.0. Frontend runs on :3000 (not :5173 as expected — Vite picked next available port)."
+}

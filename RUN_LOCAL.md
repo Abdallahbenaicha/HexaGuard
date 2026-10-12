@@ -1,0 +1,36 @@
+# RUN_LOCAL.md — تشغيل HexaGuard/SecuraX محلياً
+
+## المتطلبات
+- Python 3.11+ (مثبّت: 3.13.1)
+- Node.js 18+ (مثبّت: 22.14.0)
+- npm 8+ (مثبّت: 10.9.2)
+
+## التشغيل (أمر واحد)
+```powershell
+# Windows
+.\run_local.ps1
+
+# Linux / macOS
+bash run_local.sh
+```
+
+## عناوين الدخول
+| الخدمة | الرابط |
+|---|---|
+| الواجهة | http://localhost:5173 |
+| Backend API | http://localhost:5000 |
+| فحص الصحة | http://localhost:5000/health |
+
+## الإيقاف
+أغلق نافذتَي PowerShell اللتين فُتحتا، أو `Ctrl+C` في كل منهما.
+
+## أعلام التطوير المحلي (في `backend/.env`)
+- `ALLOW_LOCAL_LAB_TARGETS=true` — يسمح بفحص localhost/127.x للمختبر المحلي فقط
+- `ENABLE_LIVE_BOUNTY_SCANNING=false` — **لا تُغيّره أثناء التدقيق**
+
+## أشهر 5 مشاكل وحلولها
+1. **"SECRET_KEY is not set"** → احذف `backend/.env` وأعد التشغيل لتوليد مفتاح تلقائي
+2. **منفذ 5000 مشغول** → `netstat -ano | findstr :5000` → أوقف العملية
+3. **منفذ 5173 مشغول** → `netstat -ano | findstr :5173` → أوقف العملية
+4. **"ModuleNotFoundError: openpyxl"** → `cd backend && .\venv\Scripts\Activate.ps1 && pip install openpyxl`
+5. **الواجهة تُظهر "Network Error"** → تأكد أن الباكند يعمل على http://localhost:5000/health

@@ -101,7 +101,8 @@ _PLATFORM_URLS = {
     "bugcrowd":  "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json",
     "yeswehack": "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/yeswehack_data.json",
     "intigriti": "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/intigriti_data.json",
-    "federacy":  "https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/federacy_data.json",
+    # federacy removed 2026-10-13: federacy_data.json returns HTTP 404 in arkadiyt/bounty-targets-data.
+    # Evidence: curl returned 404, test_api_bounty_targets_by_skill_endpoint failed with HTTP 500.
 }
 
 # ── Scan-policy detection ────────────────────────────────────────────────────
@@ -646,7 +647,7 @@ _NORMALISERS = {
     "bugcrowd":  (_fetch_platform, _normalise_bugcrowd),
     "yeswehack": (_fetch_platform, _normalise_yeswehack),
     "intigriti": (_fetch_platform, _normalise_intigriti),
-    "federacy":  (_fetch_platform, _normalise_federacy),
+    # federacy removed 2026-10-13: source URL returns HTTP 404.
 }
 
 
@@ -1257,10 +1258,15 @@ def api_bounty_targets_by_skill(vuln_type: str):
 
     platforms = list(_NORMALISERS)
     all_targets = []
+    platform_errors: dict = {}
     for plat in platforms:
-        fetch_fn, norm_fn = _NORMALISERS[plat]
-        raw = fetch_fn(plat)
-        all_targets.extend(norm_fn(raw))
+        try:
+            fetch_fn, norm_fn = _NORMALISERS[plat]
+            raw = fetch_fn(plat)
+            all_targets.extend(norm_fn(raw))
+        except Exception as exc:
+            platform_errors[plat] = str(exc)
+            logger.warning("bounty: platform %s failed — %s", plat, exc)
 
     user_id = getattr(current_user, "id", None)
     user_ledger = None
@@ -1302,6 +1308,7 @@ def api_bounty_targets_by_skill(vuln_type: str):
         "vuln_type": v_clean,
         "total_matched": len(matched),
         "targets": matched[:20],
+        "platform_errors": platform_errors,  # empty dict = all platforms OK
     })
 
 
