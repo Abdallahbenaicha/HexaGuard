@@ -9,20 +9,20 @@
     ]
   },
   "vite_build": {
-    "status": "pending",
-    "bundle_size_kb": 0,
-    "chunk_warnings": 0
+    "status": "pass",
+    "bundle_size_kb": 866,
+    "chunk_warnings": 1
   },
   "eslint": {
-    "errors": 0,
-    "warnings": 0
+    "errors": 99,
+    "warnings": 12
   },
   "npm_test": {
-    "total": 0,
-    "passed": 0,
+    "total": 14,
+    "passed": 14,
     "failed": 0,
-    "note": "no frontend tests configured"
+    "note": "14 frontend node tests passing"
   },
   "server_startup_seconds": 3,
-  "notes": "Baseline measured 2026-10-13 on Python 3.13.1, Node 22.14.0. Frontend runs on :3000 (not :5173 as expected — Vite picked next available port)."
+  "notes": "Baseline measured 2026-10-13 on Python 3.13.1, Node 22.14.0. Frontend runs on :3000. ESLint 99 errors / 12 warnings. Vite build 1454 KB (1 chunk warning > 500KB). Frontend tests 14/14 pass."
 }
