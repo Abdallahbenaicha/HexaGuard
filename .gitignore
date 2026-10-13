@@ -135,3 +135,5 @@ frontend/src.rar
 backend/check_db.py
 backend/inspect_wb.py
 backend/migrate_phd_tables.py
+AUDIT_REPORT_*.md
+AUDIT_REPORT_20261012.md
