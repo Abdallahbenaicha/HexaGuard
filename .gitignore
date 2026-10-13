@@ -131,5 +131,7 @@ backend/backups/
 *_output.json
 *_backup_*.json
 scratch/
-
 frontend/src.rar
+backend/check_db.py
+backend/inspect_wb.py
+backend/migrate_phd_tables.py
