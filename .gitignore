@@ -132,3 +132,4 @@ backend/backups/
 *_backup_*.json
 scratch/
 
+frontend/src.rar

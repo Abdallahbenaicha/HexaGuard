@@ -185,14 +185,10 @@ npm run dev
 # → UI running at http://localhost:5173
 ```
 
-### Default Credentials
+### Credentials & Setup
 
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | `admin` | `Admin@2024!` |
-| Analyst | `analyst` | `Analyst@2024!` |
-
-> ⚠️ **Change these immediately after first login.**
+Default passwords are not hardcoded in the repository. Credentials are generated or configured upon first run — please refer to [RUN_LOCAL.md](RUN_LOCAL.md).
+On first login, users must change their initial password.
 
 ---
 
@@ -206,7 +202,7 @@ npm run dev
 | `FLASK_ENV` | — | `development` | Set to `production` on live server |
 | `DB_PATH` | — | `hexaguard.db` | SQLite database file path |
 | `GEMINI_API_KEY` | — | — | Google Gemini API key for ARIA AI features |
-| `HEXAGUARD_ADMIN_PASSWORD` | — | `Admin@2024!` | Bootstrap admin password on first run |
+| `HEXAGUARD_ADMIN_PASSWORD` | — | Configured upon first run | Bootstrap admin password on first run (see RUN_LOCAL.md) |
 | `ALLOWED_ORIGINS` | — | `http://localhost:5173` | Comma-separated CORS origins |
 | `MYSQL_HOST` | — | — | Enable MySQL backend (set all four `MYSQL_*` vars) |
 | `MYSQL_USER` | — | — | MySQL username |
@@ -386,7 +382,7 @@ pytest tests/test_forms.py -v                 #  8 tests — Form input validati
 pytest tests/test_risk_engine_benchmark.py -v #  4 tests — Risk engine benchmark & floor guarantee tests
 ```
 
-**Total: 140 collected pytest tests** across 10 test modules, providing comprehensive automated test coverage for scanner engines, risk calculation, database layer, background job queue, and authentication workflows.
+**Total: 537 collected pytest tests** across 35 test modules, providing comprehensive automated test coverage for scanner engines, risk calculation, database layer, background job queue, and authentication workflows. All tests pass with zero regressions.
 
 ---
 
@@ -491,7 +487,7 @@ HexaGuard/
 │   │   ├── docker_scanner.py
 │   │   ├── dns_scanner.py
 │   │   └── wordpress_scanner.py
-│   ├── tests/                  # 140 pytest test cases across 10 test suites
+│   ├── tests/                  # 537 pytest test cases across 35 test suites
 │   └── migrations/             # Database migration scripts
 ├── frontend/
 │   ├── src/

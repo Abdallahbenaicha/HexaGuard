@@ -20,7 +20,8 @@ class User(UserMixin):
                  totp_secret: Optional[str] = None, totp_enabled: bool = False,
                  failed_attempts: int = 0, locked_until: Optional[str] = None,
                  is_active: bool = True, last_login: Optional[str] = None,
-                 login_count: int = 0, allowed_scanners: Optional[list] = None):
+                 login_count: int = 0, allowed_scanners: Optional[list] = None,
+                 must_change_password: int = 0):
         self.id               = user_id
         self.username         = username
         self._pass_hash       = password_hash
@@ -35,6 +36,7 @@ class User(UserMixin):
         self.login_count      = int(login_count or 0)
         # None = unrestricted (admin / legacy); list = explicit whitelist
         self.allowed_scanners = allowed_scanners
+        self.must_change_password = bool(must_change_password)
 
     def check_password(self, password: str) -> bool:
         try:
@@ -109,6 +111,7 @@ def _row_to_user(row: dict) -> User:
         last_login       = row.get("last_login"),
         login_count      = row.get("login_count", 0),
         allowed_scanners = allowed_scanners,
+        must_change_password = row.get("must_change_password", 0),
     )
 
 

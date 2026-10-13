@@ -175,7 +175,8 @@ _SCHEMA_SQLITE = """
         api_token        TEXT,
         api_token_created TEXT,
         ai_data_sharing_opt_out INTEGER NOT NULL DEFAULT 0,
-        ai_messages_used INTEGER NOT NULL DEFAULT 0
+        ai_messages_used INTEGER NOT NULL DEFAULT 0,
+        must_change_password INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS scan_reports (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -423,6 +424,163 @@ _SCHEMA_SQLITE = """
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_active_sandboxes_user ON active_sandboxes (user_id, status);
+
+    -- PhD Tracker: user-added and saved opportunity records (persists across restarts)
+    CREATE TABLE IF NOT EXISTS phd_opportunities (
+        id               TEXT    PRIMARY KEY,
+        user_id          INTEGER NOT NULL,
+        source_type      TEXT    NOT NULL DEFAULT 'user_added',
+        source_file      TEXT,
+        discovery_source TEXT,
+        institution      TEXT,
+        country          TEXT,
+        program          TEXT,
+        field            TEXT,
+        funding          TEXT,
+        deadline         TEXT,
+        deadline_note    TEXT,
+        days_remaining   INTEGER,
+        deadline_status  TEXT    NOT NULL DEFAULT 'unknown',
+        status           TEXT    NOT NULL DEFAULT 'researching',
+        status_ar        TEXT,
+        priority         TEXT    NOT NULL DEFAULT 'medium',
+        priority_ar      TEXT,
+        notes            TEXT,
+        contact          TEXT,
+        verified         TEXT,
+        supervisor       TEXT,
+        lab_url          TEXT,
+        application_url  TEXT,
+        funding_type     TEXT,
+        stipend_info     TEXT,
+        language_req     TEXT,
+        eligibility_note TEXT,
+        raw_source_ref   TEXT,
+        record_type      TEXT NOT NULL DEFAULT 'tracked_opportunity',
+        verification_status TEXT NOT NULL DEFAULT 'unconfirmed',
+        added_at         TEXT    NOT NULL,
+        updated_at       TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_user   ON phd_opportunities (user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_source ON phd_opportunities (source_type, user_id);
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_country ON phd_opportunities (user_id, country);
+
+    -- PhD Live Discovery: results from external source adapters
+    CREATE TABLE IF NOT EXISTS phd_discovery_cache (
+        id               TEXT    PRIMARY KEY,
+        source_id        TEXT    NOT NULL,
+        source_name      TEXT    NOT NULL,
+        fetch_timestamp  TEXT    NOT NULL,
+        institution      TEXT,
+        country          TEXT,
+        program          TEXT,
+        field_keywords   TEXT,
+        funding_type     TEXT,
+        stipend_info     TEXT,
+        deadline_raw     TEXT,
+        deadline_parsed  TEXT,
+        deadline_status  TEXT    NOT NULL DEFAULT 'unknown',
+        supervisor       TEXT,
+        lab_url          TEXT,
+        application_url  TEXT,
+        language_req     TEXT,
+        eligibility_intl INTEGER NOT NULL DEFAULT -1,
+        confidence       REAL    NOT NULL DEFAULT 0.5,
+        raw_json         TEXT,
+        is_stale         INTEGER NOT NULL DEFAULT 0,
+        last_verified    TEXT,
+        saved_opp_id     TEXT,
+        record_type      TEXT NOT NULL DEFAULT 'verified_vacancy',
+        verification_status TEXT NOT NULL DEFAULT 'unconfirmed'
+    );
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_source   ON phd_discovery_cache (source_id, fetch_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_country  ON phd_discovery_cache (country);
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_stale    ON phd_discovery_cache (is_stale, fetch_timestamp);
+
+    -- PhD Discovery source health tracking (Gate 1.7 Transparency Registry)
+    CREATE TABLE IF NOT EXISTS phd_source_health (
+        source_id        TEXT    PRIMARY KEY,
+        source_name      TEXT    NOT NULL,
+        source_url       TEXT,
+        source_type      TEXT    NOT NULL DEFAULT 'official_vacancy_portal',
+        access_method    TEXT    NOT NULL DEFAULT 'API',
+        last_fetch_at    TEXT,
+        last_success_at  TEXT,
+        last_error       TEXT,
+        last_http_status INTEGER,
+        fetch_count      INTEGER NOT NULL DEFAULT 0,
+        error_count      INTEGER NOT NULL DEFAULT 0,
+        result_count     INTEGER NOT NULL DEFAULT 0,
+        raw_count        INTEGER NOT NULL DEFAULT 0,
+        accepted_count   INTEGER NOT NULL DEFAULT 0,
+        rejected_count   INTEGER NOT NULL DEFAULT 0,
+        last_error_category TEXT,
+        next_action      TEXT,
+        enabled          INTEGER NOT NULL DEFAULT 1,
+        status           TEXT    NOT NULL DEFAULT 'unknown'
+    );
+
+    -- Gate 1.7: PhD Workbook Deduplication & Import Audit Trail
+    CREATE TABLE IF NOT EXISTS phd_dedup_audit (
+        id                       TEXT PRIMARY KEY,
+        run_timestamp            TEXT NOT NULL,
+        raw_count                INTEGER NOT NULL,
+        unique_count             INTEGER NOT NULL,
+        exact_duplicates_merged  INTEGER NOT NULL,
+        fuzzy_duplicates_flagged INTEGER NOT NULL,
+        backup_file              TEXT,
+        audit_summary            TEXT NOT NULL,
+        created_at               TEXT NOT NULL
+    );
+
+    -- Gate 1.6: Supervisor Briefing Packs & Private Sharing
+    CREATE TABLE IF NOT EXISTS supervisor_briefings (
+        id                   TEXT PRIMARY KEY,
+        user_id              INTEGER NOT NULL,
+        opportunity_id       TEXT,
+        title                TEXT NOT NULL,
+        target_supervisor    TEXT,
+        share_token          TEXT UNIQUE,
+        is_shared            INTEGER NOT NULL DEFAULT 0,
+        is_revoked           INTEGER NOT NULL DEFAULT 0,
+        expires_at           TEXT,
+        allowed_evidence_ids TEXT,
+        allowed_document_ids TEXT,
+        custom_statement     TEXT,
+        briefing_payload     TEXT,
+        access_count         INTEGER NOT NULL DEFAULT 0,
+        last_accessed_at     TEXT,
+        created_at           TEXT NOT NULL,
+        updated_at           TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_briefings_user  ON supervisor_briefings (user_id);
+    CREATE INDEX IF NOT EXISTS idx_briefings_token ON supervisor_briefings (share_token);
+
+    -- Gate 1.6: Proof-of-Work Evidence Registry
+    CREATE TABLE IF NOT EXISTS proof_of_work_artifacts (
+        id                   TEXT PRIMARY KEY,
+        user_id              INTEGER,
+        category             TEXT NOT NULL,
+        title                TEXT NOT NULL,
+        description          TEXT NOT NULL,
+        originating_module   TEXT NOT NULL,
+        repo_path            TEXT,
+        commit_hash          TEXT,
+        reproducible_cmd     TEXT,
+        actual_result        TEXT,
+        limitations          TEXT,
+        integrity_hash       TEXT,
+        verification_method  TEXT NOT NULL,
+        status               TEXT NOT NULL DEFAULT 'VERIFIED',
+        verified_at          TEXT,
+        is_public_eligible   INTEGER NOT NULL DEFAULT 1,
+        created_at           TEXT NOT NULL,
+        updated_at           TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_pow_category ON proof_of_work_artifacts (category);
+    CREATE INDEX IF NOT EXISTS idx_pow_status   ON proof_of_work_artifacts (status);
 """
 
 _SCHEMA_MYSQL = """
@@ -444,7 +602,8 @@ _SCHEMA_MYSQL = """
         created_by       VARCHAR(150),
         locked_target    VARCHAR(255),
         api_token        VARCHAR(255),
-        api_token_created VARCHAR(50)
+        api_token_created VARCHAR(50),
+        must_change_password TINYINT(1) NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
     CREATE TABLE IF NOT EXISTS scan_reports (
@@ -687,6 +846,52 @@ _SCHEMA_MYSQL = """
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     CREATE INDEX IF NOT EXISTS idx_active_sandboxes_user ON active_sandboxes (user_id, status);
+
+    CREATE TABLE IF NOT EXISTS supervisor_briefings (
+        id                   VARCHAR(64) PRIMARY KEY,
+        user_id              INT NOT NULL,
+        opportunity_id       VARCHAR(64),
+        title                VARCHAR(255) NOT NULL,
+        target_supervisor    VARCHAR(255),
+        share_token          VARCHAR(128) UNIQUE,
+        is_shared            TINYINT(1) NOT NULL DEFAULT 0,
+        is_revoked           TINYINT(1) NOT NULL DEFAULT 0,
+        expires_at           VARCHAR(50),
+        allowed_evidence_ids MEDIUMTEXT,
+        allowed_document_ids MEDIUMTEXT,
+        custom_statement     TEXT,
+        briefing_payload     MEDIUMTEXT,
+        access_count         INT NOT NULL DEFAULT 0,
+        last_accessed_at     VARCHAR(50),
+        created_at           VARCHAR(50) NOT NULL,
+        updated_at           VARCHAR(50) NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_briefings_user  ON supervisor_briefings (user_id);
+    CREATE INDEX IF NOT EXISTS idx_briefings_token ON supervisor_briefings (share_token);
+
+    CREATE TABLE IF NOT EXISTS proof_of_work_artifacts (
+        id                   VARCHAR(64) PRIMARY KEY,
+        user_id              INT,
+        category             VARCHAR(50) NOT NULL,
+        title                VARCHAR(255) NOT NULL,
+        description          TEXT NOT NULL,
+        originating_module   VARCHAR(255) NOT NULL,
+        repo_path            VARCHAR(255),
+        commit_hash          VARCHAR(64),
+        reproducible_cmd     TEXT,
+        actual_result        TEXT,
+        limitations          TEXT,
+        integrity_hash       VARCHAR(128),
+        verification_method  VARCHAR(255) NOT NULL,
+        status               VARCHAR(50) NOT NULL DEFAULT 'VERIFIED',
+        verified_at          VARCHAR(50),
+        is_public_eligible   TINYINT(1) NOT NULL DEFAULT 1,
+        created_at           VARCHAR(50) NOT NULL,
+        updated_at           VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_pow_category ON proof_of_work_artifacts (category);
+    CREATE INDEX IF NOT EXISTS idx_pow_status   ON proof_of_work_artifacts (status);
 """
 
 
@@ -735,12 +940,53 @@ def init_db():
         # AI Opt-Out & Quota tracking (F-03)
         "ALTER TABLE users ADD COLUMN ai_data_sharing_opt_out INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE users ADD COLUMN ai_messages_used INTEGER NOT NULL DEFAULT 0",
+        # PhD Opportunity & Discovery Semantics (Gate 1.4.2)
+        "ALTER TABLE phd_opportunities ADD COLUMN record_type TEXT DEFAULT 'tracked_opportunity'",
+        "ALTER TABLE phd_opportunities ADD COLUMN verification_status TEXT DEFAULT 'unconfirmed'",
+        "ALTER TABLE phd_discovery_cache ADD COLUMN record_type TEXT DEFAULT 'verified_vacancy'",
+        "ALTER TABLE phd_discovery_cache ADD COLUMN verification_status TEXT DEFAULT 'unconfirmed'",
+        # Gate 1.6: Supervisor Briefing Packs & Proof of Work Registry
+        """CREATE TABLE IF NOT EXISTS supervisor_briefings (
+            id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, opportunity_id TEXT,
+            title TEXT NOT NULL, target_supervisor TEXT, share_token TEXT UNIQUE,
+            is_shared INTEGER NOT NULL DEFAULT 0, is_revoked INTEGER NOT NULL DEFAULT 0,
+            expires_at TEXT, allowed_evidence_ids TEXT, allowed_document_ids TEXT,
+            custom_statement TEXT, briefing_payload TEXT, access_count INTEGER NOT NULL DEFAULT 0,
+            last_accessed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS proof_of_work_artifacts (
+            id TEXT PRIMARY KEY, user_id INTEGER, category TEXT NOT NULL,
+            title TEXT NOT NULL, description TEXT NOT NULL, originating_module TEXT NOT NULL,
+            repo_path TEXT, commit_hash TEXT, reproducible_cmd TEXT, actual_result TEXT,
+            limitations TEXT, integrity_hash TEXT, verification_method TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'VERIFIED', verified_at TEXT,
+            is_public_eligible INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""",
+        # Gate 1.7: PhD Discovery Source Transparency & Health Registry
+        "ALTER TABLE phd_source_health ADD COLUMN source_url TEXT",
+        "ALTER TABLE phd_source_health ADD COLUMN source_type TEXT DEFAULT 'official_vacancy_portal'",
+        "ALTER TABLE phd_source_health ADD COLUMN access_method TEXT DEFAULT 'API'",
+        "ALTER TABLE phd_source_health ADD COLUMN last_http_status INTEGER",
+        "ALTER TABLE phd_source_health ADD COLUMN raw_count INTEGER DEFAULT 0",
+        "ALTER TABLE phd_source_health ADD COLUMN accepted_count INTEGER DEFAULT 0",
+        "ALTER TABLE phd_source_health ADD COLUMN rejected_count INTEGER DEFAULT 0",
+        "ALTER TABLE phd_source_health ADD COLUMN last_error_category TEXT",
+        "ALTER TABLE phd_source_health ADD COLUMN next_action TEXT",
+        "ALTER TABLE phd_source_health ADD COLUMN enabled INTEGER DEFAULT 1",
+        """CREATE TABLE IF NOT EXISTS phd_dedup_audit (
+            id TEXT PRIMARY KEY, run_timestamp TEXT NOT NULL, raw_count INTEGER NOT NULL,
+            unique_count INTEGER NOT NULL, exact_duplicates_merged INTEGER NOT NULL,
+            fuzzy_duplicates_flagged INTEGER NOT NULL, backup_file TEXT, audit_summary TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""",
+        "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
     ]:
         try:
             db.execute(migration)
             db.commit()
         except (sqlite3.OperationalError, Exception):
-            pass  # column already exists
+            pass  # table/column already exists
 
     _bootstrap_admin()
     logger.info("database ready | path=%s", DB_PATH)

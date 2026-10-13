@@ -101,13 +101,14 @@ _ALLOWED_USER_FIELDS = {
     "locked_until",
     "locked_target",
     "allowed_scanners",
+    "must_change_password",
 }
 
 
 def update_user(uid: int, role=None, permissions=None, is_active=None,
                 new_password=None, failed_attempts=None, locked_until=None,
                 reset_locked_target=False, locked_target_value=_UNSET,
-                allowed_scanners=_UNSET, **kwargs) -> tuple[bool, str]:
+                allowed_scanners=_UNSET, must_change_password=None, **kwargs) -> tuple[bool, str]:
     if kwargs:
         disallowed = set(kwargs.keys()) - _ALLOWED_USER_FIELDS
         if disallowed:
@@ -117,9 +118,11 @@ def update_user(uid: int, role=None, permissions=None, is_active=None,
     if role            is not None: fields.append("role=?");             values.append(role)
     if permissions     is not None: fields.append("permissions=?");      values.append(json.dumps(permissions))
     if is_active       is not None: fields.append("is_active=?");        values.append(int(is_active))
+    if must_change_password is not None: fields.append("must_change_password=?"); values.append(int(must_change_password))
     if new_password    is not None:
         ph = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         fields.append("password_hash=?"); values.append(ph)
+        fields.append("must_change_password=0")
     if failed_attempts is not None: fields.append("failed_attempts=?");  values.append(failed_attempts)
     if locked_until    is not None: fields.append("locked_until=?");     values.append(locked_until)
     if reset_locked_target:

@@ -232,8 +232,30 @@ def api_login():
               ip_address=request.remote_addr, user_agent=request.user_agent.string)
     return jsonify({
         "ok":   True,
+        "must_change_password": getattr(user, "must_change_password", False),
         "user": {"username": user.username, "role": user.role, "id": user.id},
     })
+
+
+@auth_bp.before_app_request
+def enforce_must_change_password():
+    if current_user.is_authenticated and getattr(current_user, "must_change_password", False):
+        allowed_endpoints = {
+            "auth.api_change_password",
+            "auth.change_password",
+            "auth.api_logout",
+            "auth.logout",
+            "auth.api_me",
+            "static",
+        }
+        if request.endpoint and request.endpoint not in allowed_endpoints:
+            if request.path.startswith("/api/"):
+                return jsonify({
+                    "ok": False,
+                    "error": "Password change required.",
+                    "must_change_password": True,
+                }), 403
+            return redirect(url_for("auth.change_password"))
 
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
@@ -251,6 +273,7 @@ def api_me():
         return jsonify({"authenticated": False}), 401
     return jsonify({
         "authenticated": True,
+        "must_change_password": getattr(current_user, "must_change_password", False),
         "user": {
             "id":               current_user.id,
             "username":         current_user.username,
@@ -262,6 +285,7 @@ def api_me():
             "last_login":       current_user.last_login,
             "login_count":      current_user.login_count,
             "allowed_scanners": current_user.allowed_scanners,
+            "must_change_password": getattr(current_user, "must_change_password", False),
         },
     })
 

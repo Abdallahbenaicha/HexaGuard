@@ -22,7 +22,7 @@ if DB_PATH.startswith("sqlite:///"):
 def reset_password(username: str, new_password: str, conn: sqlite3.Connection) -> bool:
     pw_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(12)).decode()
     cur = conn.execute(
-        "UPDATE users SET password_hash=? WHERE username=?",
+        "UPDATE users SET password_hash=?, must_change_password=1 WHERE username=?",
         (pw_hash, username),
     )
     conn.commit()
