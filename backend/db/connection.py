@@ -111,11 +111,14 @@ def _get_db():
                 _local.conn.close()
             except Exception:
                 pass
-        conn = sqlite3.connect(db_path, check_same_thread=True)
+        conn = sqlite3.connect(db_path, check_same_thread=True, timeout=10.0)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=5000")
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+        except sqlite3.OperationalError:
+            pass
+        conn.execute("PRAGMA foreign_keys=ON")
         _local.conn = conn
         _local.conn_path = db_path
     return _local.conn

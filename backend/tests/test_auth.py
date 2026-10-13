@@ -17,7 +17,11 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("FLASK_ENV", "testing")
     monkeypatch.setenv("WTF_CSRF_ENABLED", "false")
 
-    if hasattr(db._local, "conn"):
+    if getattr(db._local, "conn", None):
+        try:
+            db._local.conn.close()
+        except Exception:
+            pass
         del db._local.conn
     db.DB_PATH = db_file
 
