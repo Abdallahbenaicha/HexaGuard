@@ -13,6 +13,17 @@ if (_apiBase) {
 }
 axios.defaults.withCredentials = true;
 
+// Support Bearer token authentication (PWA / Mobile API fallback)
+axios.interceptors.request.use((config) => {
+    try {
+        const token = localStorage.getItem('securax_token');
+        if (token && !config.headers.Authorization) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    } catch (e) {}
+    return config;
+});
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
