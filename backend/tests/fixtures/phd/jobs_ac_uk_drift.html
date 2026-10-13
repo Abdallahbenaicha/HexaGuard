@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Jobs.ac.uk — Drift (CSS classes changed)</title></head>
+<body>
+<!-- DRIFT fixture: upstream has renamed CSS classes.
+     The parser expects class="j-search-result__text" but upstream now uses
+     class="j-result-card__body". Parser should return 0 items (parser_drift). -->
+<div class="j-search-results">
+
+  <div class="j-result-card__body">
+    <a href="/job/JOB001/phd-cybersecurity">PhD in Cybersecurity</a>
+    <div class="j-result-card__org"><b>Durham University</b></div>
+    <div class="j-result-card__dept">Computer Science</div>
+  </div>
+
+  <div class="j-result-card__body">
+    <a href="/job/JOB002/network-security-phd">Network Security PhD</a>
+    <div class="j-result-card__org"><b>Bristol University</b></div>
+    <div class="j-result-card__dept">Engineering</div>
+  </div>
+
+</div>
+</body>
+</html>

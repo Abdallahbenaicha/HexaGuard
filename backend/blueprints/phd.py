@@ -245,6 +245,7 @@ def _map_priority(s: Optional[str]) -> str:
 def _deadline_status(s: Optional[str]) -> str:
     if not s: return "unknown"
     if any(x in s for x in ("فات", "مغلق")): return "expired"
+    if any(x in s for x in ("تقديري", "مقدّر", "estimated")): return "estimated"
     if any(x in s for x in ("ساري", "مفتوح")): return "active"
     if any(x in s for x in ("مستقبلية", "نافذة")): return "upcoming"
     return "unknown"
@@ -311,13 +312,27 @@ def _parse_primary(path: pathlib.Path) -> dict:
             for row in rows[header_idx + 1:]:
                 num = _safe_int(row[0])
                 if num is None: continue
+                dl_raw = _safe_str(row[6])
+                dl_note = _safe_str(row[7])
+                dl_stat = _deadline_status(_safe_str(row[9]))
+                is_est = dl_stat == "estimated" or any(x in (dl_note or "") for x in ("تقديري", "مقدّر", "estimated"))
+                if is_est:
+                    dl_stat = "estimated"
+                    est_dl = dl_raw
+                    est_from = f"{dl_note or 'خريطة الدكتوراه السابقة'} — (يجب التحقق من الموقع الرسمي)"
+                else:
+                    est_dl = None
+                    est_from = None
+
                 opp = {
                     "id": f"primary_{num:04d}", "num": num,
                     "country": _safe_str(row[1]), "institution": _safe_str(row[2]),
                     "program": _safe_str(row[3]), "field": _safe_str(row[4]),
-                    "funding": _safe_str(row[5]), "deadline": _safe_str(row[6]),
-                    "deadline_note": _safe_str(row[7]), "days_remaining": _safe_int(row[8]),
-                    "deadline_status": _deadline_status(_safe_str(row[9])),
+                    "funding": _safe_str(row[5]), "deadline": dl_raw,
+                    "deadline_note": dl_note, "days_remaining": _safe_int(row[8]),
+                    "deadline_status": dl_stat,
+                    "estimated_deadline": est_dl,
+                    "estimated_from": est_from,
                     "status": _map_status(_safe_str(row[10])), "status_ar": _safe_str(row[10]),
                     "priority": _map_priority(_safe_str(row[11])), "priority_ar": _safe_str(row[11]),
                     "notes": _safe_str(row[12]), "contact": _safe_str(row[13]),
@@ -1110,7 +1125,70 @@ _FUNDING_KEYWORDS = [
     "DAAD", "Horizon", "MSCA", "NSF", "fully funded", "studentship", "cao-nu"
 ]
 
-def _run_jobs_ac_uk_adapter(query: str) -> tuple[list[dict], bool, str, int, int, int]:
+# ── Detail extraction helpers (4.A.8) ──────────────────────────────────────────
+def _parse_json_ld(html: str) -> dict:
+    if not html:
+        return {}
+    try:
+        scripts = re.findall(r'<script\s+type="application/ld\+json"[^>]*>(.*?)</script>', html, re.DOTALL | re.IGNORECASE)
+        for s in scripts:
+            data = json.loads(s.strip())
+            if isinstance(data, dict) and data.get("@type") in ("JobPosting", "Occupation"):
+                return data
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and item.get("@type") in ("JobPosting", "Occupation"):
+                        return item
+    except Exception:
+        pass
+    return {}
+
+def _extract_institution(html: str) -> Optional[str]:
+    data = _parse_json_ld(html)
+    if data and "hiringOrganization" in data:
+        org = data["hiringOrganization"]
+        if isinstance(org, dict) and org.get("name"):
+            return org["name"].strip()
+        elif isinstance(org, str):
+            return org.strip()
+    m = re.search(r'class="[^"]*(?:employer|organisation|institution|company)[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
+    if m:
+        val = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+        if val and len(val) < 120:
+            return val
+    return None
+
+def _extract_deadline(html: str) -> Optional[str]:
+    data = _parse_json_ld(html)
+    if data and data.get("validThrough"):
+        return str(data["validThrough"]).strip()
+    m = re.search(r'class="[^"]*(?:closing-date|deadline|validThrough)[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
+    if m:
+        val = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+        if val and len(val) < 50:
+            return val
+    return None
+
+def _extract_funding(html: str) -> Optional[str]:
+    data = _parse_json_ld(html)
+    if data and data.get("baseSalary"):
+        sal = data["baseSalary"]
+        if isinstance(sal, dict):
+            return f"{sal.get('currency', '')} {sal.get('value', '')}".strip()
+    m = re.search(r'class="[^"]*(?:funding|salary|stipend)[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
+    if m:
+        val = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+        if val and len(val) < 120:
+            return val
+    return None
+
+def _extract_language_req(html: str) -> Optional[str]:
+    m = re.search(r'(IELTS\s*[\d.]+|TOEFL\s*[\d.]+|English\s+proficiency|fluent\s+in\s+English)', html, re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    return None
+
+def _run_jobs_ac_uk_adapter(query: str, fetch_details: bool = False, max_details: int = 5) -> tuple[list[dict], bool, str, int, int, int]:
     """Fetch live doctoral vacancies from jobs.ac.uk HTML."""
     if not _REQUESTS_OK:
         return [], False, "Requests library not available", 0, 0, 0
@@ -1177,9 +1255,29 @@ def _run_jobs_ac_uk_adapter(query: str) -> tuple[list[dict], bool, str, int, int
             "status": "researching",
             "priority": "high",
         })
+
+    if fetch_details:
+        for it in items[:max_details]:
+            d_html = _safe_fetch(it["application_url"], timeout=10)
+            if d_html:
+                inst = _extract_institution(d_html)
+                dl = _extract_deadline(d_html)
+                fnd = _extract_funding(d_html)
+                lang = _extract_language_req(d_html)
+                if inst: it["institution"] = inst
+                if dl:
+                    it["deadline"] = dl
+                    it["deadline_parsed"] = dl
+                if fnd: it["funding"] = fnd
+                if lang: it["language_req"] = lang
+                if inst and dl:
+                    it["record_type"] = "verified_vacancy"
+                    it["verification_status"] = "verified_vacancy"
+                    it["confidence"] = 0.85
+
     return items, True, "", 200, raw_count, rejected_count
 
-def _run_academictransfer_adapter(query: str) -> tuple[list[dict], bool, str, int, int, int]:
+def _run_academictransfer_adapter(query: str, fetch_details: bool = False, max_details: int = 5) -> tuple[list[dict], bool, str, int, int, int]:
     """Fetch live doctoral vacancies from AcademicTransfer (Netherlands)."""
     if not _REQUESTS_OK:
         return [], False, "Requests library not available", 0, 0, 0
@@ -1248,9 +1346,29 @@ def _run_academictransfer_adapter(query: str) -> tuple[list[dict], bool, str, in
             "status": "researching",
             "priority": "high",
         })
+
+    if fetch_details:
+        for it in items[:max_details]:
+            d_html = _safe_fetch(it["application_url"], timeout=10)
+            if d_html:
+                inst = _extract_institution(d_html)
+                dl = _extract_deadline(d_html)
+                fnd = _extract_funding(d_html)
+                lang = _extract_language_req(d_html)
+                if inst: it["institution"] = inst
+                if dl:
+                    it["deadline"] = dl
+                    it["deadline_parsed"] = dl
+                if fnd: it["funding"] = fnd
+                if lang: it["language_req"] = lang
+                if inst and dl:
+                    it["record_type"] = "verified_vacancy"
+                    it["verification_status"] = "verified_vacancy"
+                    it["confidence"] = 0.85
+
     return items, True, "", 200, raw_count, rejected_count
 
-def _run_euraxess_adapter(query: str) -> tuple[list[dict], bool, str, int, int, int]:
+def _run_euraxess_adapter(query: str, fetch_details: bool = False, max_details: int = 5) -> tuple[list[dict], bool, str, int, int, int]:
     """Fetch live vacancies from EURAXESS Jobs Search."""
     if not _REQUESTS_OK:
         return [], False, "Requests library not available", 0, 0, 0
@@ -1313,6 +1431,26 @@ def _run_euraxess_adapter(query: str) -> tuple[list[dict], bool, str, int, int, 
             "status": "researching",
             "priority": "medium",
         })
+
+    if fetch_details:
+        for it in items[:max_details]:
+            d_html = _safe_fetch(it["application_url"], timeout=10)
+            if d_html:
+                inst = _extract_institution(d_html)
+                dl = _extract_deadline(d_html)
+                fnd = _extract_funding(d_html)
+                lang = _extract_language_req(d_html)
+                if inst: it["institution"] = inst
+                if dl:
+                    it["deadline"] = dl
+                    it["deadline_parsed"] = dl
+                if fnd: it["funding"] = fnd
+                if lang: it["language_req"] = lang
+                if inst and dl:
+                    it["record_type"] = "verified_vacancy"
+                    it["verification_status"] = "verified_vacancy"
+                    it["confidence"] = 0.85
+
     return items, True, "", 200, raw_count, rejected_count
 
 def _run_top_cyber_labs_adapter(query: str) -> tuple[list[dict], bool, str, int, int, int]:
@@ -1631,14 +1769,14 @@ def _run_openalex_adapter(query: str) -> tuple[list[dict], bool, str, int, int, 
         logger.warning("OpenAlex adapter error: %s", exc)
         return [], False, str(exc), 0, 0, 0
 
-def _run_source_adapter(source_id: str, query: str) -> tuple[list[dict], bool, str, int, int, int]:
+def _run_source_adapter(source_id: str, query: str, fetch_details: bool = False, max_details: int = 5) -> tuple[list[dict], bool, str, int, int, int]:
     """Run a single source adapter. Returns (items, success, error_msg, http_code, raw_count, rejected_count)."""
     if source_id == "jobs_ac_uk":
-        return _run_jobs_ac_uk_adapter(query)
+        return _run_jobs_ac_uk_adapter(query, fetch_details=fetch_details, max_details=max_details)
     if source_id == "academictransfer":
-        return _run_academictransfer_adapter(query)
+        return _run_academictransfer_adapter(query, fetch_details=fetch_details, max_details=max_details)
     if source_id in ("euraxess", "euraxess_rss"):
-        return _run_euraxess_adapter(query)
+        return _run_euraxess_adapter(query, fetch_details=fetch_details, max_details=max_details)
     if source_id == "top_cyber_labs":
         return _run_top_cyber_labs_adapter(query)
     if source_id == "nsf_grants_api":
@@ -1654,7 +1792,7 @@ def _run_source_adapter(source_id: str, query: str) -> tuple[list[dict], bool, s
 def live_discover():
     """POST /api/phd/discover — run live discovery across configured sources with full transparency.
 
-    Body: { query: str, sources: list[str] | null, limit: int }
+    Body: { query: str, sources: list[str] | null, limit: int, fetch_details: bool }
     Returns: { results, source_status, total, cached, search_timestamp, ... }
     """
     body = request.get_json(force=True) or {}
@@ -1663,6 +1801,7 @@ def live_discover():
         return jsonify({"ok": False, "error": "Query too short (min 3 chars)"}), 400
     requested_sources = body.get("sources") or list(_DISCOVERY_SOURCES.keys())
     limit = min(int(body.get("limit", 50)), 150)
+    fetch_details = bool(body.get("fetch_details", False))
 
     all_results = []
     source_status = {}
@@ -1678,7 +1817,7 @@ def live_discover():
             continue
         src = _DISCOVERY_SOURCES[src_id]
         try:
-            items, success, err, http_code, raw_cnt, rej_cnt = _run_source_adapter(src_id, query)
+            items, success, err, http_code, raw_cnt, rej_cnt = _run_source_adapter(src_id, query, fetch_details=fetch_details)
             err_cat = "NONE" if success else ("HTTP_403_CLOUDFLARE_WAF" if http_code == 403 else "FETCH_FAILED")
             
             if success:
@@ -1759,6 +1898,7 @@ def live_discover():
             duplicates_merged_count += 1
 
     is_cached_fallback = False
+    cache_age_hours: float | None = None
     if not deduped:
         try:
             db = _get_db()
@@ -1775,10 +1915,13 @@ def live_discover():
                     (limit,)
                 ).fetchall()
             if cached_rows:
+                oldest_ts = None
                 for cr in cached_rows:
                     d_item = dict(cr)
                     d_item["source_type"] = "cached_discovery"
                     rt = d_item.get("record_type")
+                    vs = d_item.get("verification_status", "")
+                    # ── Never promote cache items to verified_vacancy ────────────
                     if rt == "funded_research_project":
                         d_item["funding_status"] = "funded_project"
                         d_item["vacancy_status"] = "unconfirmed_vacancy"
@@ -1786,25 +1929,75 @@ def live_discover():
                     elif rt == "research_lead":
                         d_item["funding_status"] = "unknown"
                         d_item["verification_status"] = "unverified_lead"
+                    elif vs in ("verified_vacancy", "legacy_unverified"):
+                        # Keep legacy status; do not re-assert as verified
+                        d_item["verification_status"] = vs
+                        d_item["funding_status"] = "unknown"
                     else:
-                        d_item["funding_status"] = "funded"
-                        d_item["verification_status"] = "verified_vacancy"
+                        d_item["funding_status"] = "unknown"
+                        d_item["verification_status"] = "unverified_lead"
+                    # Track oldest fetch_timestamp for cache age calculation
+                    ft = d_item.get("fetch_timestamp")
+                    if ft and (oldest_ts is None or ft < oldest_ts):
+                        oldest_ts = ft
                     deduped.append(d_item)
                 is_cached_fallback = True
+                # Calculate cache age in hours
+                if oldest_ts:
+                    try:
+                        ts_dt = datetime.datetime.fromisoformat(oldest_ts.replace("Z", "+00:00"))
+                        now_dt = datetime.datetime.now(datetime.timezone.utc)
+                        cache_age_hours = round((now_dt - ts_dt).total_seconds() / 3600, 1)
+                    except Exception:
+                        cache_age_hours = None
         except Exception as exc:
             logger.warning("Cache fallback error: %s", exc)
+
+    # Build MASTER_PLAN 4.A.6 compatible `sources` list (parallel to source_status dict)
+    sources_list = []
+    for src_id, ss in source_status.items():
+        src_meta = _DISCOVERY_SOURCES.get(src_id, {})
+        raw_c = ss.get("raw_count", 0) or 0
+        parsed_c = ss.get("accepted_count", 0) or 0
+        # Classify status per plan spec
+        if ss.get("status") == "ok":
+            if raw_c > 0 and parsed_c == 0:
+                plan_status = "parser_drift"
+            elif raw_c == 0:
+                plan_status = "parser_drift"
+            else:
+                plan_status = "ok"
+        elif (ss.get("http_status") or 0) == 403:
+            plan_status = "blocked"
+        elif (ss.get("http_status") or 0) == 404:
+            plan_status = "empty_legitimate"
+        elif ss.get("status") in ("error", "unknown_source"):
+            plan_status = "network_error"
+        else:
+            plan_status = ss.get("status", "error")
+        sources_list.append({
+            "name": ss.get("name", src_id),
+            "raw_count": raw_c,
+            "parsed_count": parsed_c,
+            "relevant_count": parsed_c,  # adapters pre-filter by _CYBERSEC_KEYWORDS
+            "status": plan_status,
+            "http_status": ss.get("http_status"),
+        })
 
     return jsonify({
         "ok": True,
         "total": len(deduped),
         "results": deduped[:limit],
-        "source_status": source_status,
+        "source_status": source_status,       # detailed dict (existing consumers)
+        "sources": sources_list,              # MASTER_PLAN 4.A.6 list format
         "sources_attempted": requested_sources,
         "new_records_count": new_records_count,
         "duplicates_merged_count": duplicates_merged_count,
         "search_timestamp": search_ts,
         "query": query,
         "is_cached": is_cached_fallback,
+        "fallback_cache_used": is_cached_fallback,
+        "cache_age_hours": cache_age_hours,
         "status_note": "Loaded cached discovery records" if is_cached_fallback
                        else ("Live discovery completed across official portals & APIs" if any(v["status"] == "ok" for v in source_status.values())
                              else "All live feeds reported rate limiting or WAF restrictions"),
@@ -1812,6 +2005,7 @@ def live_discover():
         "sources_configured": list(_DISCOVERY_SOURCES.keys()),
         "sources_available": [s["name"] for s in _DISCOVERY_SOURCES.values()],
     })
+
 
 @phd_bp.route("/discover/sources", methods=["GET"])
 @login_required
