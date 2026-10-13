@@ -57,10 +57,12 @@ def client():
 
 
 def test_all_five_platforms_registered():
-    """Verify all 5 bug bounty platforms are registered in URLs and normalisers."""
-    expected = {"hackerone", "bugcrowd", "yeswehack", "intigriti", "federacy"}
-    assert expected.issubset(set(_PLATFORM_URLS.keys()))
-    assert expected.issubset(set(_NORMALISERS.keys()))
+    """Verify active platforms are registered in URLs and normalisers, and dead federacy is removed."""
+    active_expected = {"hackerone", "bugcrowd", "yeswehack", "intigriti"}
+    assert active_expected.issubset(set(_PLATFORM_URLS.keys()))
+    assert active_expected.issubset(set(_NORMALISERS.keys()))
+    assert "federacy" not in _PLATFORM_URLS
+    assert "federacy" not in _NORMALISERS
 
 
 def test_yeswehack_normaliser_real_schema():

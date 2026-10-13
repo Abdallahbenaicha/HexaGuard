@@ -207,10 +207,47 @@ _PRIVATE_NETWORKS = [
     ipaddress.ip_network("fe80::/10"),       # IPv6 link-local
 ]
 
+# Loopback-only networks — used by ALLOW_LOCAL_LAB_TARGETS (127.0.0.0/8 only).
+_LOOPBACK_ONLY_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+]
+
 _BLOCKED_HOSTNAMES = {
     "localhost", "metadata.google.internal",
     "169.254.169.254",  # AWS/GCP/Azure metadata endpoint
 }
+
+# Metadata endpoints always blocked regardless of any lab flag.
+_METADATA_HOSTNAMES = {
+    "169.254.169.254",
+    "metadata.google.internal",
+}
+
+_METADATA_NETWORKS = [
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / cloud metadata
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _is_loopback_only(ip_str: str) -> bool:
+    """Return True iff ip_str is in the 127.0.0.0/8 or ::1 range."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in _LOOPBACK_ONLY_NETWORKS)
+    except ValueError:
+        return False
+
+
+def _is_metadata(host_or_ip: str) -> bool:
+    """Return True if the host is a known cloud-metadata endpoint."""
+    if host_or_ip in _METADATA_HOSTNAMES:
+        return True
+    try:
+        addr = ipaddress.ip_address(host_or_ip)
+        return any(addr in net for net in _METADATA_NETWORKS)
+    except ValueError:
+        return False
 
 
 def _is_private_ip(ip_str: str) -> bool:
@@ -226,16 +263,32 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
 
     Blocks scan targets that resolve to private / link-local / metadata IPs
     to prevent Server-Side Request Forgery attacks against internal infrastructure.
+
+    When the environment variable ALLOW_LOCAL_LAB_TARGETS=true is set, loopback
+    addresses (127.0.0.0/8 and ::1 only) are permitted so that local lab targets
+    such as DVWA can be scanned during development.  RFC-1918 ranges and all
+    cloud-metadata endpoints remain blocked unconditionally.
     """
+    # Lab-mode flag: loopback-only bypass for local DVWA/JuiceShop testing.
+    _allow_lab = os.environ.get("ALLOW_LOCAL_LAB_TARGETS", "").lower() == "true"
+
     stripped = re.sub(r"^https?://", "", raw_target.strip())
     host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
 
     if not host:
         return False, "Empty target."
 
-    # Block known dangerous hostnames directly
+    # Metadata endpoints are always blocked — even in lab mode.
+    if _is_metadata(host):
+        return False, f"Target '{host}' is a metadata endpoint — always blocked."
+
+    # Block other known dangerous hostnames directly
     if host in _BLOCKED_HOSTNAMES:
         return False, f"Target '{host}' is blocked for security reasons."
+
+    # In lab mode: allow loopback literals (127.x.x.x) — skip private check.
+    if _allow_lab and _is_loopback_only(host):
+        return True, ""
 
     # Block if target is already a private IP literal
     if _is_private_ip(host):
@@ -246,6 +299,13 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
         resolved = socket.getaddrinfo(host, None)
         for item in resolved:
             ip_str = item[4][0]
+            # Metadata always blocked
+            if _is_metadata(ip_str):
+                logger.warning("SSRF block: %s resolved to metadata IP %s", host, ip_str)
+                return False, "Target resolves to a metadata endpoint — not allowed."
+            # In lab mode allow resolved loopback too (e.g. 'localhost' resolves to 127.0.0.1)
+            if _allow_lab and _is_loopback_only(ip_str):
+                continue
             if _is_private_ip(ip_str):
                 logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
                 return False, "Target resolves to a private/internal IP address — not allowed."

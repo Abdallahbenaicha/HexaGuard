@@ -59,6 +59,7 @@ markers = [
     "benchmark: mark test as a research benchmark (slow, produces benchmark_results.json). Run with: pytest -m benchmark",
     "slow: mark test as slow (network-dependent or long-running)",
     "integration: mark test as an integration test requiring a running Flask app",
+    "live: mark test as live network test (requires external APIs). Run with: pytest -m live",
 ]
 
 # Default options applied to every pytest run

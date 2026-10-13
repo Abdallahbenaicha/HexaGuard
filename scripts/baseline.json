@@ -1,12 +1,10 @@
 {
   "date": "2026-10-13",
   "pytest": {
-    "total": 505,
-    "passed": 504,
-    "failed": 1,
-    "failed_names": [
-      "tests/test_bounty_legendary_wave1.py::test_api_bounty_targets_by_skill_endpoint"
-    ]
+    "total": 516,
+    "passed": 516,
+    "failed": 0,
+    "failed_names": []
   },
   "vite_build": {
     "status": "pass",
