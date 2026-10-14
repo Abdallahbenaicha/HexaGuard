@@ -157,9 +157,13 @@ _ACTIVE_SANDBOXES: dict[str, dict[str, Any]] = {}
 
 def _find_free_port() -> int:
     """Find a random available TCP port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+    except Exception:
+        import random
+        return random.randint(30000, 40000)
 
 
 def _terminate_sandbox_internal(sandbox_id: str):

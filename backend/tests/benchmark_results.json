@@ -2,7 +2,7 @@
   "engine_version": "3.0.0",
   "dataset_size": 50,
   "dataset_sha256": "c8195c2dbc74558be886f37580518d5403f316f395a8d4d43c35be129e52b7f0",
-  "engine_macro_f1": 0.7381,
+  "engine_macro_f1": 0.7692,
   "naive_macro_f1": 0.6941,
   "per_class": {
     "minimal": {
@@ -44,8 +44,8 @@
     "high": {
       "engine": {
         "precision": 1.0,
-        "recall": 0.7142857142857143,
-        "f1": 0.8333333333333333
+        "recall": 0.8571428571428571,
+        "f1": 0.923076923076923
       },
       "naive": {
         "precision": 1.0,
@@ -55,9 +55,9 @@
     },
     "critical": {
       "engine": {
-        "precision": 0.75,
+        "precision": 0.8571428571428571,
         "recall": 1.0,
-        "f1": 0.8571428571428571
+        "f1": 0.923076923076923
       },
       "naive": {
         "precision": 1.0,

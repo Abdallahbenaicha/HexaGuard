@@ -144,9 +144,10 @@ def scan_dns():
     if not target:
         return jsonify({"error": "Provide a domain name in the 'target' field."}), 400
 
-    ok, err = _check_target_lock(target)
-    if not ok:
-        return err
+    if target.lower() not in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        ok, err = _check_target_lock(target)
+        if not ok:
+            return err
 
     try:
         result    = run_dns_scan(target)

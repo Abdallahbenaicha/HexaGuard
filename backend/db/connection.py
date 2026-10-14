@@ -489,7 +489,7 @@ _SCHEMA_SQLITE = """
         application_url  TEXT,
         language_req     TEXT,
         eligibility_intl INTEGER NOT NULL DEFAULT -1,
-        confidence       REAL    NOT NULL DEFAULT 0.5,
+        confidence       REAL    DEFAULT NULL,
         raw_json         TEXT,
         is_stale         INTEGER NOT NULL DEFAULT 0,
         last_verified    TEXT,

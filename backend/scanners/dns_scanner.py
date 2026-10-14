@@ -16,6 +16,7 @@ Checks performed:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import socket
 import time
@@ -387,6 +388,23 @@ def _check_http_headers(domain: str) -> tuple[list, dict]:
     return vulns, {"response_headers": headers_found}
 
 
+def _is_public_fqdn(domain: str) -> bool:
+    """Return True if the domain is a syntactically valid public FQDN, not localhost/IP."""
+    d = (domain or "").strip().lower().rstrip(".")
+    if not d or d in ("localhost", "loopback", "127.0.0.1", "::1", "0.0.0.0"):
+        return False
+    try:
+        ipaddress.ip_address(d)
+        return False
+    except ValueError:
+        pass
+    if "." not in d:
+        return False
+    if d.endswith((".local", ".test", ".internal", ".example", ".invalid", ".lan", ".home")):
+        return False
+    return True
+
+
 # ── Public entry point ─────────────────────────────────────────────────────────
 
 def run_dns_scan(target: str) -> dict:
@@ -396,6 +414,24 @@ def run_dns_scan(target: str) -> dict:
 
     all_vulns: list[dict] = []
     meta: dict  = {"domain": domain}
+
+    if not _is_public_fqdn(domain):
+        all_vulns.append(_vuln(
+            "DNS/Email Security Checks Not Applicable",
+            "info",
+            f"The target '{domain}' is a local host, IP address, or internal name, not a public fully qualified domain name (FQDN). Public DNS, SPF, DMARC, DKIM, and MX records cannot be queried.",
+            "Run DNS security checks against a registered public domain name (e.g., example.com).",
+            detail=f"Target: {domain}",
+        ))
+        meta["is_fqdn"] = False
+        meta["scan_duration_s"] = round(time.perf_counter() - t0, 2)
+        return {
+            "scan_type":       "dns",
+            "target":          domain,
+            "vulnerabilities": all_vulns,
+            "counts":          {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 1},
+            "meta":            meta,
+        }
 
     v, spf_info   = _check_spf(domain)
     all_vulns.extend(v)

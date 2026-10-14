@@ -226,6 +226,16 @@ def api_login():
             resp["lock_seconds_remaining"] = lock_secs
         return jsonify(resp), 401
 
+    if user.totp_enabled:
+        session["pending_totp_user_id"] = user.id
+        log_event("totp_required", username, user.id,
+                  category="auth", ip_address=request.remote_addr, status="pending")
+        return jsonify({
+            "ok": True,
+            "requires_totp": True,
+            "message": "TOTP code required.",
+        }), 200
+
     login_user(user, remember=False)
     update_last_login(user.id)
     log_event("login_success", username, user.id, category="auth",

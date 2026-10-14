@@ -46,12 +46,13 @@ _GOOD_PROTOS = {ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3}
 
 def _parse_host_port(target: str) -> tuple[str, int]:
     """Extract (hostname, port) from a target string."""
-    target = target.strip().rstrip("/")
-    if "://" not in target:
-        target = "https://" + target
-    parsed = urlparse(target)
-    host = parsed.hostname or target
-    port = parsed.port or 443
+    target_clean = target.strip().rstrip("/")
+    is_http_scheme = target_clean.startswith("http://")
+    if "://" not in target_clean:
+        target_clean = "https://" + target_clean
+    parsed = urlparse(target_clean)
+    host = parsed.hostname or target_clean
+    port = parsed.port or (80 if is_http_scheme else 443)
     return host, port
 
 
@@ -212,14 +213,33 @@ def run_ssl_scan(target: str) -> dict:
     cert = info.get("cert") or {}
 
     if not info.get("tls_ok") and not cert:
-        _vuln(
-            "SSL/TLS Connection Failed",
-            "critical",
-            f"Could not establish a TLS connection to {host}:{port}.",
-            evidence=info.get("ssl_error", ""),
-            remediation="Ensure the server has a valid TLS certificate and accepts connections on port 443.",
-            check="ssl_connect",
+        err_msg = str(info.get("ssl_error", ""))
+        is_plain_http = (
+            port in (80, 8080, 5000, 3000, 8000, 8008, 8888)
+            or target.strip().startswith("http://")
+            or "WRONG_VERSION_NUMBER" in err_msg
+            or "RECORD_TOO_LONG" in err_msg
+            or "UNKNOWN_PROTOCOL" in err_msg
+            or "HTTP" in err_msg.upper()
         )
+        if is_plain_http:
+            _vuln(
+                "TLS غير متاح",
+                "info",
+                f"فشل TLS على منفذ HTTP ({host}:{port}) — الخدمة تعمل ببروتوكول نصي صريح (HTTP) بدون طبقة تشفير TLS.",
+                evidence=err_msg,
+                remediation="تفعيل شهادة TLS وترقية المنفذ إلى HTTPS إذا كانت البيانات المنقولة حساسة.",
+                check="ssl_connect",
+            )
+        else:
+            _vuln(
+                "SSL/TLS Connection Failed",
+                "critical",
+                f"Could not establish a TLS connection to {host}:{port}.",
+                evidence=err_msg,
+                remediation="Ensure the server has a valid TLS certificate and accepts connections on port 443.",
+                check="ssl_connect",
+            )
         return {
             "scan_type":       "ssl",
             "target":          target,
