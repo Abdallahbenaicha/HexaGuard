@@ -192,3 +192,48 @@ def test_euraxess_drift(monkeypatch):
     items, success, err, http_code, raw_count, rejected_count = _run_euraxess_adapter("cybersecurity")
     assert success is True
     assert len(items) == 0
+
+
+def test_doctoral_filter_rejects_faculty_and_postdoc():
+    from blueprints.phd import _is_doctoral_vacancy
+    assert _is_doctoral_vacancy("Lecturer in Computer Science")[0] is False
+    assert _is_doctoral_vacancy("Assistant Professor of Cybersecurity")[0] is False
+    assert _is_doctoral_vacancy("Associate Professor in Information Security")[0] is False
+    assert _is_doctoral_vacancy("Postdoctoral Researcher in Cryptography")[0] is False
+    assert _is_doctoral_vacancy("Faculty Position in Computing")[0] is False
+    assert _is_doctoral_vacancy("Senior Lecturer in Cloud Computing")[0] is False
+
+    assert _is_doctoral_vacancy("PhD Studentship in Software Security")[0] is True
+    assert _is_doctoral_vacancy("Doctoral Researcher — Vulnerability Analysis")[0] is True
+    assert _is_doctoral_vacancy("PhD Candidate in Cryptography")[0] is True
+    assert _is_doctoral_vacancy("Doctoral Fellow in Information Systems")[0] is True
+
+
+def test_jobs_ac_uk_adapter_rejects_faculty_roles(monkeypatch):
+    sample_html = """
+    <div class="j-search-result__list">
+      <div class="j-search-result__text">
+        <a href="/job/JOB001/phd-studentship-cybersecurity">PhD Studentship in Cybersecurity</a>
+        <div class="j-search-result__employer"><b>University of Oxford</b></div>
+        <p>Cybersecurity doctoral studentship.</p>
+      </div>
+      <div class="j-search-result__text">
+        <a href="/job/JOB002/lecturer-in-cybersecurity">Lecturer in Cybersecurity</a>
+        <div class="j-search-result__employer"><b>University of Manchester</b></div>
+        <p>Permanent faculty lecturer role.</p>
+      </div>
+      <div class="j-search-result__text">
+        <a href="/job/JOB003/assistant-professor-in-cybersecurity">Assistant Professor of Cybersecurity</a>
+        <div class="j-search-result__employer"><b>Imperial College London</b></div>
+        <p>Tenure-track faculty position.</p>
+      </div>
+    </div>
+    """
+    monkeypatch.setattr("blueprints.phd._safe_fetch", lambda url, timeout=10: sample_html)
+    items, success, err, http_code, raw_count, rejected_count = _run_jobs_ac_uk_adapter("cybersecurity")
+    assert success is True
+    assert raw_count == 3
+    assert len(items) == 1
+    assert items[0]["program"] == "PhD Studentship in Cybersecurity"
+    assert rejected_count == 2
+

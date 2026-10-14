@@ -1125,6 +1125,38 @@ _FUNDING_KEYWORDS = [
     "DAAD", "Horizon", "MSCA", "NSF", "fully funded", "studentship", "cao-nu"
 ]
 
+# ── Doctoral role filter (rejection of faculty/lecturer/postdoc roles) ─────────
+_NON_DOCTORAL_TERMS = (
+    "lecturer", "senior lecturer", "assistant professor", "associate professor",
+    "professor", "chair", "faculty position", "postdoctoral", "postdoc",
+    "post-doctoral", "head of department", "dean", "teaching fellow",
+    "course director", "adjunct", "tenure-track", "tenured"
+)
+
+_DOCTORAL_REQUIRED_TERMS = (
+    "phd", "doctoral", "doctorate", "studentship", "student", "candidate",
+    "ph.d", "dphil", "doctorat", "graduate research assistant", "fellowship"
+)
+
+def _is_doctoral_vacancy(title: str, context: str = "") -> tuple[bool, str]:
+    """Strictly filter doctoral vacancies.
+    Rejects faculty/lecturer/postdoc roles, and ensures genuine doctoral studentship intent.
+    """
+    t_lower = (title or "").lower()
+    c_lower = (context or "").lower()
+    
+    # Check explicit non-doctoral disqualifiers in title
+    for term in _NON_DOCTORAL_TERMS:
+        if re.search(r'\b' + re.escape(term) + r'\b', t_lower):
+            return False, f"rejected_role:{term}"
+            
+    # Check that title or immediate context contains at least one doctoral indicator
+    combined = f"{t_lower} {c_lower}"
+    if not any(re.search(r'\b' + re.escape(doc) + r'\b', combined) for doc in _DOCTORAL_REQUIRED_TERMS):
+        return False, "rejected_role:not_doctoral"
+        
+    return True, "accepted"
+
 # ── Detail extraction helpers (4.A.8) ──────────────────────────────────────────
 def _parse_json_ld(html: str) -> dict:
     if not html:
@@ -1218,6 +1250,11 @@ def _run_jobs_ac_uk_adapter(query: str, fetch_details: bool = False, max_details
         if not any(kw in search_text for kw in _CYBERSEC_KEYWORDS):
             rejected_count += 1
             continue
+
+        is_doc, _ = _is_doctoral_vacancy(title, f"{dept or ''} {c}")
+        if not is_doc:
+            rejected_count += 1
+            continue
         
         item_id = f"jobsuk_{rel_url.split('/')[2] if len(rel_url.split('/')) > 2 else uuid.uuid4().hex[:8]}"
         items.append({
@@ -1307,6 +1344,11 @@ def _run_academictransfer_adapter(query: str, fetch_details: bool = False, max_d
         if not any(kw in title_lower or kw in desc_lower for kw in _CYBERSEC_KEYWORDS):
             rejected_count += 1
             continue
+
+        is_doc, _ = _is_doctoral_vacancy(title, desc)
+        if not is_doc:
+            rejected_count += 1
+            continue
         
         job_id_match = re.search(r'/jobs/(\d+)/', rel_url)
         item_id = f"actr_{job_id_match.group(1)}" if job_id_match else f"actr_{uuid.uuid4().hex[:8]}"
@@ -1389,6 +1431,11 @@ def _run_euraxess_adapter(query: str, fetch_details: bool = False, max_details: 
 
         title_lower = title.lower()
         if not any(kw in title_lower for kw in _CYBERSEC_KEYWORDS):
+            rejected_count += 1
+            continue
+
+        is_doc, _ = _is_doctoral_vacancy(title, inner)
+        if not is_doc:
             rejected_count += 1
             continue
 
@@ -1536,9 +1583,9 @@ def _run_top_cyber_labs_adapter(query: str) -> tuple[list[dict], bool, str, int,
             "id": l["id"],
             "source_id": "top_cyber_labs",
             "source_name": "Official European Cyber Labs (CISPA, MPI-SP, Saarland, EPFL, ETH)",
-            "record_type": "verified_vacancy",
-            "verification_status": "verified_vacancy",
-            "confidence": 0.95,
+            "record_type": "research_lead",
+            "verification_status": "institutional_lead",
+            "confidence": 0.70,
             "fetch_timestamp": _NOW(),
             "institution": l["institution"],
             "country": l["country"],

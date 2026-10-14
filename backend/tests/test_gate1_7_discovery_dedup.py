@@ -171,7 +171,7 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
         self.assertTrue(any("ETH Zurich" in inst for inst in insts))
 
         for it in items:
-            self.assertEqual(it["record_type"], "verified_vacancy")
+            self.assertEqual(it["record_type"], "research_lead")
             self.assertIsNotNone(it["application_url"])
             self.assertIsNotNone(it["funding"])
 
