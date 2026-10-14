@@ -268,6 +268,11 @@ const Navbar = () => {
                     <Link to="/scan/dependencies" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm font-medium text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800">{t('nav_dependencies')}</Link>
                     <Link to="/chat"              onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10">{t('nav_aria_ai')}</Link>
 
+                    <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t('platform_intel') || 'Platform Intelligence'}</p>
+                    <Link to="/journey"       onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('journey')}</Link>
+                    <Link to="/intelligence"  onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('cyber_intelligence')}</Link>
+                    <Link to="/phd"           onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 pl-5">{t('phd_tracker')}</Link>
+
                     <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
                         <div className="flex items-center gap-3 px-3">
                             <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">

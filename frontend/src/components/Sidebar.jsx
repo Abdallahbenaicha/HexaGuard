@@ -6,7 +6,7 @@ import {
     Box, Globe, LayoutGrid, Crosshair, GraduationCap,
     CreditCard, Award, Flame, Compass, ShieldAlert,
     BookOpen, ChevronDown, ChevronRight, Bug, Target,
-    FlaskConical, Search, FileText, Zap,
+    FlaskConical, Search, FileText, Zap, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -23,6 +23,7 @@ const Sidebar = () => {
     const [expandedGroups, setExpandedGroups] = useState({
         learn: true,
         security: false,
+        platform: true,
         bounty: false,
         admin: false,
         other: false,
@@ -91,6 +92,17 @@ const Sidebar = () => {
             ],
         },
         {
+            key: 'platform',
+            label: 'Platform Intelligence',
+            labelKey: 'platform_intel',
+            items: [
+                { labelKey: 'journey',            descKey: 'journey_desc',     to: '/journey',      icon: Compass },
+                { labelKey: 'cyber_intelligence', descKey: 'cyber_intel_desc', to: '/intelligence', icon: Zap },
+                { labelKey: 'phd_tracker',        descKey: 'phd_tracker_desc', to: '/phd',          icon: GraduationCap },
+                { labelKey: 'reviewer_portal',    descKey: 'reviewer_portal_desc', to: '/reviewer',  icon: Sparkles },
+            ],
+        },
+        {
             key: 'other',
             label: null,
             items: [
@@ -108,6 +120,7 @@ const Sidebar = () => {
 
     const isActive = (to) => {
         if (to === '/dashboard') return pathname === to;
+        if (to === '/phd') return pathname === '/phd' || pathname.startsWith('/phd-tracker');
         return pathname === to || pathname.startsWith(to + '/');
     };
 
@@ -149,7 +162,7 @@ const Sidebar = () => {
                                     onClick={() => toggleGroup(group.key)}
                                     className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-md"
                                 >
-                                    <span>{group.label}</span>
+                                    <span>{group.labelKey ? t(group.labelKey) : group.label}</span>
                                     {isExpanded
                                         ? <ChevronDown className="w-3 h-3" />
                                         : <ChevronRight className="w-3 h-3" />

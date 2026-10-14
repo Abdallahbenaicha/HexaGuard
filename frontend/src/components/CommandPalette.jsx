@@ -5,7 +5,7 @@ import {
     Shield, Package, LayoutDashboard, FileText,
     Users, ScrollText, Settings, MessageSquare,
     Search, ArrowRight, ScanLine, Activity, Clock, HelpCircle,
-    Box, LayoutGrid,
+    Box, LayoutGrid, Compass, GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +26,9 @@ const ALL_COMMANDS = [
     { category: 'Navigate', label: 'Scheduled Scans',      desc: 'Recurring daily/weekly scans',  to: '/scheduled',          icon: Clock,          keywords: 'schedule recurring cron daily weekly' },
     { category: 'Navigate', label: 'Help & Docs',          desc: 'Guides, FAQ, scan reference',   to: '/help',               icon: HelpCircle,     keywords: 'help docs faq guide' },
     { category: 'Navigate', label: 'ARIA AI Chat',         desc: 'AI security assistant',         to: '/chat',               icon: MessageSquare,  keywords: 'ai chat aria assistant' },
+    { category: 'Navigate', label: 'How SecuraX Was Built', desc: 'Architecture journey & decisions', to: '/journey',        icon: Compass,        keywords: 'journey build architecture decisions lessons كيف بني' },
+    { category: 'Navigate', label: 'Cybersecurity Intelligence', desc: 'CVEs, KEV, advisories & feeds', to: '/intelligence', icon: Zap,            keywords: 'intelligence cve kev cisa threats advisories استخبارات' },
+    { category: 'Navigate', label: 'Personal PhD Tracker', desc: 'Labs, funding & professor CRM',  to: '/phd',                icon: GraduationCap,  keywords: 'phd research labs funding grants professors دكتوراه' },
     { category: 'Account',  label: 'Profile & Settings',  desc: 'Password, 2FA, API tokens',     to: '/profile',            icon: Settings,       keywords: 'profile settings password 2fa token' },
     { category: 'Admin',    label: 'User Management',      desc: 'Create & revoke accounts',      to: '/admin/users',        icon: Users,          keywords: 'users admin manage', adminOnly: true },
     { category: 'Admin',    label: 'Scan Records',         desc: 'All platform scan history',     to: '/admin/scans',        icon: ScanLine,       keywords: 'scans history admin', adminOnly: true },

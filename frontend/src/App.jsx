@@ -52,6 +52,10 @@ import DojoPage from './pages/DojoPage';
 import TracksPage from './pages/TracksPage';
 import CaseFilesPage from './pages/CaseFilesPage';
 import CertificationPage from './pages/CertificationPage';
+const IntelligencePage  = React.lazy(() => import('./pages/IntelligencePage'));
+const PhdTrackerPage    = React.lazy(() => import('./pages/PhdTrackerPage'));
+const JourneyPage       = React.lazy(() => import('./pages/JourneyPage'));
+const ReviewerPortalPage = React.lazy(() => import('./pages/ReviewerPortalPage'));
 
 
 
@@ -237,6 +241,8 @@ function AppInner() {
                 <Route path="/tracks"                element={<ProtectedRoute element={<TracksPage />} />} />
                 <Route path="/casefiles"             element={<ProtectedRoute element={<CaseFilesPage />} />} />
                 <Route path="/learn/certification"   element={<ProtectedRoute element={<CertificationPage />} />} />
+                <Route path="/certification"         element={<Navigate to="/learn/certification" replace />} />
+                <Route path="/certifications"        element={<Navigate to="/learn/certification" replace />} />
 
 
                 {/* Scheduled Scans & Help */}
@@ -247,6 +253,31 @@ function AppInner() {
                 <Route path="/scan/docker"       element={<ProtectedRoute element={<ScannerGuard slug="docker"    element={<DockerScanPage />} />} />} />
                 <Route path="/scan/dns"          element={<ProtectedRoute element={<ScannerGuard slug="dns"       element={<DnsScanPage />} />} />} />
                 <Route path="/scan/wordpress"    element={<ProtectedRoute element={<ScannerGuard slug="wordpress" element={<WordPressScanPage />} />} />} />
+
+                {/* Intelligence Center, PhD Tracker, Journey */}
+                <Route path="/intelligence"  element={<ProtectedRoute element={
+                    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                        <IntelligencePage />
+                    </React.Suspense>
+                } />} />
+                <Route path="/phd"           element={<ProtectedRoute element={
+                    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                        <PhdTrackerPage />
+                    </React.Suspense>
+                } />} />
+                <Route path="/phd-tracker"   element={<Navigate to="/phd" replace />} />
+                <Route path="/journey"       element={<ProtectedRoute element={
+                    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                        <JourneyPage />
+                    </React.Suspense>
+                } />} />
+                {/* Academic Reviewer / Showcase Portal */}
+                <Route path="/reviewer"      element={
+                    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                        <ReviewerPortalPage />
+                    </React.Suspense>
+                } />
+                <Route path="/showcase"      element={<Navigate to="/reviewer" replace />} />
 
                 {/* AI Chat */}
                 <Route path="/chat"              element={<ProtectedRoute element={<ChatPage />} />} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   ArrowLeft, Shield, AlertTriangle, CheckCircle2,
@@ -63,6 +63,9 @@ const SEVERITY_COLORS = {
 export default function LessonDetailPage() {
   const { vulnId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromOppId = searchParams.get('from_opp');
+  const fromOppTitle = searchParams.get('opp_title') || 'PhD Research Opportunity';
 
   const [topic, setTopic] = useState(null);
   const [topicType, setTopicType] = useState('offensive');
@@ -232,6 +235,34 @@ export default function LessonDetailPage() {
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto space-y-4">
+          {fromOppId && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-950/80 via-slate-900 to-cyan-950/80 border border-violet-500/40 flex flex-wrap items-center justify-between gap-4 shadow-lg shadow-violet-950/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-violet-300 text-lg">
+                  🎓
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-violet-300 bg-violet-500/20 px-2 py-0.5 rounded border border-violet-500/30">
+                      PhD Preparation Journey
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">Target Prerequisite</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mt-0.5">
+                    Practicing requirement for: <span className="text-cyan-400">{decodeURIComponent(fromOppTitle)}</span>
+                  </div>
+                </div>
+              </div>
+              <Link
+                to={`/phd?highlight=${encodeURIComponent(fromOppId)}`}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 text-violet-200 border border-violet-500/40 text-xs font-semibold transition-all hover:scale-105"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Return to PhD Tracker</span>
+              </Link>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             {/* Scanner Engine badge */}
             {topicType === 'offensive' ? (
