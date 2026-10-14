@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import translations from '../i18n/translations';
+import { applyLanguageDirection } from './direction.js';
 
 const LangContext = createContext(null);
 
@@ -7,9 +8,7 @@ export const LangProvider = ({ children }) => {
     const [lang, setLang] = useState(() => localStorage.getItem('securax_lang') || 'en');
 
     useEffect(() => {
-        document.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        document.documentElement.lang = lang;
-        document.documentElement.setAttribute('data-lang', lang);
+        applyLanguageDirection(lang);
     }, [lang]);
 
     const toggleLang = useCallback(() => {
