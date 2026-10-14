@@ -114,8 +114,8 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
         self.assertEqual(first["record_type"], "vacancy_lead")
         self.assertEqual(first["institution"], "Royal Holloway, University of London")
         self.assertEqual(first["country"], "United Kingdom")
+        self.assertIsNone(first["funding"])
         self.assertIn("https://www.jobs.ac.uk/job/ABC123_01/phd-in-software-security", first["application_url"])
-        self.assertIn("Funded PhD Studentship", first["funding"])
 
     @patch("blueprints.phd._safe_fetch")
     def test_academictransfer_adapter_parsing_and_metrics(self, mock_fetch):
@@ -137,7 +137,7 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
         first = items[0]
         self.assertEqual(first["record_type"], "vacancy_lead")
         self.assertEqual(first["country"], "Netherlands")
-        self.assertIn("CAO-NU", first["funding"])
+        self.assertIsNone(first["funding"])
         self.assertIn("https://www.academictransfer.com/en/jobs/348910/phd-candidate-applied-cryptography", first["application_url"])
 
     @patch("blueprints.phd._safe_fetch")
@@ -171,7 +171,8 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
         self.assertTrue(any("ETH Zurich" in inst for inst in insts))
 
         for it in items:
-            self.assertEqual(it["record_type"], "research_lead")
+            self.assertEqual(it["record_type"], "lab_directory")
+            self.assertEqual(it["verification_status"], "lab_directory")
             self.assertIsNotNone(it["application_url"])
             self.assertIsNotNone(it["funding"])
 

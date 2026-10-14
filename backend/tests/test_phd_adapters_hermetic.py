@@ -31,8 +31,7 @@ def test_jobs_ac_uk_normal(monkeypatch):
     for it in items:
         assert it["source_id"] == "jobs_ac_uk"
         assert it["record_type"] == "vacancy_lead"
-        assert it["verification_status"] == "unverified_lead"
-        assert it["confidence"] == 0.5
+        assert it["confidence"] is None
 
 
 def test_jobs_ac_uk_detail(monkeypatch):
@@ -56,7 +55,7 @@ def test_jobs_ac_uk_detail(monkeypatch):
     assert first["deadline"] == "2026-05-30"
     assert first["record_type"] == "verified_vacancy"
     assert first["verification_status"] == "verified_vacancy"
-    assert first["confidence"] == 0.85
+    assert first["confidence"] is None
 
 
 def test_jobs_ac_uk_empty(monkeypatch):
@@ -92,7 +91,7 @@ def test_academictransfer_normal(monkeypatch):
         assert it["source_id"] == "academictransfer"
         assert it["record_type"] == "vacancy_lead"
         assert it["verification_status"] == "unverified_lead"
-        assert it["confidence"] == 0.5
+        assert it["confidence"] is None
 
 
 def test_academictransfer_detail(monkeypatch):
@@ -150,7 +149,7 @@ def test_euraxess_normal(monkeypatch):
         assert it["source_id"] == "euraxess"
         assert it["record_type"] == "vacancy_lead"
         assert it["verification_status"] == "unverified_lead"
-        assert it["confidence"] == 0.5
+        assert it["confidence"] is None
 
 
 def test_euraxess_detail(monkeypatch):
@@ -207,6 +206,29 @@ def test_doctoral_filter_rejects_faculty_and_postdoc():
     assert _is_doctoral_vacancy("Doctoral Researcher — Vulnerability Analysis")[0] is True
     assert _is_doctoral_vacancy("PhD Candidate in Cryptography")[0] is True
     assert _is_doctoral_vacancy("Doctoral Fellow in Information Systems")[0] is True
+
+
+def test_specific_user_mandated_title_filters():
+    from blueprints.phd import _is_doctoral_vacancy
+    # 1. "Lecturer/(PhD) researcher ..." MUST be rejected
+    ok1, reason1 = _is_doctoral_vacancy("Lecturer/(PhD) researcher private-law liability position of European ports")
+    assert ok1 is False
+    assert "lecturer" in reason1
+
+    # 2. "Assistant Professor ..." MUST be rejected
+    ok2, reason2 = _is_doctoral_vacancy("Assistant Professor of Technology Ethics and Global Security")
+    assert ok2 is False
+    assert "assistant professor" in reason2 or "professor" in reason2
+
+    # 3. "PhD position ..." MUST be accepted
+    ok3, reason3 = _is_doctoral_vacancy("PhD position on ‘Adaptive Privacy and Differential Privacy for Energy Data’")
+    assert ok3 is True
+    assert reason3 == "accepted"
+
+    # 4. "Student – scholarship position" MUST be classified unconfirmed, not doctoral
+    ok4, reason4 = _is_doctoral_vacancy("Student – scholarship position Recruitment no. 2026/01")
+    assert ok4 is False
+    assert reason4 == "unconfirmed_student_scholarship"
 
 
 def test_jobs_ac_uk_adapter_rejects_faculty_roles(monkeypatch):

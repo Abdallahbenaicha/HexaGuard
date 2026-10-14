@@ -145,7 +145,7 @@ def _db_discovery_insert(result: dict) -> bool:
                 result.get("supervisor"), result.get("lab_url"),
                 result.get("application_url"), result.get("language_req"),
                 result.get("eligibility_intl", -1),
-                result.get("confidence", 0.5),
+                result.get("confidence"),
                 json.dumps(result.get("raw", {})),
                 0, _NOW(),
                 result.get("record_type", "vacancy_lead"),
@@ -1128,34 +1128,61 @@ _FUNDING_KEYWORDS = [
 # ── Doctoral role filter (rejection of faculty/lecturer/postdoc roles) ─────────
 _NON_DOCTORAL_TERMS = (
     "lecturer", "senior lecturer", "assistant professor", "associate professor",
-    "professor", "chair", "faculty position", "postdoctoral", "postdoc",
+    "professor", "chair", "faculty position", "faculty", "postdoctoral", "postdoc",
     "post-doctoral", "head of department", "dean", "teaching fellow",
-    "course director", "adjunct", "tenure-track", "tenured"
+    "course director", "adjunct", "tenure-track", "tenured",
+    "teaching assistant", "technician", "employee"
 )
 
-_DOCTORAL_REQUIRED_TERMS = (
-    "phd", "doctoral", "doctorate", "studentship", "student", "candidate",
-    "ph.d", "dphil", "doctorat", "graduate research assistant", "fellowship"
+_DOCTORAL_STRICT_TERMS = (
+    "phd", "doctoral", "doctorate", "studentship", "doctorat", "dphil", "ph.d"
 )
 
 def _is_doctoral_vacancy(title: str, context: str = "") -> tuple[bool, str]:
-    """Strictly filter doctoral vacancies.
+    """Strictly filter doctoral vacancies based on TITLE ONLY.
     Rejects faculty/lecturer/postdoc roles, and ensures genuine doctoral studentship intent.
     """
     t_lower = (title or "").lower()
-    c_lower = (context or "").lower()
     
     # Check explicit non-doctoral disqualifiers in title
     for term in _NON_DOCTORAL_TERMS:
         if re.search(r'\b' + re.escape(term) + r'\b', t_lower):
             return False, f"rejected_role:{term}"
             
-    # Check that title or immediate context contains at least one doctoral indicator
-    combined = f"{t_lower} {c_lower}"
-    if not any(re.search(r'\b' + re.escape(doc) + r'\b', combined) for doc in _DOCTORAL_REQUIRED_TERMS):
-        return False, "rejected_role:not_doctoral"
+    # Check that title itself contains at least one explicit doctoral indicator
+    has_strict_phd = any(re.search(r'\b' + re.escape(doc) + r'\b', t_lower) for doc in _DOCTORAL_STRICT_TERMS)
+    if has_strict_phd:
+        return True, "accepted"
         
-    return True, "accepted"
+    # Check ambiguous student/scholarship terms in title (classified unconfirmed, not doctoral)
+    if any(re.search(r'\b' + re.escape(w) + r'\b', t_lower) for w in ("student", "scholarship", "fellowship", "fellow", "intern")):
+        return False, "unconfirmed_student_scholarship"
+
+    return False, "rejected_role:not_doctoral"
+
+def _is_cybersec_topic(title: str, context: str = "") -> tuple[bool, str]:
+    """Check if vacancy specifically targets cybersecurity / privacy / information security topics.
+    Separates the topic domain filter from the academic rank filter (_is_doctoral_vacancy).
+    Off-topic doctoral records (e.g., arts, humanities, generic social purpose) are tagged rejected_off_topic.
+    """
+    t_lower = (title or "").lower()
+    c_lower = (context or "").lower()
+    t_norm = re.sub(r'[-_./]', ' ', t_lower)
+    c_norm = re.sub(r'[-_./]', ' ', c_lower)
+
+    # If title directly mentions a cybersecurity keyword -> accepted_on_topic
+    if any(re.search(r'\b' + re.escape(kw) + r'\b', t_norm) for kw in _CYBERSEC_KEYWORDS):
+        return True, "accepted_on_topic"
+
+    # Explicitly reject off-topic domains (arts, humanities, generic social purpose)
+    if "ahrc" in t_norm or "social purpose" in t_norm or "humanities" in t_norm:
+        return False, "rejected_off_topic:humanities_or_social_purpose"
+
+    # Check context/snippet for cybersecurity keywords
+    if any(re.search(r'\b' + re.escape(kw) + r'\b', c_norm) for kw in _CYBERSEC_KEYWORDS):
+        return True, "accepted_on_topic"
+
+    return False, "rejected_off_topic:no_cybersec_keywords"
 
 # ── Detail extraction helpers (4.A.8) ──────────────────────────────────────────
 def _parse_json_ld(html: str) -> dict:
@@ -1183,6 +1210,21 @@ def _extract_institution(html: str) -> Optional[str]:
             return org["name"].strip()
         elif isinstance(org, str):
             return org.strip()
+
+    # AcademicTransfer title: <title>... — Institution — AcademicTransfer</title>
+    m_title = re.search(r'<title>.*?—\s*(.*?)\s*—\s*AcademicTransfer</title>', html, re.IGNORECASE)
+    if m_title:
+        val = m_title.group(1).strip()
+        if val and len(val) < 120 and "academictransfer" not in val.lower():
+            return val
+
+    # AcademicTransfer employer link
+    m_emp = re.search(r'href="[^"]*/employer/[^"]*"[^>]*>.*?([A-Z][A-Za-z0-9\s&()\-]{3,80})', html, re.DOTALL)
+    if m_emp:
+        val = re.sub(r'<[^>]+>', '', m_emp.group(1)).strip()
+        if val and len(val) < 120 and "learn more" not in val.lower():
+            return val
+
     m = re.search(r'class="[^"]*(?:employer|organisation|institution|company)[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
     if m:
         val = re.sub(r'<[^>]+>', '', m.group(1)).strip()
@@ -1193,10 +1235,23 @@ def _extract_institution(html: str) -> Optional[str]:
 def _extract_deadline(html: str) -> Optional[str]:
     data = _parse_json_ld(html)
     if data and data.get("validThrough"):
-        return str(data["validThrough"]).strip()
+        raw_val = str(data["validThrough"]).strip()
+        m_iso = re.search(r'(\d{4}-\d{2}-\d{2})', raw_val)
+        if m_iso:
+            return m_iso.group(1)
+        return raw_val[:10]
+
+    # AcademicTransfer: Deadline ... <time datetime="2026-11-01...">
+    m_time = re.search(r'Deadline\s*<time\s+datetime="(\d{4}-\d{2}-\d{2})', html, re.IGNORECASE)
+    if m_time:
+        return m_time.group(1)
+
     m = re.search(r'class="[^"]*(?:closing-date|deadline|validThrough)[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
     if m:
         val = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+        m_iso = re.search(r'(\d{4}-\d{2}-\d{2})', val)
+        if m_iso:
+            return m_iso.group(1)
         if val and len(val) < 50:
             return val
     return None
@@ -1245,14 +1300,15 @@ def _run_jobs_ac_uk_adapter(query: str, fetch_details: bool = False, max_details
         employer = re.sub(r'<[^>]+>', '', m_emp.group(1)).strip() if m_emp else None
         m_dept = re.search(r'<div class="j-search-result__department">\s*(.*?)\s*</div>', c, re.DOTALL)
         dept = re.sub(r'<[^>]+>', '', m_dept.group(1)).strip() if m_dept else None
-
-        search_text = re.sub(r'[-_./]', ' ', f"{title} {dept or ''} {c}").lower()
-        if not any(kw in search_text for kw in _CYBERSEC_KEYWORDS):
+        # Strictly evaluate doctoral suitability by title (Rank filter)
+        is_doc, reject_reason = _is_doctoral_vacancy(title, f"{dept or ''} {c}")
+        if not is_doc:
             rejected_count += 1
             continue
 
-        is_doc, _ = _is_doctoral_vacancy(title, f"{dept or ''} {c}")
-        if not is_doc:
+        # Strictly evaluate domain topic (Cybersecurity vs Arts/Humanities/Off-topic)
+        on_topic, topic_reason = _is_cybersec_topic(title, f"{dept or ''} {c}")
+        if not on_topic:
             rejected_count += 1
             continue
         
@@ -1263,22 +1319,22 @@ def _run_jobs_ac_uk_adapter(query: str, fetch_details: bool = False, max_details
             "source_name": "jobs.ac.uk (UK Universities & Doctoral Centres)",
             "record_type": "vacancy_lead",
             "verification_status": "unverified_lead",
-            "confidence": 0.5,
+            "confidence": None,
             "fetch_timestamp": _NOW(),
             "institution": employer,
             "country": "United Kingdom",
             "program": title[:220],
             "field": dept or "Cybersecurity / Computing Research",
             "field_keywords": query,
-            "funding": "Funded PhD Studentship / Doctoral Training Award",
-            "funding_type": "Funded Studentship",
+            "funding": None,
+            "funding_type": None,
             "funding_status": "unknown",
-            "funding_evidence": f"Published UK doctoral vacancy on jobs.ac.uk at {employer or 'UK Institution'}. Ref: {rel_url}",
+            "funding_evidence": None,
             "stipend_info": None,
             "deadline": None,
             "deadline_raw": "See vacancy closing date",
             "deadline_parsed": None,
-            "deadline_status": "active",
+            "deadline_status": "unknown",
             "supervisor": None,
             "contact": None,
             "lab_url": full_url,
@@ -1305,12 +1361,13 @@ def _run_jobs_ac_uk_adapter(query: str, fetch_details: bool = False, max_details
                 if dl:
                     it["deadline"] = dl
                     it["deadline_parsed"] = dl
+                    it["deadline_status"] = "active"
                 if fnd: it["funding"] = fnd
                 if lang: it["language_req"] = lang
                 if inst and dl:
                     it["record_type"] = "verified_vacancy"
                     it["verification_status"] = "verified_vacancy"
-                    it["confidence"] = 0.85
+                    it["confidence"] = None
 
     return items, True, "", 200, raw_count, rejected_count
 
@@ -1359,22 +1416,22 @@ def _run_academictransfer_adapter(query: str, fetch_details: bool = False, max_d
             "source_name": "AcademicTransfer (Netherlands Universities & Institutes)",
             "record_type": "vacancy_lead",
             "verification_status": "unverified_lead",
-            "confidence": 0.5,
+            "confidence": None,
             "fetch_timestamp": _NOW(),
             "institution": None,
             "country": "Netherlands",
             "program": title[:220],
             "field": "Cybersecurity & Computing",
             "field_keywords": query,
-            "funding": "Salaried PhD Position (Dutch CAO-NU Employment Contract)",
-            "funding_type": "Salaried Employment",
+            "funding": None,
+            "funding_type": None,
             "funding_status": "unknown",
-            "funding_evidence": "Official Dutch university vacancy on AcademicTransfer.",
+            "funding_evidence": None,
             "stipend_info": None,
             "deadline": None,
             "deadline_raw": "See vacancy page",
             "deadline_parsed": None,
-            "deadline_status": "active",
+            "deadline_status": "unknown",
             "supervisor": None,
             "contact": None,
             "lab_url": full_url,
@@ -1401,12 +1458,13 @@ def _run_academictransfer_adapter(query: str, fetch_details: bool = False, max_d
                 if dl:
                     it["deadline"] = dl
                     it["deadline_parsed"] = dl
+                    it["deadline_status"] = "active"
                 if fnd: it["funding"] = fnd
                 if lang: it["language_req"] = lang
                 if inst and dl:
                     it["record_type"] = "verified_vacancy"
                     it["verification_status"] = "verified_vacancy"
-                    it["confidence"] = 0.85
+                    it["confidence"] = None
 
     return items, True, "", 200, raw_count, rejected_count
 
@@ -1449,22 +1507,22 @@ def _run_euraxess_adapter(query: str, fetch_details: bool = False, max_details: 
             "source_name": "EURAXESS Jobs Portal (European Commission)",
             "record_type": "vacancy_lead",
             "verification_status": "unverified_lead",
-            "confidence": 0.5,
+            "confidence": None,
             "fetch_timestamp": _NOW(),
             "institution": None,
             "country": "European Union",
             "program": title[:220],
             "field": "Cybersecurity & Information Technology",
             "field_keywords": query,
-            "funding": "EU / National Funded Research Position",
-            "funding_type": "Funded Fellowship / Position",
+            "funding": None,
+            "funding_type": None,
             "funding_status": "unknown",
-            "funding_evidence": f"Official EURAXESS European Commission job posting #{job_id}.",
+            "funding_evidence": None,
             "stipend_info": None,
             "deadline": None,
             "deadline_raw": "See EURAXESS announcement",
             "deadline_parsed": None,
-            "deadline_status": "active",
+            "deadline_status": "unknown",
             "supervisor": None,
             "contact": None,
             "lab_url": full_url,
@@ -1491,12 +1549,13 @@ def _run_euraxess_adapter(query: str, fetch_details: bool = False, max_details: 
                 if dl:
                     it["deadline"] = dl
                     it["deadline_parsed"] = dl
+                    it["deadline_status"] = "active"
                 if fnd: it["funding"] = fnd
                 if lang: it["language_req"] = lang
                 if inst and dl:
                     it["record_type"] = "verified_vacancy"
                     it["verification_status"] = "verified_vacancy"
-                    it["confidence"] = 0.85
+                    it["confidence"] = None
 
     return items, True, "", 200, raw_count, rejected_count
 
@@ -1582,10 +1641,10 @@ def _run_top_cyber_labs_adapter(query: str) -> tuple[list[dict], bool, str, int,
         items.append({
             "id": l["id"],
             "source_id": "top_cyber_labs",
-            "source_name": "Official European Cyber Labs (CISPA, MPI-SP, Saarland, EPFL, ETH)",
-            "record_type": "research_lead",
-            "verification_status": "institutional_lead",
-            "confidence": 0.70,
+            "source_name": "Official European Cyber Labs Directory (CISPA, MPI-SP, Saarland, EPFL, ETH)",
+            "record_type": "lab_directory",
+            "verification_status": "lab_directory",
+            "confidence": None,
             "fetch_timestamp": _NOW(),
             "institution": l["institution"],
             "country": l["country"],
@@ -1598,9 +1657,9 @@ def _run_top_cyber_labs_adapter(query: str) -> tuple[list[dict], bool, str, int,
             "funding_evidence": f"Official institutional recruitment at {l['institution']}. Direct doctoral contract with social security.",
             "stipend_info": l["funding"],
             "deadline": None,
-            "deadline_raw": "Continuous / Rolling Admissions",
+            "deadline_raw": "Continuous / Rolling Admissions (Lab Directory)",
             "deadline_parsed": None,
-            "deadline_status": "active",
+            "deadline_status": "unknown",
             "supervisor": l["supervisor"],
             "contact": None,
             "lab_url": l["url"],
@@ -1706,7 +1765,7 @@ def _run_nsf_adapter(query: str) -> tuple[list[dict], bool, str, int, int, int]:
                 "source_name": "NSF Funded Research Projects (USA)",
                 "record_type": "funded_research_project",
                 "verification_status": "funded_project",
-                "confidence": 0.85,
+                "confidence": None,
                 "fetch_timestamp": _NOW(),
                 "institution": institution,
                 "country": "United States",
@@ -1747,7 +1806,7 @@ def _run_openalex_adapter(query: str) -> tuple[list[dict], bool, str, int, int, 
     if not _REQUESTS_OK:
         return [], False, "Requests library not available", 0, 0, 0
     try:
-        url = f"https://api.openalex.org/works?search={urllib.parse.quote(query)}+cybersecurity+vulnerability&per_page=15"
+        url = f"https://api.openalex.org/works?search={urllib.parse.quote(query)}+cybersecurity+vulnerability&per_page=15&sort=publication_date:desc"
         headers = {
             "User-Agent": "SecuraX-PhD-Discovery/1.7 (Academic Verification Engine; contact: security@securax.local)",
             "Accept": "application/json",
