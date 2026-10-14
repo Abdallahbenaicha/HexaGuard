@@ -818,7 +818,7 @@ def run_dast_scan(target: str, config: DASTConfig | None = None) -> dict:
 
     allow_internal = (
         cfg.allow_internal
-        or os.environ.get("DAST_ALLOW_INTERNAL", "0").lower() in ("1", "true")
+        or os.environ.get("DAST_ALLOW_INTERNAL", "0").lower().strip() in ("1", "true", "yes", "on")
     )
     if not allow_internal:
         _check_ssrf(url)

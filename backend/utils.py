@@ -258,19 +258,25 @@ def _is_private_ip(ip_str: str) -> bool:
         return False
 
 
+def is_env_truthy(var_name: str, default: str = "0") -> bool:
+    """Return True if the environment variable has a truthy value ('1', 'true', 'yes', 'on')."""
+    val = os.environ.get(var_name, default).strip().lower()
+    return val in ("1", "true", "yes", "on")
+
+
 def check_ssrf(raw_target: str) -> tuple[bool, str]:
     """Return (is_safe, error_msg).
 
     Blocks scan targets that resolve to private / link-local / metadata IPs
     to prevent Server-Side Request Forgery attacks against internal infrastructure.
 
-    When the environment variable ALLOW_LOCAL_LAB_TARGETS=true is set, loopback
+    When the environment variable ALLOW_LOCAL_LAB_TARGETS is set (accepts 'true', '1', 'yes'), loopback
     addresses (127.0.0.0/8 and ::1 only) are permitted so that local lab targets
     such as DVWA can be scanned during development.  RFC-1918 ranges and all
     cloud-metadata endpoints remain blocked unconditionally.
     """
     # Lab-mode flag: loopback-only bypass for local DVWA/JuiceShop testing.
-    _allow_lab = os.environ.get("ALLOW_LOCAL_LAB_TARGETS", "").lower() == "true"
+    _allow_lab = is_env_truthy("ALLOW_LOCAL_LAB_TARGETS")
 
     stripped = re.sub(r"^https?://", "", raw_target.strip())
     host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
@@ -309,8 +315,9 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
             if _is_private_ip(ip_str):
                 logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
                 return False, "Target resolves to a private/internal IP address — not allowed."
-    except socket.gaierror:
-        pass  # DNS failure — let the scanner handle it
+    except Exception as exc:
+        logger.warning("SSRF block: could not resolve %s: %s", host, exc)
+        return False, f"Target '{host}' could not be resolved — request rejected."
 
     return True, ""
 
@@ -342,7 +349,10 @@ def check_ssrf_network(raw_target: str) -> tuple[bool, str]:
     so developers can test against 127.0.0.1 locally.
     """
     import os as _os
-    _is_dev = _os.environ.get("FLASK_ENV", "production") == "development"
+    _is_dev = (
+        _os.environ.get("FLASK_ENV", "production") == "development"
+        or is_env_truthy("ALLOW_LOCAL_LAB_TARGETS")
+    )
 
     # Cloud metadata endpoints are ALWAYS blocked regardless of environment
     _METADATA_BLOCKED = {"169.254.169.254", "metadata.google.internal"}

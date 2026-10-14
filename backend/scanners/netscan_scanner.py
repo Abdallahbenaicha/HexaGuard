@@ -200,10 +200,18 @@ _SERVICE_NVD_KEYWORDS: dict[str, str] = {
 
 # ── Severity helpers ──────────────────────────────────────────────────────────
 
-def _assess_severity(port: int, service: str) -> str:
+def _assess_severity(port: int, service: str, host: str = "") -> str:
+    # MSRPC (port 135) on loopback is the standard Windows RPC Endpoint Mapper
+    # Classified as info on loopback; elevates to high only if exposed on external interface.
+    if port == 135 or str(service).lower() in ("msrpc", "epmap"):
+        h = str(host).lower().strip()
+        if h in ("127.0.0.1", "::1", "localhost") or h.startswith("127."):
+            return "info"
+        return "high"
+
     if port in _CRITICAL_PORTS:
         return "critical"
-    if port in _HIGH_PORTS or service in ("telnet", "ftp", "netbios-ssn", "msrpc", "ms-wbt-server"):
+    if port in _HIGH_PORTS or service in ("telnet", "ftp", "netbios-ssn", "ms-wbt-server"):
         return "high"
     if port in _MEDIUM_PORTS:
         return "medium"
@@ -867,13 +875,20 @@ def run_nmap_scan(target: str, deep: bool = False, internal: bool = False) -> di
 
                 svc, prod, ver = port_svc_map.get((host, port), ("unknown", "", ""))
                 ver_str = f"{prod} {ver}".strip()
-                sev     = _assess_severity(port, svc)
+                sev     = _assess_severity(port, svc, host=host)
+
+                is_loopback_msrpc = (port == 135 or str(svc).lower() in ("msrpc", "epmap")) and sev == "info"
+                port_desc = (
+                    f"Port {port}/{proto} ({svc}) open on loopback interface ({host}) — Windows RPC Endpoint Mapper baseline (informational)."
+                    if is_loopback_msrpc else
+                    f"Port {port}/{proto} is open running {svc}"
+                )
 
                 vuln: dict = {
                     "check":       "open_port",
                     "title":       f"Open port: {port}/{proto} ({svc})",
                     "severity":    sev,
-                    "description": f"Port {port}/{proto} is open running {svc}",
+                    "description": port_desc,
                     "evidence":    (f"{host}:{port}/{proto} — {ver_str}"
                                     if ver_str else f"{host}:{port}/{proto}"),
                     "remediation": "Firewall or disable if not required.",

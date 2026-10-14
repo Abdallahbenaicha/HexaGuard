@@ -50,3 +50,17 @@ def test_ssrf_blocks_private_rfc1918_even_with_lab_flag(monkeypatch):
     safe, msg = check_ssrf("http://192.168.1.100")
     assert not safe, f"Expected blocked, got: {msg}"
 
+
+def test_ssrf_fails_closed_on_dns_resolution_failure():
+    """Fail-closed security: if DNS resolution fails, the request must be REJECTED."""
+    safe, msg = check_ssrf("http://unresolvable-domain-dns-fail.invalid")
+    assert not safe, "Expected SSRF guard to fail CLOSED on unresolvable target"
+    assert "could not be resolved" in msg.lower()
+
+
+def test_ssrf_allows_valid_public_domain():
+    """Valid public target resolving to public IP is permitted."""
+    safe, msg = check_ssrf("http://example.com")
+    assert safe, f"Expected public target to be allowed, got: {msg}"
+
+
