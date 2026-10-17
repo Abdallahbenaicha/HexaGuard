@@ -66,11 +66,22 @@ def set_subscription(user_id: int, plan: str, notes: str = "",
     if plan not in PLANS:
         return False
     _ensure_subscription(user_id)
+    sub = get_subscription(user_id)
+    current_plan = sub.get("plan", "free")
+    current_used = sub.get("scans_used", 0)
+
+    _PLAN_RANKS = {"free": 0, "starter": 1, "pro": 2, "enterprise": 3}
+    current_rank = _PLAN_RANKS.get(current_plan, 0)
+    new_rank = _PLAN_RANKS.get(plan, 0)
+
+    # Only reset scans_used on an actual upgrade to a strictly higher tier
+    new_scans_used = 0 if new_rank > current_rank else current_used
+
     _exec(
         "UPDATE subscriptions"
-        " SET plan=?, scans_used=0, cycle_start=?, notes=?, expires_at=?"
+        " SET plan=?, scans_used=?, cycle_start=?, notes=?, expires_at=?"
         " WHERE user_id=?",
-        (plan, _cycle_start(), notes or None, expires_at, user_id),
+        (plan, new_scans_used, _cycle_start(), notes or None, expires_at, user_id),
     )
     return True
 
@@ -120,6 +131,18 @@ def check_and_consume_quota(user_id: int) -> tuple[bool, int, int]:
         (new_used, user_id),
     )
     return True, new_used, max_scans
+
+
+def increment_scan_count(user_id: int) -> int:
+    """Increment scans_used counter by 1 for user_id and return new scans_used count."""
+    _ensure_subscription(user_id)
+    _exec(
+        "UPDATE subscriptions SET scans_used = COALESCE(scans_used, 0) + 1 WHERE user_id = ?",
+        (user_id,),
+    )
+    sub = get_subscription(user_id)
+    return sub.get("scans_used", 0)
+
 
 
 def get_user_ai_preferences(user_id: int) -> dict:
