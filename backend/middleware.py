@@ -11,13 +11,31 @@ from extensions import ALLOWED_ORIGINS
 _IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
 
+import re
+
+_ORIGIN_RE = re.compile(r"^https://abdallahbenaicha-(hexaguard|securax)\.hf\.space$")
+_DEV_ORIGIN_RE = re.compile(r"^http://(localhost|127\.0\.0\.1)(:\d+)?$")
+
+
+def _is_origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if origin in ALLOWED_ORIGINS:
+        return True
+    if _ORIGIN_RE.fullmatch(origin):
+        return True
+    if not _IS_PRODUCTION and _DEV_ORIGIN_RE.fullmatch(origin):
+        return True
+    return False
+
+
 def register_middleware(app) -> None:
     @app.before_request
     def handle_options_preflight():
         if request.method == "OPTIONS":
             response = app.make_default_options_response()
             origin = request.headers.get("Origin")
-            if origin and (origin in ALLOWED_ORIGINS or "vercel.app" in origin or "hf.space" in origin or "localhost" in origin or "127.0.0.1" in origin):
+            if _is_origin_allowed(origin):
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Allow-Headers"] = (
@@ -37,7 +55,7 @@ def register_middleware(app) -> None:
     @app.after_request
     def set_security_headers(response):
         response.headers["X-Content-Type-Options"]    = "nosniff"
-        response.headers["X-Frame-Options"]           = "ALLOWFROM https://huggingface.co"
+        response.headers["X-Frame-Options"]           = "SAMEORIGIN"
         response.headers["X-XSS-Protection"]          = "1; mode=block"
         response.headers["Strict-Transport-Security"]  = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"]            = "strict-origin-when-cross-origin"
@@ -63,7 +81,7 @@ def register_middleware(app) -> None:
             response.headers["Content-Type"] = "text/html; charset=utf-8"
 
         origin = request.headers.get("Origin")
-        if origin and (origin in ALLOWED_ORIGINS or "vercel.app" in origin or "hf.space" in origin or "localhost" in origin or "127.0.0.1" in origin):
+        if _is_origin_allowed(origin):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
 
