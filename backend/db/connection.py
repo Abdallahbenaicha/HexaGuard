@@ -1,6 +1,9 @@
 import json
 import logging
+import os
+import secrets
 import sqlite3
+import sys
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -9,7 +12,8 @@ import bcrypt
 
 logger = logging.getLogger(__name__)
 
-import os as _os
+_os = os
+_sys = sys
 
 # ── Backend detection ─────────────────────────────────────────────────────────
 # Set MYSQL_HOST (+ MYSQL_USER, MYSQL_PASS, MYSQL_DB) env vars to switch to
@@ -125,14 +129,19 @@ def _get_db():
 
 
 def _resolve_db_path(requested: str) -> str:
-    parent = _os.path.dirname(_os.path.abspath(requested))
+    backend_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    # If the default relative "securax.db" was given (or empty), anchor to backend/
+    if not requested or requested == "securax.db":
+        return _os.path.join(backend_dir, "securax.db")
+
+    abs_path = _os.path.abspath(requested)
+    parent = _os.path.dirname(abs_path)
     if parent:
         try:
             _os.makedirs(parent, exist_ok=True)
-            return requested
+            return abs_path
         except OSError:
             pass
-    backend_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
     fallback = _os.path.join(backend_dir, "securax.db")
     logger.warning(
         "DB path '%s' is not accessible — falling back to '%s'.",
@@ -140,7 +149,8 @@ def _resolve_db_path(requested: str) -> str:
     )
     return fallback
 
-DB_PATH = _os.environ.get("DB_PATH", "securax.db")
+
+DB_PATH = _resolve_db_path(_os.environ.get("DB_PATH", "securax.db"))
 
 
 def _exec(sql: str, params: tuple = ()):
@@ -991,6 +1001,13 @@ def init_db():
         except (sqlite3.OperationalError, Exception):
             pass  # table/column already exists
 
+    try:
+        # M12: Fix corrupt role data on legacy probe row
+        db.execute("UPDATE users SET role = 'analyst' WHERE id = 26 AND length(role) > 20")
+        db.commit()
+    except Exception:
+        pass
+
     _bootstrap_admin()
     logger.info("database ready | path=%s", DB_PATH)
 
@@ -1017,14 +1034,41 @@ def _bootstrap_admin():
         if not os.environ.get("SECURAX_ANALYST_PASSWORD"):
             raise RuntimeError("SECURAX_ANALYST_PASSWORD must be set in production!")
 
-    admin_pw   = os.environ.get("SECURAX_ADMIN_PASSWORD",   "").strip() or "Admin@2024!"
-    analyst_pw = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip() or "Analyst@2024!"
+    is_testing = bool(
+        os.environ.get("TESTING")
+        or os.environ.get("FLASK_ENV") == "testing"
+        or os.environ.get("PYTEST_CURRENT_TEST")
+    )
+
+    admin_env = os.environ.get("SECURAX_ADMIN_PASSWORD", "").strip()
+    if admin_env:
+        admin_pw = admin_env
+        admin_must_change = 0
+    elif is_testing:
+        admin_pw = "Admin@2024!"
+        admin_must_change = 0
+    else:
+        admin_pw = secrets.token_urlsafe(16)
+        admin_must_change = 1
+        logger.warning("ADMIN BOOTSTRAP PASSWORD (shown once): %s", admin_pw)
+
+    analyst_env = os.environ.get("SECURAX_ANALYST_PASSWORD", "").strip()
+    if analyst_env:
+        analyst_pw = analyst_env
+        analyst_must_change = 0
+    elif is_testing:
+        analyst_pw = "Analyst@2024!"
+        analyst_must_change = 0
+    else:
+        analyst_pw = secrets.token_urlsafe(16)
+        analyst_must_change = 1
+        logger.warning("ANALYST BOOTSTRAP PASSWORD (shown once): %s", analyst_pw)
 
     now     = datetime.now(timezone.utc).isoformat()
     created = []
-    for username, password, role in [
-        ("admin",   admin_pw,   "admin"),
-        ("analyst", analyst_pw, "analyst"),
+    for username, password, role, must_change in [
+        ("admin",   admin_pw,   "admin",   admin_must_change),
+        ("analyst", analyst_pw, "analyst", analyst_must_change),
     ]:
         # Skip if account already exists (never overwrite)
         exists = _get_db().execute(
@@ -1041,9 +1085,9 @@ def _bootstrap_admin():
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         try:
             _get_db().execute(
-                "INSERT INTO users (username,password_hash,role,permissions,is_active,created_at,created_by)"
-                " VALUES (?,?,?,?,1,?,?)",
-                (username, pw_hash, role, perms, now, "bootstrap"),
+                "INSERT INTO users (username,password_hash,role,permissions,is_active,created_at,created_by,must_change_password)"
+                " VALUES (?,?,?,?,1,?,?,?)",
+                (username, pw_hash, role, perms, now, "bootstrap", must_change),
             )
             created.append(username)
         except sqlite3.IntegrityError:

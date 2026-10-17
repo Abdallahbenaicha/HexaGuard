@@ -90,3 +90,30 @@ class TestCsrfProtection:
                 headers={"X-CSRFToken": csrf_token},
             )
             assert res.status_code == 200
+
+    def test_api_subscription_upgrade_without_csrf_token_rejected(self, logged_in_client):
+        """C3 remediation: /api/ mutations without CSRF token MUST return 400."""
+        res = logged_in_client.post(
+            "/api/subscription/upgrade",
+            json={"plan": "enterprise"},
+        )
+        assert res.status_code == 400
+        assert b"CSRF" in res.data or b"csrf" in res.data
+
+    def test_api_subscription_upgrade_with_valid_csrf_token_accepted(self, logged_in_client):
+        """C3 remediation: /api/ mutations with valid X-CSRFToken header pass CSRF check."""
+        me_resp = logged_in_client.get("/api/auth/me")
+        csrf_token = me_resp.headers.get("X-CSRFToken")
+        if not csrf_token:
+            for cookie in logged_in_client.cookie_jar:
+                if cookie.name == "csrftoken":
+                    csrf_token = cookie.value
+                    break
+        assert csrf_token is not None
+
+        res = logged_in_client.post(
+            "/api/subscription/upgrade",
+            json={"plan": "pro"},
+            headers={"X-CSRFToken": csrf_token},
+        )
+        assert res.status_code == 200

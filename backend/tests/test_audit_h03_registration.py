@@ -47,7 +47,7 @@ class TestSelfRegistrationRestrictions:
             json={
                 "username": "newbie_user",
                 "email": "newbie@example.com",
-                "password": "Password123!",
+                "password": "SecuraX#2026!Str0ng",
             },
         )
         assert reg_resp.status_code == 201
@@ -61,7 +61,7 @@ class TestSelfRegistrationRestrictions:
         # 2. Log in with the new account
         login_resp = client.post(
             "/api/auth/login",
-            json={"username": "newbie_user", "password": "Password123!"},
+            json={"username": "newbie_user", "password": "SecuraX#2026!Str0ng"},
         )
         assert login_resp.status_code == 200
 
@@ -85,7 +85,7 @@ class TestSelfRegistrationRestrictions:
             json={
                 "username": "promoted_user",
                 "email": "promoted@example.com",
-                "password": "Password123!",
+                "password": "SecuraX#2026!Str0ng",
             },
         )
         user = db.get_user_by_username("promoted_user")
@@ -94,10 +94,11 @@ class TestSelfRegistrationRestrictions:
         db.update_user(user["id"], role="analyst", permissions=["run_scan", "view_reports"])
 
         # Log in as promoted user
-        client.post(
+        login_res = client.post(
             "/api/auth/login",
-            json={"username": "promoted_user", "password": "Password123!"},
+            json={"username": "promoted_user", "password": "SecuraX#2026!Str0ng"},
         )
+        assert login_res.status_code == 200
 
         # Scan should now pass permission check
         with patch("blueprints.scans.run_web_scan", return_value={"vulnerabilities": []}):

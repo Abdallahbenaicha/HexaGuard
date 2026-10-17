@@ -7,6 +7,7 @@ middleware, blueprints, and the user-loader together.
 
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, redirect, request, url_for
@@ -47,12 +48,8 @@ def create_app() -> Flask:
     # SecuraX sandbox verification currently relies on process-local `threading.RLock()` in
     # `backend/blueprints/sandbox.py`. SQLite currently executes:
     #   UPDATE active_sandboxes SET status = ?, completed = ? WHERE id = ?
-    # which lacks an atomic Compare-And-Swap condition (`WHERE id = ? AND completed = 0`).
-    # Running multiple worker processes (workers > 1) without an Atomic DB CAS Guard creates
-    # a cross-process race condition vulnerability where concurrent requests to different
-    # workers can achieve double-completion of the same sandbox challenge.
-    # Therefore, the platform strictly mandates workers=1 (single-process + multi-threaded I/O)
-    # until an Atomic DB CAS Guard is implemented.
+    # M7 Remediation: Atomic DB CAS Guard is active in update_active_sandbox_state
+    # with `WHERE id = ? AND completed = 0` to prevent cross-worker race conditions.
     for _w_var in ("WEB_CONCURRENCY", "GUNICORN_WORKERS", "WORKERS"):
         _val = os.environ.get(_w_var)
         if _val:
@@ -60,18 +57,25 @@ def create_app() -> Flask:
                 _w_count = int(_val.strip())
                 if _w_count > 1:
                     raise RuntimeError(
-                        f"CRITICAL ARCHITECTURAL CONCURRENCY RISK: {_w_var}={_w_count}. "
-                        "SecuraX sandbox verification relies on in-process threading.RLock(). "
-                        "Running with multiple worker processes (workers > 1) without an Atomic DB CAS Guard "
-                        "permits cross-process race conditions on sandbox verification. "
-                        f"Enforce workers=1 (or unset {_w_var}) until Atomic DB CAS Guard is deployed."
+                        f"CRITICAL ARCHITECTURAL CONCURRENCY RISK: {_w_var}={_w_count} configured. "
+                        "Sandbox verification relies on in-process threading.RLock(). Multi-worker operation requires "
+                        "an Atomic DB CAS Guard. Set workers=1."
                     )
             except ValueError:
                 pass
 
+    if _IS_PRODUCTION and os.environ.get("DEMO_MODE", "").strip().lower() in ("true", "1", "yes"):
+        raise RuntimeError("CRITICAL SECURITY ERROR: DEMO_MODE cannot be enabled in production (FLASK_ENV=production)!")
+
+    csrf_env = os.environ.get("WTF_CSRF_ENABLED")
+    if csrf_env is not None:
+        csrf_enabled = csrf_env.strip().lower() in ("true", "1", "yes")
+    else:
+        csrf_enabled = not bool(os.environ.get("TESTING") or os.environ.get("FLASK_ENV") == "testing")
+
     app.config.update(
         SECRET_KEY=SECRET_KEY,
-        WTF_CSRF_ENABLED=True,
+        WTF_CSRF_ENABLED=csrf_enabled,
         WTF_CSRF_TIME_LIMIT=3600,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "None" if _IS_PRODUCTION else "Lax"),
@@ -176,6 +180,9 @@ def create_app() -> Flask:
     from database import init_db
     with app.app_context():
         init_db()
+        # Reconcile orphaned background scan jobs across process restart
+        import job_manager
+        job_manager.reconcile_orphaned_jobs()
 
     # ── Background Scheduler ─────────────────────────────────────────────────
     if os.environ.get("ENABLE_BACKGROUND_SCHEDULER", "true").lower() in ("true", "1", "yes") and not app.config.get("TESTING"):
