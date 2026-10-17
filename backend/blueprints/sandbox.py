@@ -162,8 +162,8 @@ def _find_free_port() -> int:
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
     except Exception:
-        import random
-        return random.randint(30000, 40000)
+        import secrets
+        return secrets.randbelow(10001) + 30000
 
 
 def _terminate_sandbox_internal(sandbox_id: str):
@@ -429,11 +429,17 @@ def verify_sandbox_proof_authoritative(
         sb["completed"] = True
         sb["status"] = "terminated"
 
-    # Update SQLite persistence
+    # Update SQLite persistence with Atomic CAS
+    cas_success = False
     try:
-        update_active_sandbox_state(sandbox_id, status="terminated", completed=True)
+        cas_success = update_active_sandbox_state(sandbox_id, status="terminated", completed=True)
     except Exception as exc:
         logger.warning("Failed to update sandbox completion in DB: %s", exc)
+
+    if not cas_success:
+        logger.info("Sandbox %s was already completed by concurrent worker (CAS returned False)", sandbox_id)
+        _terminate_sandbox_internal(sandbox_id)
+        return False, "This sandbox challenge was already completed or verified.", None, None
 
     # Outside lock: record verified progress and capability evidence
     updated_skill = record_skill_progress(

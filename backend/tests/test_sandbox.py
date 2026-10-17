@@ -156,3 +156,61 @@ def test_auto_cleanup_timeout(monkeypatch):
 
     with _SANDBOX_LOCK:
         assert _ACTIVE_SANDBOXES[sb_id]["status"] == "terminated"
+
+
+def test_sandbox_concurrent_completion_cas_race():
+    """8 concurrent threads attempt to complete the exact same sandbox challenge.
+    Atomic CAS in update_active_sandbox_state ensures exactly 1 thread succeeds and 7 fail.
+    """
+    import concurrent.futures
+    import threading
+
+    app = create_app()
+
+    create_user("cadet_race", "Password123!", role="analyst", email="crace@example.com")
+    user = get_user_by_username("cadet_race")
+    user_id = user["id"]
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
+
+    # Launch XSS sandbox
+    launch_res = client.post("/api/sandbox/launch", json={"vuln_type": "xss"})
+    assert launch_res.status_code == 201
+    sb_id = launch_res.get_json()["sandbox"]["id"]
+    flag = SANDBOX_ALLOWLIST["xss"]["proof_flag"]
+
+    # Barrier to synchronize all 8 threads to hit the endpoint at the exact same moment
+    barrier = threading.Barrier(8)
+
+    def worker(worker_idx):
+        t_client = app.test_client()
+        with t_client.session_transaction() as sess:
+            sess["_user_id"] = str(user_id)
+            sess["_fresh"] = True
+        try:
+            barrier.wait(timeout=5)
+        except threading.BrokenBarrierError:
+            pass
+        res = t_client.post(f"/api/sandbox/{sb_id}/complete", json={"flag": flag})
+        return res.status_code, res.get_json()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(worker, i) for i in range(8)]
+        results = [f.result() for f in futures]
+
+    statuses = [r[0] for r in results]
+    successes = [r for r in results if r[0] == 200]
+    failures = [r for r in results if r[0] != 200]
+
+    assert len(successes) == 1, f"Expected exactly 1 success under CAS, got {len(successes)}: {statuses}"
+    assert len(failures) == 7, f"Expected exactly 7 rejected requests, got {len(failures)}: {statuses}"
+
+    # Verify skill ledger has exactly 1 attempt recorded
+    ledger = get_user_skill_ledger(user_id)
+    xss_item = next(i for i in ledger if i["vuln_type"] == "xss")
+    assert xss_item["status"] == "practiced_verified"
+    assert xss_item["attempts_count"] == 1
+

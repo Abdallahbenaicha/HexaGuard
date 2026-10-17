@@ -460,14 +460,29 @@ def get_user_active_sandboxes_records(user_id: int) -> list[dict[str, Any]]:
     return results
 
 
-def update_active_sandbox_state(sandbox_id: str, status: str, completed: bool = False) -> None:
-    """Updates status and completion state for a sandbox in persistent storage."""
+def update_active_sandbox_state(sandbox_id: str, status: str, completed: bool = False) -> bool:
+    """Updates status and completion state for a sandbox in persistent storage using atomic CAS."""
     db = _get_db()
-    db.execute(
-        "UPDATE active_sandboxes SET status = ?, completed = ? WHERE id = ?",
-        (status, 1 if completed else 0, sandbox_id),
-    )
+    if completed:
+        row = db.execute("SELECT id, completed FROM active_sandboxes WHERE id = ?", (sandbox_id,)).fetchone()
+        if not row:
+            # Ephemeral / in-memory sandbox not persisted in DB
+            return True
+        if row["completed"]:
+            return False
+        cur = db.execute(
+            "UPDATE active_sandboxes SET status = ?, completed = 1 WHERE id = ? AND completed = 0",
+            (status, sandbox_id),
+        )
+        ok = (cur.rowcount > 0)
+    else:
+        cur = db.execute(
+            "UPDATE active_sandboxes SET status = ?, completed = 0 WHERE id = ?",
+            (status, sandbox_id),
+        )
+        ok = (cur.rowcount > 0)
     db.commit()
+    return ok
 
 
 def delete_active_sandbox_record(sandbox_id: str) -> None:
