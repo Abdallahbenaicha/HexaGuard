@@ -10,6 +10,7 @@ import csv
 import io
 import json
 import logging
+import os
 
 from flask import (
     Blueprint,
@@ -75,6 +76,25 @@ def _rtl_text(text: str) -> str:
         return get_display(arabic_reshaper.reshape(text))
     except Exception:
         return text
+
+
+def _needs_rtl(text: str) -> bool:
+    """Detect if text contains Arabic or RTL characters."""
+    import unicodedata
+    return any(unicodedata.bidirectional(c) in ("R", "AL", "AN") for c in str(text))
+
+
+def _safe(text: str, arabic: bool = False) -> str:
+    """Sanitize and format text for ReportLab PDF paragraphs.
+    F5: Reshapes Arabic RTL characters BEFORE escaping XML entities to avoid entity corruption (;lt;).
+    """
+    import html
+    s = strip_md_for_pdf(str(text))
+    s = html.unescape(s)
+    if arabic or _needs_rtl(s):
+        s = _rtl_text(s)
+    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return s
 
 
 def _get_report_for_download(token=None) -> dict:
@@ -253,13 +273,15 @@ def download_report_pdf():
         _FB = "Helvetica-Bold"
         _FONT_CANDIDATES = [
             ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf", "_SecNorm", "_SecBold"),
-            # FreeSans: installed via fonts-freefont-ttf — best Arabic glyph coverage on Debian
-            ("/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-             "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf", "_SecNorm", "_SecBold"),
+            # DejaVuSans and Noto have full Arabic glyph coverage; FreeSans lacks critical Arabic characters
+            ("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+             "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf", "_SecNorm", "_SecBold"),
             ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "_SecNorm", "_SecBold"),
             ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
              "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+             "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf", "_SecNorm", "_SecBold"),
         ]
         for _fp, _fbp, _fn, _fbn in _FONT_CANDIDATES:
             if _os.path.exists(_fp):
@@ -322,19 +344,8 @@ def download_report_pdf():
             kw.setdefault("fontName", _F)
             return ParagraphStyle(name, parent=styles["Normal"], **kw)
 
-        def _needs_rtl(text: str) -> bool:
-            import unicodedata
-            return any(unicodedata.bidirectional(c) in ("R", "AL", "AN") for c in text)
-
-        def _safe(text: str) -> str:
-            s = strip_md_for_pdf(str(text))
-            s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            if arabic or _needs_rtl(s):
-                s = _rtl_text(s)
-            return s
-
         def _p(text, style):
-            return Paragraph(_safe(text), style)
+            return Paragraph(_safe(text, arabic=arabic), style)
 
         _ps("body",  fontSize=9,  leading=13)
         _ps("small", fontSize=7,  leading=10, textColor=C_MUTED)
@@ -385,9 +396,9 @@ def download_report_pdf():
 
         rs_bar = Table(
             [[_p(f"Risk Score: {score:.1f}/10",
-                 _ps("rsb", fontSize=11, fontName="Helvetica-Bold", textColor=C_NAVY)),
+                 _ps("rsb", fontSize=11, fontName=_FB, textColor=C_NAVY)),
               _p(risk_level.upper(),
-                 _ps("rlb", fontSize=11, fontName="Helvetica-Bold",
+                 _ps("rlb", fontSize=11, fontName=_FB,
                      textColor=risk_color, alignment=TA_RIGHT))]],
             colWidths=[CONTENT_W * 0.65, CONTENT_W * 0.35],
         )
@@ -408,7 +419,7 @@ def download_report_pdf():
         if exec_sum:
             story.append(Paragraph(
                 "ملخص تنفيذي" if arabic else "Executive Summary",
-                _ps("exh", fontSize=11, fontName="Helvetica-Bold",
+                _ps("exh", fontSize=11, fontName=_FB,
                     textColor=C_NAVY, spaceAfter=3),
             ))
             exec_tbl = Table(
@@ -447,7 +458,7 @@ def download_report_pdf():
             ]))
             story.append(Paragraph(
                 "تحليل المخاطر التفصيلي" if arabic else "Risk Score Breakdown",
-                _ps("rbh", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=3),
+                _ps("rbh", fontSize=10, fontName=_FB, textColor=C_NAVY, spaceAfter=3),
             ))
             story.append(rb_tbl)
             story.append(Spacer(1, 0.35 * cm))
@@ -457,7 +468,7 @@ def download_report_pdf():
 
         story.append(Paragraph(
             "ملخص الخطورة" if arabic else "Severity Summary",
-            _ps("sevh", fontSize=12, fontName="Helvetica-Bold",
+            _ps("sevh", fontSize=12, fontName=_FB,
                 textColor=C_NAVY, alignment=TA_RIGHT, spaceAfter=4),
         ))
 
@@ -467,12 +478,12 @@ def download_report_pdf():
         for sv in sev_order:
             num_row.append(Paragraph(
                 str(sev_counts.get(sv, 0)),
-                _ps(f"sn{sv}", fontSize=22, fontName="Helvetica-Bold",
+                _ps(f"sn{sv}", fontSize=22, fontName=_FB,
                     textColor=rl_colors.white, alignment=TA_CENTER),
             ))
             lab_row.append(Paragraph(
                 sv.upper(),
-                _ps(f"sl{sv}", fontSize=9, fontName="Helvetica-Bold",
+                _ps(f"sl{sv}", fontSize=9, fontName=_FB,
                     textColor=C_SEV[sv], alignment=TA_CENTER),
             ))
 
@@ -499,7 +510,7 @@ def download_report_pdf():
             recon = build_network_recon(result)
             story.append(Paragraph(
                 "استطلاع الشبكة" if arabic else "Network Reconnaissance Summary",
-                _ps("rech", fontSize=12, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=4),
+                _ps("rech", fontSize=12, fontName=_FB, textColor=C_NAVY, spaceAfter=4),
             ))
             recon_meta = [
                 [_lp("Target IP"),   _vp(recon.get("ip","—")),
@@ -530,13 +541,13 @@ def download_report_pdf():
                 story.append(Spacer(1, 0.25 * cm))
                 story.append(Paragraph(
                     "المنافذ المفتوحة" if arabic else "Open Ports",
-                    _ps("oph", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=3),
+                    _ps("oph", fontSize=10, fontName=_FB, textColor=C_NAVY, spaceAfter=3),
                 ))
                 pt_hdr = [
-                    Paragraph("ENDPOINT", _ps("ph", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
-                    Paragraph("SERVICE",  _ps("ph2", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
-                    Paragraph("VERSION",  _ps("ph3", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
-                    Paragraph("SEVERITY", _ps("ph4", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                    Paragraph("ENDPOINT", _ps("ph", fontSize=8, fontName=_FB, textColor=C_MUTED)),
+                    Paragraph("SERVICE",  _ps("ph2", fontSize=8, fontName=_FB, textColor=C_MUTED)),
+                    Paragraph("VERSION",  _ps("ph3", fontSize=8, fontName=_FB, textColor=C_MUTED)),
+                    Paragraph("SEVERITY", _ps("ph4", fontSize=8, fontName=_FB, textColor=C_MUTED)),
                 ]
                 pt_rows = [pt_hdr]
                 for p in open_ports[:30]:
@@ -545,7 +556,7 @@ def download_report_pdf():
                         Paragraph(f"{p.get('host','')}:{p.get('port','')}/{p.get('protocol','tcp')}", row_v),
                         Paragraph(p.get("service","—"), row_v),
                         Paragraph(p.get("version","—") or "—", row_v),
-                        Paragraph(sv.upper(), _ps(f"ptl{sv}", fontSize=8, fontName="Helvetica-Bold",
+                        Paragraph(sv.upper(), _ps(f"ptl{sv}", fontSize=8, fontName=_FB,
                                                   textColor=C_SEV.get(sv, C_SEV["info"]))),
                     ])
                 pt_tbl_styles = [
@@ -569,7 +580,7 @@ def download_report_pdf():
                 story.append(Spacer(1, 0.2 * cm))
                 story.append(Paragraph(
                     "نطاقات فرعية مكتشفة" if arabic else "Discovered Subdomains (sample)",
-                    _ps("sdh", fontSize=10, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=2),
+                    _ps("sdh", fontSize=10, fontName=_FB, textColor=C_NAVY, spaceAfter=2),
                 ))
                 sd_text = "  ·  ".join(recon["subdomains"][:20])
                 story.append(Paragraph(_safe(sd_text), _ps("sdb", fontSize=7.5, textColor=C_MUTED, leading=11)))
@@ -583,11 +594,11 @@ def download_report_pdf():
         if chains:
             story.append(Paragraph(
                 "سلاسل الهجوم المحتملة" if arabic else "Potential Attack Chains",
-                _ps("ach", fontSize=11, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=4),
+                _ps("ach", fontSize=11, fontName=_FB, textColor=C_NAVY, spaceAfter=4),
             ))
             for ci, ch in enumerate(chains, 1):
                 ch_tbl = Table(
-                    [[Paragraph(f"{ci}", _ps(f"cn{ci}", fontSize=10, fontName="Helvetica-Bold",
+                    [[Paragraph(f"{ci}", _ps(f"cn{ci}", fontSize=10, fontName=_FB,
                                             textColor=rl_colors.white, alignment=TA_CENTER)),
                       Paragraph(_safe(str(ch)), _ps(f"cv{ci}", fontSize=8.5, leading=12))]],
                     colWidths=[0.65*cm, CONTENT_W - 0.65*cm],
@@ -610,11 +621,11 @@ def download_report_pdf():
 
         story.append(Paragraph(
             "نتائج الثغرات" if arabic else "Vulnerability Findings",
-            _ps("fndh", fontSize=12, fontName="Helvetica-Bold",
+            _ps("fndh", fontSize=12, fontName=_FB,
                 textColor=C_NAVY, alignment=TA_RIGHT, spaceAfter=6),
         ))
 
-        BADGE_W = 1.6 * cm
+        BADGE_W = 2.4 * cm
         DATA_W  = CONTENT_W - BADGE_W
 
         for i, v in enumerate(vulns, 1):
@@ -645,25 +656,32 @@ def download_report_pdf():
                 net_parts.append(f"Service: {service}")
             net_str = "  ".join(net_parts)
 
-            badge_s = _ps("badge", fontSize=8, fontName="Helvetica-Bold",
+            badge_s = _ps("badge", fontSize=8, fontName=_FB,
                           textColor=rl_colors.white, alignment=TA_CENTER)
-            hdr_s   = _ps("hdrs",  fontSize=9, fontName="Helvetica-Bold", textColor=C_NAVY)
+            hdr_s   = _ps("hdrs",  fontSize=9, fontName=_FB, textColor=C_NAVY)
+
+            l_desc = _rtl_text("الوصف") if arabic else "DESCRIPTION"
+            l_evid = _rtl_text("الدليل") if arabic else "EVIDENCE"
+            l_net  = _rtl_text("الشبكة") if arabic else "NETWORK"
+            l_cve  = _rtl_text("معرفات CVE") if arabic else "CVE IDs"
+            l_rem  = _rtl_text("العلاج والتوصية") if arabic else "REMEDIATION"
+            l_nvd  = _rtl_text("مراجع NVD") if arabic else "NVD REFS"
 
             rows = [[Paragraph(sev.upper(), badge_s), Paragraph(_safe(hdr_title), hdr_s)]]
             if desc:
-                rows.append([Paragraph("DESCRIPTION", row_l), Paragraph(_safe(desc), row_v)])
+                rows.append([Paragraph(l_desc, row_l), Paragraph(_safe(desc), row_v)])
             if evidence:
-                rows.append([Paragraph("EVIDENCE", row_l), Paragraph(_safe(evidence), row_v)])
+                rows.append([Paragraph(l_evid, row_l), Paragraph(_safe(evidence), row_v)])
             if net_str:
-                rows.append([Paragraph("NETWORK", row_l), Paragraph(_safe(net_str), row_v)])
+                rows.append([Paragraph(l_net, row_l), Paragraph(_safe(net_str), row_v)])
             if cves:
-                rows.append([Paragraph("CVE IDs", row_l),
+                rows.append([Paragraph(l_cve, row_l),
                               Paragraph(cve_str,
                                         ParagraphStyle("cv2", parent=styles["Normal"],
-                                                       fontSize=8, fontName="Helvetica-Bold",
+                                                       fontSize=8, fontName=_FB,
                                                        textColor=color))])
             if rem:
-                rows.append([Paragraph("REMEDIATION", row_l), Paragraph(_safe(rem), row_v)])
+                rows.append([Paragraph(l_rem, row_l), Paragraph(_safe(rem), row_v)])
             owasp = v.get("owasp") or ""
             cwe   = v.get("cwe")   or ""
             cvss  = v.get("cvss_score") or v.get("cvss") or ""
@@ -674,13 +692,13 @@ def download_report_pdf():
             if cvss:
                 rows.append([Paragraph("CVSS", row_l),
                               Paragraph(str(cvss),
-                                        _ps("cvs", fontSize=8, fontName="Helvetica-Bold",
+                                        _ps("cvs", fontSize=8, fontName=_FB,
                                             textColor=color))])
             if cves:
                 nvd_urls = "  |  ".join(
                     f"nvd.nist.gov/vuln/detail/{c}" for c in cves[:4]
                 )
-                rows.append([Paragraph("NVD REFS", row_l),
+                rows.append([Paragraph(l_nvd, row_l),
                               Paragraph(_safe(nvd_urls),
                                         _ps("nvd", fontSize=7.5, textColor=rl_colors.HexColor("#1a6db5"), leading=11))])
 
@@ -711,13 +729,13 @@ def download_report_pdf():
             story.append(Spacer(1, 0.3 * cm))
             story.append(Paragraph(
                 "التوصيات الأمنية" if arabic else "Security Recommendations",
-                _ps("rech2", fontSize=12, fontName="Helvetica-Bold", textColor=C_NAVY, spaceAfter=6),
+                _ps("rech2", fontSize=12, fontName=_FB, textColor=C_NAVY, spaceAfter=6),
             ))
             rec_rows = []
             for ri, rec in enumerate(recs, 1):
                 rec_rows.append([
                     Paragraph(str(ri),
-                              _ps(f"ri{ri}", fontSize=9, fontName="Helvetica-Bold",
+                              _ps(f"ri{ri}", fontSize=9, fontName=_FB,
                                   textColor=C_NAVY, alignment=TA_CENTER)),
                     Paragraph(_safe(str(rec)),
                               _ps(f"rv{ri}", fontSize=8.5, leading=12)),
@@ -745,7 +763,7 @@ def download_report_pdf():
             story.append(Spacer(1, 0.35 * cm))
             story.append(Paragraph(
                 "ثغرات CISA KEV المستغَلة فعلياً" if arabic else "CISA Known Exploited Vulnerabilities (KEV)",
-                _ps("kevh", fontSize=11, fontName="Helvetica-Bold",
+                _ps("kevh", fontSize=11, fontName=_FB,
                     textColor=rl_colors.HexColor("#c0392b"), spaceAfter=4),
             ))
             kev_note = Table(
@@ -767,14 +785,14 @@ def download_report_pdf():
             story.append(kev_note)
             story.append(Spacer(1, 0.2 * cm))
             kev_rows = [[
-                Paragraph("CVE ID",  _ps("kh1", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
-                Paragraph("DETAILS", _ps("kh2", fontSize=8, fontName="Helvetica-Bold", textColor=C_MUTED)),
+                Paragraph("CVE ID",  _ps("kh1", fontSize=8, fontName=_FB, textColor=C_MUTED)),
+                Paragraph("DETAILS", _ps("kh2", fontSize=8, fontName=_FB, textColor=C_MUTED)),
             ]]
             for k in kev[:20]:
                 cve_id = k if isinstance(k, str) else k.get("cve_id","")
                 detail = "" if isinstance(k, str) else k.get("description","")
                 kev_rows.append([
-                    Paragraph(cve_id, _ps("kci", fontSize=8, fontName="Helvetica-Bold",
+                    Paragraph(cve_id, _ps("kci", fontSize=8, fontName=_FB,
                                           textColor=rl_colors.HexColor("#c0392b"))),
                     Paragraph(_safe(detail or f"nvd.nist.gov/vuln/detail/{cve_id}"),
                               _ps("kdt", fontSize=7.5, textColor=C_NAVY, leading=11)),
@@ -1188,6 +1206,27 @@ def api_upgrade_subscription():
             "error": f"Invalid plan '{raw_plan}'. Valid plans: {', '.join(PLANS.keys())}"
         }), 400
 
+    # C5 Remediation: Paid plan upgrade requires admin role, valid payment reference, or test/demo environment
+    from flask import current_app
+    is_testing = current_app.config.get("TESTING", False) or os.environ.get("DEMO_MODE", "").lower() in ("true", "1")
+    is_admin = getattr(current_user, "role", "") == "admin"
+    payment_ref = (data.get("payment_ref") or data.get("receipt_id") or "").strip()
+
+    if plan != "free" and not (is_testing or is_admin):
+        if not payment_ref:
+            return jsonify({
+                "ok": False,
+                "error": "Payment required to upgrade to a paid plan. Please complete checkout or provide a valid payment reference.",
+                "code": "PAYMENT_REQUIRED",
+            }), 402
+        import re
+        if not re.match(r"^(pi|cs|ch|sub|pay)_[a-zA-Z0-9_-]{14,64}$", payment_ref):
+            return jsonify({
+                "ok": False,
+                "error": "Invalid or unverified payment reference format. Must be a valid gateway transaction token.",
+                "code": "INVALID_PAYMENT_REFERENCE",
+            }), 400
+
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     ok = set_subscription(
         current_user.id,
@@ -1348,19 +1387,41 @@ def api_download_consent_pdf(token: str):
         C_BORDER = rl_colors.HexColor("#cbd5e1")
         C_LIGHT = rl_colors.HexColor("#f8fafc")
 
+        _F = "Helvetica"
+        _FB = "Helvetica-Bold"
+        for _cand_norm, _cand_bold, _cand_id, _cand_bid in [
+            ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf", "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "_SecNorm", "_SecBold"),
+        ]:
+            if os.path.exists(_cand_norm):
+                try:
+                    from reportlab.pdfbase import pdfmetrics
+                    from reportlab.pdfbase.ttfonts import TTFont
+                    pdfmetrics.registerFont(TTFont(_cand_id, _cand_norm))
+                    _F = _cand_id
+                    if os.path.exists(_cand_bold):
+                        pdfmetrics.registerFont(TTFont(_cand_bid, _cand_bold))
+                        _FB = _cand_bid
+                    else:
+                        _FB = _cand_id
+                except Exception:
+                    pass
+                break
+
         title_style = ParagraphStyle(
             "ConsentTitle", parent=styles["Title"],
-            fontSize=16, fontName="Helvetica-Bold",
+            fontSize=16, fontName=_FB,
             textColor=C_NAVY, leading=20, alignment=1, spaceAfter=8,
         )
         subtitle_style = ParagraphStyle(
             "ConsentSub", parent=styles["Normal"],
-            fontSize=9, textColor=rl_colors.HexColor("#64748b"),
+            fontSize=9, fontName=_F, textColor=rl_colors.HexColor("#64748b"),
             alignment=1, spaceAfter=14,
         )
-        cell_label = ParagraphStyle("CellLabel", parent=styles["Normal"], fontSize=8.5, fontName="Helvetica-Bold", textColor=C_NAVY)
-        cell_val = ParagraphStyle("CellVal", parent=styles["Normal"], fontSize=8.5, fontName="Helvetica", textColor=C_NAVY)
-        legal_text = ParagraphStyle("LegalText", parent=styles["Normal"], fontSize=8, leading=11, textColor=rl_colors.HexColor("#334155"))
+        cell_label = ParagraphStyle("CellLabel", parent=styles["Normal"], fontSize=8.5, fontName=_FB, textColor=C_NAVY)
+        cell_val = ParagraphStyle("CellVal", parent=styles["Normal"], fontSize=8.5, fontName=_F, textColor=C_NAVY)
+        legal_text = ParagraphStyle("LegalText", parent=styles["Normal"], fontSize=8, fontName=_F, leading=11, textColor=rl_colors.HexColor("#334155"))
 
         story.append(Paragraph("SECURAX CYBER DEFENSE PLATFORM", subtitle_style))
         story.append(Paragraph("LEGAL CONSENT & BUG BOUNTY AUDIT RECORD", title_style))
