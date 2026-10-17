@@ -13,36 +13,7 @@ const SUGGESTIONS = [
   'How to implement secure authentication?',
 ];
 
-// Encode code content safely for data attributes
-const encodeCode = (str) => btoa(unescape(encodeURIComponent(str)));
-
-function renderMarkdown(text) {
-  if (!text) return '';
-  let blockIdx = 0;
-  let html = text
-    .replace(/^### (.+)$/gm, '<h3 class="text-cyan-300 font-bold text-sm mt-3 mb-1">$1</h3>')
-    .replace(/^## (.+)$/gm,  '<h2 class="text-cyan-400 font-bold text-sm mt-4 mb-1">$1</h2>')
-    .replace(/^# (.+)$/gm,   '<h1 class="text-cyan-400 font-bold text-base mt-4 mb-1">$1</h1>')
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g,     '<strong class="text-white">$1</strong>')
-    .replace(/\*(.+?)\*/g,         '<em>$1</em>')
-    .replace(/`([^`\n]+)`/g, '<code class="bg-black/50 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px] border border-white/10">$1</code>')
-    .replace(/^---$/gm, '<hr class="border-white/10 my-3" />')
-    .replace(/^[•\-] (.+)$/gm, '<li class="ml-3 list-none flex gap-2"><span class="text-cyan-500 mt-0.5">▸</span><span>$1</span></li>')
-    .replace(/^\d+\. (.+)$/gm, '<li class="ml-3 list-none flex gap-2"><span class="text-cyan-500">›</span><span>$1</span></li>')
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      const encoded = encodeCode(code.trim());
-      return `<div class="my-2 rounded-xl overflow-hidden border border-white/10 relative">
-        <div class="flex items-center justify-between bg-white/5 px-3 py-1 border-b border-white/10">
-          <span class="text-[10px] text-gray-500 font-mono">${lang || 'code'}</span>
-          <button data-copy="${encoded}" class="copy-btn text-[10px] text-gray-500 hover:text-cyan-400 font-mono transition-colors px-2 py-0.5 rounded hover:bg-white/5">Copy</button>
-        </div>
-        <pre class="bg-black/60 p-3 text-[11px] text-green-300 font-mono overflow-x-auto whitespace-pre-wrap">${code.trim()}</pre>
-      </div>`;
-    })
-    .replace(/\n/g, '<br />');
-  return html;
-}
+import { renderMarkdown } from '../utils/markdownRenderer';
 
 function TypingDots() {
   return (
