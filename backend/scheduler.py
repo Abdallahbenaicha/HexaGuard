@@ -47,9 +47,41 @@ def compute_next_run(cron_expr: str, base_dt: datetime | None = None) -> str:
     return (base + delta).isoformat()
 
 
-def _execute_scan_worker(scan_type: str, target: str, user_id: int, username: str, app=None) -> dict[str, Any]:
+def _execute_scan_worker(scan_type: str, target: str, user_id: int, username: str, app=None, sched_id: int | None = None) -> dict[str, Any]:
     """Execute scan logic based on scan_type and store report."""
     def _run():
+        # Re-check SSRF and target lock at execution time (defends against DNS rebinding & target drift)
+        from utils import check_ssrf, check_ssrf_network, _check_target_lock
+        is_net = scan_type.startswith("network")
+        if is_net:
+            ok_ssrf, err_ssrf = check_ssrf_network(target)
+        else:
+            ok_ssrf, err_ssrf = check_ssrf(target)
+        if not ok_ssrf:
+            logger.warning("Scheduled scan aborted: SSRF policy violated for target=%s: %s", target, err_ssrf)
+            if sched_id:
+                db.toggle_scheduled_scan(sched_id, user_id, False)
+            return {"status": "failed", "error": f"Target blocked by SSRF policy: {err_ssrf}"}
+
+        ok_lock, err_lock = _check_target_lock(target, network_scan=is_net, user_id=user_id)
+        if not ok_lock:
+            logger.warning("Scheduled scan aborted: Target lock violation for target=%s", target)
+            if sched_id:
+                db.toggle_scheduled_scan(sched_id, user_id, False)
+            return {"status": "failed", "error": "Target lock violation"}
+
+        # Quota check: if quota exhausted, pause schedule
+        from db.subscriptions import get_subscription, increment_scan_count
+        user_rec = db.get_user_by_id(user_id) if hasattr(db, "get_user_by_id") else None
+        role = user_rec.get("role") if user_rec else ""
+        if role != "admin":
+            sub = get_subscription(user_id)
+            if sub.get("remaining", 0) <= 0:
+                logger.warning("Scheduled scan suspended: User %s (id=%s) quota exhausted", username, user_id)
+                if sched_id:
+                    db.toggle_scheduled_scan(sched_id, user_id, False)
+                return {"status": "paused", "error": "Monthly quota exhausted. Schedule paused."}
+
         res: dict[str, Any] = {"scan_type": scan_type, "target": target, "vulnerabilities": []}
         try:
             if scan_type == "web":
@@ -78,20 +110,27 @@ def _execute_scan_worker(scan_type: str, target: str, user_id: int, username: st
             logger.error("Error executing scheduled %s scan on %s: %s", scan_type, target, exc)
             res["error"] = str(exc)
 
-        # Calculate risk score
+        # Calculate risk score via advanced risk engine v2
         vulns = res.get("vulnerabilities", [])
-        score = 0.0
-        for v in vulns:
-            sev = str(v.get("severity", "low")).lower()
-            if sev == "critical":
-                score += 3.5
-            elif sev == "high":
-                score += 2.0
-            elif sev == "medium":
-                score += 1.0
-            else:
-                score += 0.3
-        score = min(10.0, round(score, 1))
+        try:
+            from risk_engine import calculate_risk_v2
+            from report_generator import attach_risk_breakdown
+            breakdown = calculate_risk_v2(
+                res, criticality=1.0, internet_facing=True,
+                has_pii=False, has_payment=False, exploit_known=False,
+            )
+            attach_risk_breakdown(res, breakdown)
+            score = breakdown.final_score
+        except Exception as risk_err:
+            logger.warning("Falling back to basic risk calculation: %s", risk_err)
+            score = 0.0
+            for v in vulns:
+                sev = str(v.get("severity", "low")).lower()
+                if sev == "critical": score += 3.5
+                elif sev == "high": score += 2.0
+                elif sev == "medium": score += 1.0
+                else: score += 0.3
+            score = min(10.0, round(score, 1))
 
         # Store report
         token = db.store_report(
@@ -101,6 +140,14 @@ def _execute_scan_worker(scan_type: str, target: str, user_id: int, username: st
             user_id=user_id,
             username=username,
         )
+
+        # Deduct scan from quota ONLY on successful execution without critical scan crash
+        if role != "admin" and not res.get("error"):
+            try:
+                increment_scan_count(user_id)
+            except Exception as quota_err:
+                logger.warning("Failed to increment scan count: %s", quota_err)
+
         return {
             "status": "completed",
             "report_token": token,
@@ -140,7 +187,7 @@ def dispatch_scheduled_scan(sched: dict[str, Any], app=None) -> str:
     )
 
     def _worker():
-        return _execute_scan_worker(scan_type, target, user_id, username, app=app)
+        return _execute_scan_worker(scan_type, target, user_id, username, app=app, sched_id=sched_id)
 
     job_manager.run_in_background(job_id, _worker)
     return job_id

@@ -14,7 +14,7 @@ from functools import wraps
 from flask import jsonify, request
 from flask_login import current_user, login_required
 
-from database import get_locked_target, log_event
+from database import get_locked_target, log_event, get_user_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +264,54 @@ def is_env_truthy(var_name: str, default: str = "0") -> bool:
     return val in ("1", "true", "yes", "on")
 
 
+import urllib.parse
+
+
+def _extract_target_host(raw_target: str) -> str:
+    """Extract clean hostname or IP string handling IPv6 brackets and scheme prefix."""
+    s = raw_target.strip()
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", s):
+        s = "http://" + s
+    try:
+        p = urllib.parse.urlsplit(s)
+        host = (p.hostname or "").strip().lower()
+        return host
+    except Exception:
+        stripped = re.sub(r"^https?://", "", raw_target.strip())
+        return stripped.split("/")[0].split("?")[0].strip().lower()
+
+
+def _resolve_target_ips(host: str) -> list:
+    """Resolve and normalize host into concrete IP objects, including legacy hex/octal formats."""
+    # 1. Standard IP literal (IPv4 or bracket-free IPv6)
+    try:
+        return [ipaddress.ip_address(host)]
+    except ValueError:
+        pass
+
+    # 2. Normalize legacy hex/octal/decimal IPv4 notation (e.g., 0x7f000001, 2130706433, 127.1)
+    if re.match(r"^[\d\.xXa-fA-F]+$", host):
+        try:
+            raw_bytes = socket.inet_aton(host)
+            normalized = socket.inet_ntoa(raw_bytes)
+            return [ipaddress.ip_address(normalized)]
+        except (OSError, ValueError):
+            pass
+
+    # 3. DNS resolution via getaddrinfo
+    try:
+        resolved = socket.getaddrinfo(host, None)
+        ips = []
+        for item in resolved:
+            try:
+                ips.append(ipaddress.ip_address(item[4][0]))
+            except ValueError:
+                pass
+        return ips
+    except Exception:
+        return []
+
+
 def check_ssrf(raw_target: str) -> tuple[bool, str]:
     """Return (is_safe, error_msg).
 
@@ -275,12 +323,9 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
     such as DVWA can be scanned during development.  RFC-1918 ranges and all
     cloud-metadata endpoints remain blocked unconditionally.
     """
-    # Lab-mode flag: loopback-only bypass for local DVWA/JuiceShop testing.
     _allow_lab = is_env_truthy("ALLOW_LOCAL_LAB_TARGETS")
 
-    stripped = re.sub(r"^https?://", "", raw_target.strip())
-    host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
-
+    host = _extract_target_host(raw_target)
     if not host:
         return False, "Empty target."
 
@@ -292,32 +337,34 @@ def check_ssrf(raw_target: str) -> tuple[bool, str]:
     if host in _BLOCKED_HOSTNAMES:
         return False, f"Target '{host}' is blocked for security reasons."
 
-    # In lab mode: allow loopback literals (127.x.x.x) — skip private check.
+    # In lab mode: allow loopback literals (127.x.x.x or ::1) directly
     if _allow_lab and _is_loopback_only(host):
         return True, ""
 
-    # Block if target is already a private IP literal
-    if _is_private_ip(host):
-        return False, "Scanning private/internal IP addresses is not allowed."
-
-    # Resolve hostname and check the resolved IP(s)
-    try:
-        resolved = socket.getaddrinfo(host, None)
-        for item in resolved:
-            ip_str = item[4][0]
-            # Metadata always blocked
-            if _is_metadata(ip_str):
-                logger.warning("SSRF block: %s resolved to metadata IP %s", host, ip_str)
-                return False, "Target resolves to a metadata endpoint — not allowed."
-            # In lab mode allow resolved loopback too (e.g. 'localhost' resolves to 127.0.0.1)
-            if _allow_lab and _is_loopback_only(ip_str):
-                continue
-            if _is_private_ip(ip_str):
-                logger.warning("SSRF block: %s resolved to private IP %s", host, ip_str)
-                return False, "Target resolves to a private/internal IP address — not allowed."
-    except Exception as exc:
-        logger.warning("SSRF block: could not resolve %s: %s", host, exc)
+    ips = _resolve_target_ips(host)
+    if not ips:
+        logger.warning("SSRF block: could not resolve %s", host)
         return False, f"Target '{host}' could not be resolved — request rejected."
+
+    for addr in ips:
+        if _is_metadata(str(addr)) or any(addr in net for net in _METADATA_NETWORKS):
+            logger.warning("SSRF block: %s resolved to metadata IP %s", host, addr)
+            return False, "Target resolves to a metadata endpoint — not allowed."
+
+        if _allow_lab and (addr.is_loopback or _is_loopback_only(str(addr))):
+            continue
+
+        if (
+            addr.is_loopback
+            or addr.is_private
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_unspecified
+            or addr.is_reserved
+            or any(addr in net for net in _PRIVATE_NETWORKS)
+        ):
+            logger.warning("SSRF block: %s resolved to private IP %s", host, addr)
+            return False, "Target resolves to a private/internal IP address — not allowed."
 
     return True, ""
 
@@ -354,32 +401,26 @@ def check_ssrf_network(raw_target: str) -> tuple[bool, str]:
         or is_env_truthy("ALLOW_LOCAL_LAB_TARGETS")
     )
 
-    # Cloud metadata endpoints are ALWAYS blocked regardless of environment
-    _METADATA_BLOCKED = {"169.254.169.254", "metadata.google.internal"}
-
-    stripped = re.sub(r"^https?://", "", raw_target.strip())
-    host = stripped.split("/")[0].split("?")[0].split(":")[0].lower().strip()
-
+    host = _extract_target_host(raw_target)
     if not host:
         return False, "Empty target."
 
-    if host in _METADATA_BLOCKED:
+    # Cloud metadata endpoints are ALWAYS blocked regardless of environment
+    if _is_metadata(host) or host in ("169.254.169.254", "metadata.google.internal"):
         return False, f"Target '{host}' is blocked for security reasons."
 
-    # In production, also block loopback
-    if not _is_dev and host in _ALWAYS_BLOCKED:
-        return False, f"Target '{host}' is blocked for security reasons."
+    ips = _resolve_target_ips(host)
+    if not ips:
+        if re.match(r"^[\d\.xXa-fA-F:]+$", host):
+            return False, f"Target '{host}' is invalid."
+        return True, ""
 
-    try:
-        addr = ipaddress.ip_address(host)
-        # Always block cloud metadata link-local
-        if any(addr in net for net in [ipaddress.ip_network("169.254.0.0/16")]):
+    for addr in ips:
+        if _is_metadata(str(addr)) or any(addr in net for net in _METADATA_NETWORKS):
             return False, "Link-local metadata targets are not allowed."
-        # In production, block loopback too
-        if not _is_dev and any(addr in net for net in _LOOPBACK_NETS):
+
+        if not _is_dev and (addr.is_loopback or any(addr in net for net in _LOOPBACK_NETS)):
             return False, "Loopback targets are not allowed in production."
-    except ValueError:
-        pass  # hostname — no IP-level check needed here
 
     return True, ""
 
@@ -393,28 +434,42 @@ def _normalize_target(raw: str) -> str:
     return t.lower().strip()
 
 
-def _check_target_lock(raw_target: str, *, network_scan: bool = False):
+def _check_target_lock(raw_target: str, *, network_scan: bool = False, user_id: int | None = None):
     """Enforce SSRF protection and admin-assigned target restriction.
 
     Returns (True, None) if allowed, (False, error_response) if blocked.
     network_scan=True uses the lighter SSRF check that allows RFC-1918 addresses.
     """
+    from flask import has_request_context
+    in_req = has_request_context()
+    ip_addr = request.remote_addr if in_req else "127.0.0.1"
+
     # ── SSRF guard (applies to everyone including admin) ──────────────────
     ssrf_fn = check_ssrf_network if network_scan else check_ssrf
     safe, ssrf_err = ssrf_fn(raw_target)
     if not safe:
         log_event(
-            "ssrf_blocked", getattr(current_user, "username", "?"),
-            getattr(current_user, "id", 0),
+            "ssrf_blocked",
+            getattr(current_user, "username", "scheduler") if in_req else "scheduler",
+            getattr(current_user, "id", user_id or 0) if in_req else (user_id or 0),
             category="security", resource=raw_target, status="denied",
-            ip_address=request.remote_addr, details=ssrf_err,
+            ip_address=ip_addr, details=ssrf_err,
         )
         return False, (jsonify({"error": ssrf_err, "ssrf_blocked": True}), 403)
 
-    if current_user.role == "admin":
+    uid = user_id if user_id is not None else getattr(current_user, "id", None)
+    role = getattr(current_user, "role", "")
+    if uid is not None and not role:
+        user_rec = get_user_by_id(uid)
+        role = user_rec.get("role", "") if user_rec else ""
+
+    if role == "admin":
         return True, None
 
-    locked = get_locked_target(current_user.id)
+    if uid is None:
+        return True, None
+
+    locked = get_locked_target(uid)
     if locked is None:
         return True, None
 
@@ -422,20 +477,22 @@ def _check_target_lock(raw_target: str, *, network_scan: bool = False):
     if locked == normalized:
         return True, None
 
+    uname = getattr(current_user, "username", "scheduler") if in_req else "scheduler"
     log_event(
-        "target_violation", current_user.username, current_user.id,
+        "target_violation", uname, uid,
         category="security", resource=normalized, status="denied",
         details=f"Blocked: tried {normalized!r}, allowed target is {locked!r}",
-        ip_address=request.remote_addr,
+        ip_address=ip_addr,
     )
     return False, (
         jsonify({
             "error": (
                 f"Access denied. Your account is restricted to target '{locked}'. "
-                f"Contact your administrator to change the authorised target."
+                "Contact an administrator to change your allowed target."
             ),
             "allowed_target": locked,
             "forbidden": True,
         }),
         403,
     )
+

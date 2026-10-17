@@ -28,8 +28,11 @@ def list_scheduled():
 
 # ── Create a scheduled scan ───────────────────────────────────────────────────
 
+from utils import require_permission, check_ssrf, check_ssrf_network, _check_target_lock
+
 @scheduled_bp.post("/api/scheduled-scans")
 @login_required
+@require_permission("run_scan")
 def create_scheduled():
     body      = request.get_json(silent=True) or {}
     scan_type = (body.get("scan_type") or "").strip().lower()
@@ -42,6 +45,30 @@ def create_scheduled():
         return jsonify({"ok": False, "error": "target is required."}), 400
     if cron_expr not in _VALID_CRONS:
         return jsonify({"ok": False, "error": "cron_expr must be daily, weekly, or monthly."}), 400
+
+    # SSRF guard
+    is_net = scan_type.startswith("network")
+    if is_net:
+        ok_ssrf, err_ssrf = check_ssrf_network(target)
+    else:
+        ok_ssrf, err_ssrf = check_ssrf(target)
+    if not ok_ssrf:
+        return jsonify({"ok": False, "error": f"Target blocked by security policy: {err_ssrf}"}), 400
+
+    # Target lock guard
+    ok_lock, err_lock = _check_target_lock(target, network_scan=is_net)
+    if not ok_lock:
+        return err_lock
+
+    # Quota check
+    from db.subscriptions import get_subscription
+    sub = get_subscription(current_user.id)
+    if getattr(current_user, "role", "") != "admin" and sub.get("remaining", 0) <= 0:
+        return jsonify({
+            "ok": False,
+            "error": "Monthly scan quota exhausted. Upgrade your subscription to schedule scans.",
+            "code": "QUOTA_EXHAUSTED",
+        }), 402
 
     # Limit per user
     existing = db.get_user_scheduled_scans(current_user.id)
@@ -62,10 +89,22 @@ def create_scheduled():
 
 @scheduled_bp.patch("/api/scheduled-scans/<int:sched_id>")
 @login_required
+@require_permission("run_scan")
 def toggle_scheduled(sched_id):
     body   = request.get_json(silent=True) or {}
     active = bool(body.get("is_active", True))
-    ok     = db.toggle_scheduled_scan(sched_id, current_user.id, active)
+
+    if active:
+        from db.subscriptions import get_subscription
+        sub = get_subscription(current_user.id)
+        if getattr(current_user, "role", "") != "admin" and sub.get("remaining", 0) <= 0:
+            return jsonify({
+                "ok": False,
+                "error": "Monthly scan quota exhausted. Upgrade your subscription to resume scheduled scans.",
+                "code": "QUOTA_EXHAUSTED",
+            }), 402
+
+    ok = db.toggle_scheduled_scan(sched_id, current_user.id, active)
     if not ok:
         return jsonify({"ok": False, "error": "Scheduled scan not found."}), 404
     return jsonify({"ok": True, "is_active": active})
@@ -75,6 +114,7 @@ def toggle_scheduled(sched_id):
 
 @scheduled_bp.delete("/api/scheduled-scans/<int:sched_id>")
 @login_required
+@require_permission("run_scan")
 def delete_scheduled(sched_id):
     ok = db.delete_scheduled_scan(sched_id, current_user.id)
     if not ok:

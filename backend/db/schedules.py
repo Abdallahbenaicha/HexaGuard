@@ -20,7 +20,6 @@ except ImportError:
 
 def create_scheduled_scan(user_id: int, username: str, scan_type: str,
                           target: str, cron_expr: str = "daily") -> int:
-    from datetime import timedelta
     next_run = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
     cur = _exec(
         "INSERT INTO scheduled_scans"
