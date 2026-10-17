@@ -1187,7 +1187,7 @@ export default function BountyTargetsPage() {
           />
           <MiniStat
             label="Tier 0 (Manual Verification)"
-            value={Object.values(stats).reduce((s, p) => s + (p.manual_verification_required ?? (p.authorized_for_manual_review + p.unknown_authorization) ?? 0), 0)}
+            value={Object.values(stats).reduce((s, p) => s + (p.manual_verification_required ?? ((p.authorized_for_manual_review || 0) + (p.unknown_authorization || 0))), 0)}
             icon={ShieldAlert}
             color="bg-amber-500/10 text-amber-400"
           />

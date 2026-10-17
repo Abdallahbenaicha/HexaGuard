@@ -1638,6 +1638,7 @@ def _probe_single_subdomain(subdomain: str, timeout: float = 3.0) -> dict:
             f"https://{subdomain}",
             timeout=timeout,
             allow_redirects=True,
+            # nosec B501 - Reconnaissance probe intentionally allows untrusted/expired target certs
             verify=False,
             headers={"User-Agent": "HexaGuard-Recon/1.0"},
         )

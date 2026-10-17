@@ -23,11 +23,17 @@ def _phd_dir() -> pathlib.Path:
     if env_dir:
         return pathlib.Path(env_dir)
     root = pathlib.Path(__file__).resolve().parent.parent.parent
-    for name in ("دكتوراء", "دكتوراه", "phd_data"):
-        p = root / name
-        if p.is_dir():
-            return p
-    return root / "دكتوراء"
+    for cand in (
+        root / "backend" / "tests" / "fixtures" / "phd",
+        root / "tests" / "fixtures" / "phd",
+        root / "دكتوراء",
+        root / "دكتوراه",
+        root / "phd_data",
+    ):
+        if cand.is_dir():
+            return cand
+    return root / "backend" / "tests" / "fixtures" / "phd"
+
 
 # ── openpyxl soft-import ──────────────────────────────────────────────────────
 try:
@@ -223,8 +229,10 @@ def _safe_str(val: Any) -> Optional[str]:
     return None if s in ("None", "—", "-", "") else s
 
 def _safe_int(val: Any) -> Optional[int]:
-    try: return int(float(str(val)))
-    except: return None
+    try:
+        return int(float(str(val)))
+    except (ValueError, TypeError):
+        return None
 
 def _map_status(s: Optional[str]) -> str:
     if not s: return "researching"
@@ -251,50 +259,55 @@ def _deadline_status(s: Optional[str]) -> str:
     return "unknown"
 
 # ── SSRF protection for live discovery ─────────────────────────────────────────
-import ipaddress, urllib.parse
-
-_BLOCKED_PREFIXES = (
-    "127.", "10.", "192.168.", "169.254.", "0.",
-    "::1", "fc00:", "fe80:",
-)
+import ipaddress
 
 def _is_safe_url(url: str) -> bool:
-    """Reject URLs pointing to private/loopback/link-local addresses."""
+    """Reject URLs pointing to private/loopback/link-local addresses using robust SSRF validation."""
     try:
-        parsed = urllib.parse.urlparse(url)
+        parsed = urllib.parse.urlsplit(url)
         if parsed.scheme not in ("http", "https"):
             return False
-        host = parsed.hostname or ""
-        # Block obvious private ranges without DNS
-        if any(host.startswith(p) for p in _BLOCKED_PREFIXES):
+        host = (parsed.hostname or "").strip()
+        if not host:
             return False
-        if host in ("localhost", "metadata.google.internal", "169.254.169.254"):
-            return False
-        return True
+        from utils import check_ssrf
+        safe, _ = check_ssrf(host)
+        return safe
     except Exception:
         return False
 
+
 def _safe_fetch(url: str, timeout: int = 8) -> Optional[str]:
-    """Fetch URL safely with SSRF protection. Returns text or None on error."""
+    """Fetch URL safely with SSRF protection and validated redirect hops. Returns text or None on error."""
     if not _REQUESTS_OK:
         return None
-    if not _is_safe_url(url):
-        logger.warning("SSRF protection blocked URL: %s", url)
-        return None
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml,application/rss+xml,application/json;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-        r = _requests.get(url, timeout=timeout, headers=headers, allow_redirects=True)
-        r.raise_for_status()
-        if len(r.content) > 2 * 1024 * 1024:  # 2MB max
-            logger.warning("Response too large from %s, truncating", url)
-        return r.text[:500_000]  # cap at 500KB
-    except Exception as exc:
-        logger.warning("fetch error for %s: %s", url, exc)
-        return None
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml,application/rss+xml,application/json;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    current_url = url
+    max_hops = 3
+    for _ in range(max_hops + 1):
+        if not _is_safe_url(current_url):
+            logger.warning("SSRF protection blocked URL: %s", current_url)
+            return None
+        try:
+            r = _requests.get(current_url, timeout=timeout, headers=headers, allow_redirects=False)
+            if r.status_code in (301, 302, 303, 307, 308):
+                location = r.headers.get("Location")
+                if not location:
+                    break
+                current_url = urllib.parse.urljoin(current_url, location)
+                continue
+            r.raise_for_status()
+            if len(r.content) > 2 * 1024 * 1024:  # 2MB max
+                logger.warning("Response too large from %s, truncating", current_url)
+            return r.text[:500_000]  # cap at 500KB
+        except Exception as exc:
+            logger.warning("fetch error for %s: %s", current_url, exc)
+            return None
+    return None
 
 # ── Primary workbook parser ───────────────────────────────────────────────────
 def _parse_primary(path: pathlib.Path) -> dict:
@@ -406,7 +419,7 @@ _KNOWN_DUPLICATES = {
     "خريطة_الدكتوراه_الموحدة-1.xlsx": {"خريطة_الدكتوراه_الموحدة-1 (1).xlsx"},
     "خريطة_عالمية_المنح_والفرص-1.xlsx": {"خريطة_عالمية_المنح_والفرص-1 (1).xlsx"},
 }
-_SKIP_SECONDARY = set()
+_SKIP_SECONDARY = {"synthetic_test.xlsx"}
 for _v in _KNOWN_DUPLICATES.values():
     _SKIP_SECONDARY.update(_v)
 

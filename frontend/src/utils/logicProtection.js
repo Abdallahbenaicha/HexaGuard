@@ -1,5 +1,7 @@
 // API base — set VITE_API_BASE_URL in .env for production (e.g. https://securax-backend.onrender.com)
-const BACKEND = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+const BACKEND = (typeof import.meta !== 'undefined' && import.meta.env)
+    ? (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000')
+    : 'http://127.0.0.1:5000';
 
 export const API_ENDPOINTS = {
     // SAST: upload a .zip → /analyze_code
@@ -70,17 +72,20 @@ export const sortBySeverity = (findings) => {
     );
 };
 
+import { escapeHtml } from './markdownRenderer.js';
+export { escapeHtml };
+
 // Format a finding message for display
 export const formatFinding = (finding) => {
-    const parts = [finding.message || ''];
+    const parts = [escapeHtml(finding.message || '')];
     if (finding.fix)
-        parts.push(`<strong>Recommendation:</strong><br>${finding.fix}`);
+        parts.push(`<strong>Recommendation:</strong><br>${escapeHtml(finding.fix)}`);
     if (finding.evidence)
-        parts.push(`<strong>Evidence:</strong><br><code>${finding.evidence}</code>`);
+        parts.push(`<strong>Evidence:</strong><br><code>${escapeHtml(finding.evidence)}</code>`);
     if (finding.cwe)
-        parts.push(`<strong>CWE:</strong> ${finding.cwe}`);
+        parts.push(`<strong>CWE:</strong> ${escapeHtml(finding.cwe)}`);
     if (finding.owasp)
-        parts.push(`<strong>OWASP:</strong> ${finding.owasp}`);
+        parts.push(`<strong>OWASP:</strong> ${escapeHtml(finding.owasp)}`);
     return parts.join('\n\n');
 };
 

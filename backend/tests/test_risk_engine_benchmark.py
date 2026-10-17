@@ -45,9 +45,16 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
+
+_DEFAULT_RESULTS_PATH = Path(__file__).parent / "benchmark_results.json"
+_RUNTIME_RESULTS_PATH = Path(
+    os.environ.get("SECURAX_BENCHMARK_OUTPUT")
+    or (Path(tempfile.gettempdir()) / "securax_benchmark_results.json")
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -431,8 +438,8 @@ class TestRiskEngineBenchmark:
             },
         }
 
-        # Persist results for reproducibility
-        results_path = Path(__file__).parent / "benchmark_results.json"
+        # Persist results for reproducibility (written to runtime temp path)
+        results_path = _RUNTIME_RESULTS_PATH
         results_path.write_text(json.dumps(results, indent=2))
 
         print("\n\n=== SecuraX Risk Engine Benchmark ===")
@@ -477,7 +484,7 @@ class TestRiskEngineBenchmark:
 
     def test_benchmark_results_file_is_reproducible(self):
         """Ensure benchmark outputs a JSON file that can be loaded."""
-        results_path = Path(__file__).parent / "benchmark_results.json"
+        results_path = _RUNTIME_RESULTS_PATH if _RUNTIME_RESULTS_PATH.exists() else _DEFAULT_RESULTS_PATH
         if not results_path.exists():
             pytest.skip("Run test_engine_beats_naive_baseline_on_macro_f1 first.")
         data = json.loads(results_path.read_text())

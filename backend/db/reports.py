@@ -576,6 +576,18 @@ def purge_old_jobs(ttl_minutes: int = 60) -> int:
     return cur.rowcount if hasattr(cur, "rowcount") else 0
 
 
+def reconcile_orphaned_jobs() -> int:
+    """Mark any jobs left in 'running' or 'queued' state across process restarts as 'error'."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cur = _exec(
+        "UPDATE scan_jobs SET status='error', error='Process terminated unexpectedly during execution', "
+        "message='Interrupted by server restart', completed_at=? WHERE status IN ('running', 'queued')",
+        (now_iso,),
+    )
+    return cur.rowcount if hasattr(cur, "rowcount") else 0
+
+
+
 # ── Scheduled Scans ───────────────────────────────────────────────────────────
 
 def get_or_create_share_token(report_token: str, expires_in_days: int = 7) -> str | None:

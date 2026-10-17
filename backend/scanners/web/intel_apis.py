@@ -751,6 +751,17 @@ def _api_dns_security(host: str) -> tuple[list[dict], dict]:
     vulns: list[dict] = []
     meta:  dict       = {}
 
+    # Skip SPF/DMARC email security checks for IP addresses or local targets (F3 remediation)
+    try:
+        import ipaddress
+        ipaddress.ip_address(host)
+        return vulns, meta
+    except (ValueError, TypeError):
+        pass
+
+    if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith((".local", ".internal", ".lan", ".home", ".invalid")):
+        return vulns, meta
+
     parts = host.split(".")
     domain = ".".join(parts[-2:]) if len(parts) >= 2 else host
 

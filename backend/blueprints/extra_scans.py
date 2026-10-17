@@ -107,12 +107,30 @@ def scan_docker():
                 except OSError:
                     pass
 
-    # Also support raw text body (no file upload)
+    # Also support raw text body (no file upload) or image scan
     body = request.get_json(silent=True) or {}
+    image_name = (body.get("image") or body.get("image_name") or "").strip()
+    if image_name:
+        from scanners.docker_scanner import scan_docker_image
+        try:
+            result = scan_docker_image(image_name, preferred_engine=body.get("engine", "auto"))
+            breakdown = calculate_risk_v2(
+                result, criticality=1.0, internet_facing=False,
+                has_pii=False, has_payment=False, exploit_known=False,
+            )
+            result, token = _finalize(result, breakdown, image_name)
+            log_event("scan_completed", current_user.username, current_user.id,
+                      category="scan", resource=image_name, status="success",
+                      details=f"type=docker_image risk={breakdown.final_score}")
+            return jsonify(_build_response(result, breakdown, token))
+        except Exception as exc:
+            logger.exception("scan_docker (image) error")
+            return jsonify({"error": str(exc)}), 500
+
     content  = (body.get("content") or "").strip()
     filename = (body.get("filename") or "Dockerfile").strip()
     if not content:
-        return jsonify({"error": "Provide a file upload or JSON body with 'content' field."}), 400
+        return jsonify({"error": "Provide a file upload or JSON body with 'content' or 'image' field."}), 400
 
     try:
         result    = run_docker_scan(content, filename)
@@ -128,6 +146,35 @@ def scan_docker():
     except Exception as exc:
         logger.exception("scan_docker (body) error")
         return jsonify({"error": str(exc)}), 500
+
+
+@extra_bp.route("/scan_docker_image", methods=["POST"])
+@require_scanner("docker")
+@require_permission("run_scan")
+@limiter.limit("10/minute")
+def scan_docker_image_route():
+    """Scan a container image for CVEs using Trivy/Grype with offline database fallback."""
+    body = request.get_json(silent=True) or {}
+    image_name = (body.get("image") or body.get("image_name") or body.get("target") or "").strip()
+    if not image_name:
+        return jsonify({"error": "Provide an image name in 'image' or 'target' field."}), 400
+
+    from scanners.docker_scanner import scan_docker_image
+    try:
+        result = scan_docker_image(image_name, preferred_engine=body.get("engine", "auto"))
+        breakdown = calculate_risk_v2(
+            result, criticality=1.0, internet_facing=False,
+            has_pii=False, has_payment=False, exploit_known=False,
+        )
+        result, token = _finalize(result, breakdown, image_name)
+        log_event("scan_completed", current_user.username, current_user.id,
+                  category="scan", resource=image_name, status="success",
+                  details=f"type=docker_image risk={breakdown.final_score}")
+        return jsonify(_build_response(result, breakdown, token))
+    except Exception as exc:
+        logger.exception("scan_docker_image route error")
+        return jsonify({"error": str(exc)}), 500
+
 
 
 # ── DNS / Email Security Scan ─────────────────────────────────────────────────

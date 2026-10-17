@@ -11,6 +11,7 @@ Exposes REST APIs for:
 from __future__ import annotations
 
 import logging
+from typing import Any
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 

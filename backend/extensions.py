@@ -48,17 +48,38 @@ ALLOWED_ORIGINS = list({
 def init_extensions(app) -> None:
     csrf.init_app(app)
 
-    # Pre-CSRF hook: auto-exempt all /api/* routes.
-    # Flask-WTF checks  f"{view.__module__}.{view.__name__}"  (not the endpoint name),
-    # so we must construct the same key and add it to _exempt_views before protect() runs.
-    def _auto_exempt_api_from_csrf():
-        if request.path.startswith("/api/") and request.endpoint:
-            from flask import current_app
-            view = current_app.view_functions.get(request.endpoint)
-            if view:
-                csrf._exempt_views.add(f"{view.__module__}.{view.__name__}")
+    # Targeted CSRF exemption: only exempt unauthenticated auth endpoints and Bearer tokens,
+    # NEVER the entire /api/* hierarchy (which would bypass CSRF on subscription, scans, etc.)
+    _EXEMPT_AUTH_ENDPOINTS = {
+        "auth.api_login",
+        "auth.api_register",
+        "auth.api_totp_verify",
+        "auth.login",
+    }
 
-    app.before_request_funcs.setdefault(None, []).insert(0, _auto_exempt_api_from_csrf)
+    def _targeted_csrf_hook():
+        if not request.endpoint:
+            return
+        from flask import current_app
+        view = current_app.view_functions.get(request.endpoint)
+        if not view:
+            return
+        dest = f"{view.__module__}.{view.__name__}"
+
+        # 1. Allow unauthenticated authentication endpoints without CSRF token
+        if request.endpoint in _EXEMPT_AUTH_ENDPOINTS or request.path in (
+            "/api/auth/login", "/api/auth/register", "/api/auth/totp-verify", "/login"
+        ):
+            csrf._exempt_views.add(dest)
+            return
+
+        # 2. Token-authenticated API requests (Bearer sx_...) don't rely on ambient browser cookies
+        auth_hdr = request.headers.get("Authorization", "")
+        if auth_hdr.startswith("Bearer sx_") or auth_hdr.startswith("Bearer ey"):
+            csrf._exempt_views.add(dest)
+            return
+
+    app.before_request_funcs.setdefault(None, []).insert(0, _targeted_csrf_hook)
 
     login_manager.login_view    = "auth.login"
     login_manager.login_message = "يرجى تسجيل الدخول للمتابعة."

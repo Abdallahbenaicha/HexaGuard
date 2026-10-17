@@ -7,7 +7,7 @@ FROM python:3.11-slim-bookworm
 # Layer 1: system tools + Arabic fonts for PDF reports
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nmap perl libnet-ssleay-perl libio-socket-ssl-perl \
-        fonts-freefont-ttf \
+        fonts-dejavu-core fonts-noto-core fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 # Layer 2: nikto from Debian repos (non-fatal — nmap still works if nikto unavailable)

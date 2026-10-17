@@ -49,7 +49,14 @@ class ChangePasswordForm(FlaskForm):
     )
 
 
-def check_password_complexity(password: str) -> tuple[bool, str]:
+_COMMON_PASSWORDS = {
+    "password123!", "password1234!", "password!", "admin@2024!", "analyst@2024!",
+    "qwerty1234!", "qwerty123!", "welcome123!", "changeme123!", "iloveyou123!",
+    "administrator", "adminadmin1!", "securax123!", "hexaguard123!",
+}
+
+
+def check_password_complexity(password: str, username: str = "") -> tuple[bool, str]:
     if len(password) < 10:
         return False, "كلمة المرور يجب أن تكون 10 أحرف على الأقل."
     if not re.search(r"[A-Z]", password):
@@ -60,6 +67,14 @@ def check_password_complexity(password: str) -> tuple[bool, str]:
         return False, "يجب أن تحتوي على رقم."
     if not re.search(r"[!@#$%^&*()\-_=+\[\]{};:'\",.<>?/\\|`~]", password):
         return False, "يجب أن تحتوي على رمز خاص مثل (!@#$%^&*)."
+
+    lower_pw = password.lower()
+    if lower_pw in _COMMON_PASSWORDS or any(p in lower_pw for p in ("password", "qwerty123", "123456789")):
+        return False, "كلمة المرور شائعة وسهلة التخمين (تحتوي على كلمة محظورة مثل password)، يرجى اختيار كلمة مرور أكثر تعقيداً."
+    if username and len(username) >= 3 and username.lower() in lower_pw:
+        return False, "كلمة المرور لا يمكن أن تحتوي على اسم المستخدم."
+    if re.search(r"(.)\1{4,}", password):
+        return False, "كلمة المرور تحتوي على أحرف متكررة بشكل مفرط."
     return True, ""
 
 

@@ -132,6 +132,11 @@ backend/backups/
 *_backup_*.json
 scratch/
 frontend/src.rar
+*.rar
+test_*.db
+*_output.txt
+eslint_output.json
+vite_build_output.txt
 backend/check_db.py
 backend/inspect_wb.py
 backend/migrate_phd_tables.py

@@ -99,6 +99,7 @@ class DepScanResult:
     packages:        list = field(default_factory=list)
     error:           Optional[str] = None
     scanner_used:    str  = "osv"
+    degraded:        bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -126,7 +127,8 @@ class DepScanResult:
                 }
                 for v in self.vulnerabilities
             ],
-            "error": self.error,
+            "error":    self.error,
+            "degraded": self.degraded,
         }
 
 
@@ -366,7 +368,7 @@ def _osv_batch_query(
 
     except Exception as exc:
         logger.warning("OSV batch query failed: %s", exc)
-        return []
+        return None
 
 
 # ── Snyk REST API ─────────────────────────────────────────────────────────────
@@ -662,6 +664,17 @@ def run_dep_scan(file_path: str) -> dict:
             error      = f"File not found: {file_path}",
         ).to_dict()
 
+    _UNSUPPORTED_EXTS = {
+        ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar",
+        ".exe", ".bin", ".dll", ".so", ".pdf", ".png", ".jpg", ".db",
+    }
+    if path.suffix.lower() in _UNSUPPORTED_EXTS:
+        return DepScanResult(
+            file_type  = path.suffix.lower().lstrip("."),
+            scanned_at = datetime.now(timezone.utc).isoformat(),
+            error      = f"Unsupported file format '{path.suffix}'. Please provide a manifest (requirements.txt, package.json, Pipfile, or pyproject.toml).",
+        ).to_dict()
+
     filename = path.name.lower()
     try:
         content = path.read_text(encoding="utf-8", errors="replace")
@@ -742,7 +755,15 @@ def run_dep_scan(file_path: str) -> dict:
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     all_findings.sort(key=lambda f: order.get(f.severity, 4))
 
-    scanner_used = "+".join(sources_used) if sources_used else "osv.dev"
+    degraded = False
+    scan_error = None
+    if results.get("osv") is None and not sources_used:
+        degraded = True
+        scan_error = "Vulnerability database (OSV.dev) is unreachable. Dependency results may be incomplete."
+        scanner_used = "none (unreachable)"
+    else:
+        scanner_used = "+".join(sources_used) if sources_used else "osv.dev"
+
     result = DepScanResult(
         file_type       = file_type,
         scanned_at      = datetime.now(timezone.utc).isoformat(),
@@ -750,6 +771,8 @@ def run_dep_scan(file_path: str) -> dict:
         vulnerabilities = all_findings,
         packages        = packages,
         scanner_used    = scanner_used,
+        error           = scan_error,
+        degraded        = degraded,
     )
 
     logger.info(

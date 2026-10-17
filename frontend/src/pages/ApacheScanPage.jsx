@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ReportExportBar from '../components/ReportExportBar';
 import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
+import { REPORT_ENDPOINTS, reportDownloadUrl } from '../utils/reportExport';
 
 const SEV_STYLES = {
     CRITICAL: { badge: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20', dot: 'bg-red-500' },

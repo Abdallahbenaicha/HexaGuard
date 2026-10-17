@@ -1,28 +1,6 @@
 from __future__ import annotations
 
-__all__ = ['logger', 'logger', '_API_TO', '_PROBE_TO', '_SSLLABS_POLL', '_SSLLABS_MAX', '_URLSCAN_POLL', '_URLSCAN_MAX', '_MAX_WORKERS', 'REQUIRED_HEADERS', 'SENSITIVE_PATHS', 'DANGEROUS_METHODS', 'VULN_SERVER_RE', 'ERROR_PATTERNS', '_WAF_SIGS', '_TECH_SIGS']
-
-
-import base64
-import hashlib
-import logging
-import os
-import re
-import socket
-import ssl
-import time
-import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
-from ipaddress import ip_address
-from urllib.parse import urlparse
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
-logger = logging.getLogger(__name__)
-
+__all__ = ['logger', '_API_TO', '_PROBE_TO', '_SSLLABS_POLL', '_SSLLABS_MAX', '_URLSCAN_POLL', '_URLSCAN_MAX', '_MAX_WORKERS', 'REQUIRED_HEADERS', 'SENSITIVE_PATHS', 'DANGEROUS_METHODS', 'VULN_SERVER_RE', 'ERROR_PATTERNS', '_WAF_SIGS', '_TECH_SIGS']
 
 import base64
 import hashlib

@@ -68,4 +68,8 @@ wrapt==2.1.1
 packaging==26.0
 typing_extensions==4.15.0
 ordered-set==4.1.0
+openpyxl>=3.1.2
+pymysql>=1.1.0
+sslyze>=5.0.0
+
 

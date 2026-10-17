@@ -38,6 +38,21 @@ def get_active_jobs_stats() -> dict:
     return {"running": running, "queued": queued, "max_concurrent": MAX_CONCURRENT_SCANS}
 
 
+def reconcile_orphaned_jobs() -> int:
+    """Reconcile jobs left running/queued across process restarts."""
+    with _lock:
+        _jobs.clear()
+    try:
+        count = db.reconcile_orphaned_jobs()
+        if count > 0:
+            logger.info("Reconciled %d orphaned jobs from previous server run.", count)
+        return count
+    except Exception as exc:
+        logger.warning("reconcile_orphaned_jobs failed: %s", exc)
+        return 0
+
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 

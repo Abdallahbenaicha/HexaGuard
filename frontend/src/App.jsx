@@ -29,6 +29,7 @@ import ProfilePage      from './pages/ProfilePage';
 import ReportPage       from './pages/ReportPage';
 
 // Admin Pages
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage     from './pages/AdminUsersPage';
 import AdminScansPage     from './pages/AdminScansPage';
 import AuditLogPage       from './pages/AuditLogPage';
@@ -214,9 +215,12 @@ function AppInner() {
                 <Route path="/dashboard"         element={<ProtectedRoute element={<DashboardPage />} />} />
 
                 {/* Admin */}
-                <Route path="/admin"             element={<Navigate to="/dashboard" replace />} />
+                <Route path="/admin"             element={<ProtectedRoute element={<AdminDashboardPage />} adminOnly />} />
                 <Route path="/admin/users"       element={<ProtectedRoute element={<AdminUsersPage />}     adminOnly />} />
                 <Route path="/admin/scans"       element={<ProtectedRoute element={<AdminScansPage />}     adminOnly />} />
+                <Route path="/admin/audit"       element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
+                <Route path="/audit"             element={<ProtectedRoute element={<AuditLogPage />}       adminOnly />} />
+                <Route path="/bounty"            element={<Navigate to="/admin/bounty-targets" replace />} />
                 {import.meta.env.VITE_ENABLE_BOUNTY === 'true' && (
                     <Route
                         path="/admin/bounty-targets"
