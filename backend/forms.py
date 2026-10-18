@@ -3,6 +3,7 @@
 Flask-WTF forms with input validation.
 """
 
+import os
 import re
 
 from flask_wtf import FlaskForm
@@ -49,16 +50,39 @@ class ChangePasswordForm(FlaskForm):
     )
 
 
-_COMMON_PASSWORDS = {
-    "password123!", "password1234!", "password!", "admin@2024!", "analyst@2024!",
-    "qwerty1234!", "qwerty123!", "welcome123!", "changeme123!", "iloveyou123!",
-    "administrator", "adminadmin1!", "securax123!", "hexaguard123!",
-}
+_COMMON_PASSWORDS_FILE = os.path.join(os.path.dirname(__file__), "data", "common_passwords.txt")
+_COMMON_PASSWORDS_SET: set[str] = set()
+
+
+def _load_common_passwords() -> set[str]:
+    global _COMMON_PASSWORDS_SET
+    if not _COMMON_PASSWORDS_SET:
+        fallback = {
+            "password123!", "password1234!", "password!", "admin@2024!", "analyst@2024!",
+            "qwerty1234!", "qwerty123!", "welcome123!", "changeme123!", "iloveyou123!",
+            "administrator", "adminadmin1!", "securax123!", "hexaguard123!",
+            "welcome2024!", "summer2024!!", "abcd1234!@#$", "password1!", "admin1234567!@",
+        }
+        if os.path.exists(_COMMON_PASSWORDS_FILE):
+            try:
+                with open(_COMMON_PASSWORDS_FILE, "r", encoding="utf-8") as f:
+                    _COMMON_PASSWORDS_SET = {line.strip().lower() for line in f if line.strip()}
+            except Exception:
+                _COMMON_PASSWORDS_SET = fallback
+        else:
+            _COMMON_PASSWORDS_SET = fallback
+    return _COMMON_PASSWORDS_SET
+
+
+_COMMON_PATTERN = re.compile(
+    r"^(?:password|welcome|summer|winter|spring|autumn|qwerty|admin|abcd|1234|pass|user)[@#$0-9!~*_\-+=]+$",
+    re.IGNORECASE,
+)
 
 
 def check_password_complexity(password: str, username: str = "") -> tuple[bool, str]:
-    if len(password) < 10:
-        return False, "كلمة المرور يجب أن تكون 10 أحرف على الأقل."
+    if len(password) < 12:
+        return False, "كلمة المرور يجب أن تكون 12 أحرف على الأقل."
     if not re.search(r"[A-Z]", password):
         return False, "يجب أن تحتوي على حرف كبير (A-Z)."
     if not re.search(r"[a-z]", password):
@@ -69,12 +93,22 @@ def check_password_complexity(password: str, username: str = "") -> tuple[bool, 
         return False, "يجب أن تحتوي على رمز خاص مثل (!@#$%^&*)."
 
     lower_pw = password.lower()
-    if lower_pw in _COMMON_PASSWORDS or any(p in lower_pw for p in ("password", "qwerty123", "123456789")):
-        return False, "كلمة المرور شائعة وسهلة التخمين (تحتوي على كلمة محظورة مثل password)، يرجى اختيار كلمة مرور أكثر تعقيداً."
+    common_set = _load_common_passwords()
+    if lower_pw in common_set:
+        return False, "كلمة المرور شائعة وسهلة التخمين، يرجى اختيار كلمة مرور أكثر تعقيداً."
+
+    if _COMMON_PATTERN.match(lower_pw):
+        return False, "كلمة المرور شائعة وسهلة التخمين (نمط كلمات شائعة مع أرقام ورموز)، يرجى اختيار كلمة مرور أكثر تعقيداً."
+
+    if any(root in lower_pw for root in ("password", "qwerty", "123456", "admin123")):
+        return False, "كلمة المرور تحتوي على كلمات أو تسلسلات محظورة شائعة."
+
     if username and len(username) >= 3 and username.lower() in lower_pw:
         return False, "كلمة المرور لا يمكن أن تحتوي على اسم المستخدم."
-    if re.search(r"(.)\1{4,}", password):
+
+    if re.search(r"(.)\1{3,}", password):
         return False, "كلمة المرور تحتوي على أحرف متكررة بشكل مفرط."
+
     return True, ""
 
 
