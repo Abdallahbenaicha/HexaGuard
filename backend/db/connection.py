@@ -300,6 +300,18 @@ _SCHEMA_SQLITE = """
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_subs_plan ON subscriptions (plan);
+    CREATE TABLE IF NOT EXISTS payments (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        payment_ref  TEXT    NOT NULL UNIQUE,
+        user_id      INTEGER NOT NULL,
+        plan         TEXT    NOT NULL,
+        amount       REAL    NOT NULL,
+        currency     TEXT    NOT NULL DEFAULT 'DZD',
+        created_at   TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_ref ON payments (payment_ref);
+    CREATE INDEX IF NOT EXISTS idx_payments_user ON payments (user_id);
     CREATE TABLE IF NOT EXISTS domain_verifications (
         user_id      INTEGER PRIMARY KEY,
         domain       TEXT    NOT NULL,
@@ -994,6 +1006,18 @@ def init_db():
             created_at TEXT NOT NULL
         )""",
         "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS payments (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            payment_ref  TEXT    NOT NULL UNIQUE,
+            user_id      INTEGER NOT NULL,
+            plan         TEXT    NOT NULL,
+            amount       REAL    NOT NULL,
+            currency     TEXT    NOT NULL DEFAULT 'DZD',
+            created_at   TEXT    NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_ref ON payments (payment_ref)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_user ON payments (user_id)",
     ]:
         try:
             db.execute(migration)

@@ -1206,25 +1206,33 @@ def api_upgrade_subscription():
             "error": f"Invalid plan '{raw_plan}'. Valid plans: {', '.join(PLANS.keys())}"
         }), 400
 
-    # C5 Remediation: Paid plan upgrade requires admin role, valid payment reference, or test/demo environment
-    from flask import current_app
-    is_testing = current_app.config.get("TESTING", False) or os.environ.get("DEMO_MODE", "").lower() in ("true", "1")
+    # Paid plan upgrade verification (fix/round3 item 2)
     is_admin = getattr(current_user, "role", "") == "admin"
     payment_ref = (data.get("payment_ref") or data.get("receipt_id") or "").strip()
 
-    if plan != "free" and not (is_testing or is_admin):
+    if plan != "free" and not is_admin:
+        gateway_secret = os.environ.get("PAYMENT_GATEWAY_SECRET") or os.environ.get("STRIPE_SECRET_KEY")
+        if not gateway_secret:
+            return jsonify({
+                "ok": False,
+                "error": "Self-service online payments are currently disabled. Plan upgrades require administrator approval.",
+                "code": "ADMIN_ONLY",
+            }), 403
+
         if not payment_ref:
             return jsonify({
                 "ok": False,
                 "error": "Payment required to upgrade to a paid plan. Please complete checkout or provide a valid payment reference.",
                 "code": "PAYMENT_REQUIRED",
             }), 402
-        import re
-        if not re.match(r"^(pi|cs|ch|sub|pay)_[a-zA-Z0-9_-]{14,64}$", payment_ref):
+
+        from db.subscriptions import verify_payment
+        pay_ok, pay_msg = verify_payment(payment_ref, current_user.id, plan)
+        if not pay_ok:
             return jsonify({
                 "ok": False,
-                "error": "Invalid or unverified payment reference format. Must be a valid gateway transaction token.",
-                "code": "INVALID_PAYMENT_REFERENCE",
+                "error": pay_msg,
+                "code": "PAYMENT_VERIFICATION_FAILED",
             }), 400
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()

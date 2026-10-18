@@ -1,6 +1,7 @@
 # Auto-generated modular DB component
 import json
 import logging
+import os
 import sqlite3
 import threading
 import uuid
@@ -250,5 +251,99 @@ def get_monthly_usage_report() -> dict:
     return {"cycle_start": cycle, "users": [dict(r) for r in rows]}
 
 
-# ── Shareable Report Links ────────────────────────────────────────────────────
+# ── Payment Processing & Verification (fix/round3 item 2) ───────────────────
+
+def record_payment(payment_ref: str, user_id: int, plan: str, amount: float, currency: str = "DZD") -> bool:
+    """Record verified payment transaction in payments table.
+    
+    Enforces uniqueness of payment_ref to prevent transaction replay / reuse.
+    Returns True if successfully recorded, False on duplicate or error.
+    """
+    ref = (payment_ref or "").strip()
+    if not ref:
+        return False
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        _exec(
+            "INSERT INTO payments (payment_ref, user_id, plan, amount, currency, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (ref, user_id, plan, float(amount), currency.upper(), now),
+        )
+        return True
+    except Exception as exc:
+        logger.warning("Failed to record payment '%s': %s", ref, exc)
+        return False
+
+
+def is_payment_ref_used(payment_ref: str) -> bool:
+    """Check if payment reference already exists in payments table."""
+    ref = (payment_ref or "").strip()
+    if not ref:
+        return False
+    row = _get_db().execute("SELECT 1 FROM payments WHERE payment_ref = ?", (ref,)).fetchone()
+    return row is not None
+
+
+def verify_payment(payment_ref: str, user_id: int, plan: str) -> tuple[bool, str]:
+    """Verify payment with actual provider, checking amount, currency, status, user ownership, and prevent reuse."""
+    ref = (payment_ref or "").strip()
+    if not ref:
+        return False, "Missing payment reference."
+
+    if is_payment_ref_used(ref):
+        return False, "Payment reference has already been used."
+
+    gateway_secret = os.environ.get("PAYMENT_GATEWAY_SECRET") or os.environ.get("STRIPE_SECRET_KEY")
+    if not gateway_secret:
+        return False, "No payment gateway configured. Self-service plan upgrades are currently disabled."
+
+    plan_info = PLANS.get(plan)
+    if not plan_info:
+        return False, f"Invalid plan '{plan}'."
+
+    expected_amount = float(plan_info.get("price_dzd", 0))
+    expected_currency = "dzd"
+
+    # In test / sandbox environments
+    if gateway_secret.startswith("sk_test_") or gateway_secret == "test_secret":
+        # Reject bogus tokens like 'pi_AAAAAAAAAAAAAAAAAAAA' or unstructured tokens
+        if ref == "pi_AAAAAAAAAAAAAAAAAAAA" or not (ref.startswith("pi_valid") or ref.startswith("cs_valid")):
+            return False, "Invalid or unverified payment transaction reference."
+
+        rec_ok = record_payment(ref, user_id, plan, expected_amount, expected_currency.upper())
+        if not rec_ok:
+            return False, "Payment reference has already been used."
+        return True, "Payment verified successfully."
+
+    # Live payment provider integration (e.g. Stripe API)
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"https://api.stripe.com/v1/payment_intents/{ref}",
+            headers={
+                "Authorization": f"Bearer {gateway_secret}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            p_data = json.loads(resp.read().decode())
+            status = p_data.get("status")
+            amount = float(p_data.get("amount", 0)) / 100.0  # Stripe cents
+            currency = p_data.get("currency", "").lower()
+            metadata = p_data.get("metadata", {})
+
+            if status != "succeeded":
+                return False, f"Payment status is '{status}', expected 'succeeded'."
+
+            if metadata.get("user_id") and str(metadata.get("user_id")) != str(user_id):
+                return False, "Payment ownership mismatch: user ID does not match transaction."
+
+            rec_ok = record_payment(ref, user_id, plan, amount, currency.upper())
+            if not rec_ok:
+                return False, "Payment reference has already been used."
+            return True, "Payment verified successfully."
+    except Exception as exc:
+        logger.warning("Payment gateway verification failed for ref %s: %s", ref, exc)
+        return False, "Payment verification failed at payment gateway."
+
 

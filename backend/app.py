@@ -64,7 +64,8 @@ def create_app() -> Flask:
             except ValueError:
                 pass
 
-    if _IS_PRODUCTION and os.environ.get("DEMO_MODE", "").strip().lower() in ("true", "1", "yes"):
+    is_prod = (os.environ.get("FLASK_ENV") or "").strip().lower() == "production"
+    if is_prod and os.environ.get("DEMO_MODE", "").strip().lower() in ("true", "1", "yes"):
         raise RuntimeError("CRITICAL SECURITY ERROR: DEMO_MODE cannot be enabled in production (FLASK_ENV=production)!")
 
     csrf_env = os.environ.get("WTF_CSRF_ENABLED")
