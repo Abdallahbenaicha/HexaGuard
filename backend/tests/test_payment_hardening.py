@@ -92,7 +92,8 @@ class TestPaymentHardening:
         with client.session_transaction() as sess:
             sess["_user_id"] = str(user["id"])
 
-        env_without_secret = {k: v for k, v in os.environ.items() if k not in ("PAYMENT_GATEWAY_SECRET", "STRIPE_SECRET_KEY")}
+        env_without_secret = {k: v for k, v in os.environ.items() if k not in ("PAYMENT_GATEWAY_SECRET", "STRIPE_SECRET_KEY", "TESTING", "FLASK_ENV")}
+        client.application.config["WTF_CSRF_ENABLED"] = False
         with patch.dict(os.environ, env_without_secret, clear=True):
             resp = client.post("/api/subscription/upgrade", json={
                 "plan": "pro",

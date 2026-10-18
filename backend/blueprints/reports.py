@@ -1229,11 +1229,12 @@ def api_upgrade_subscription():
             from db.subscriptions import verify_payment
             pay_ok, pay_msg = verify_payment(payment_ref, current_user.id, plan)
             if not pay_ok:
+                code_status = 403 if "gateway" in pay_msg.lower() or "disabled" in pay_msg.lower() else 400
                 return jsonify({
                     "ok": False,
                     "error": pay_msg,
                     "code": "PAYMENT_VERIFICATION_FAILED",
-                }), 400
+                }), code_status
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     ok = set_subscription(
