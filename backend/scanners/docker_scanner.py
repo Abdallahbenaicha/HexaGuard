@@ -25,6 +25,7 @@ Checks performed:
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
@@ -73,6 +74,77 @@ _SECRET_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+ALLOWED_REGISTRIES: set[str] = {"docker.io", "ghcr.io", "quay.io"}
+
+_REPO_NAME_RE = re.compile(
+    r"^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*(?:/[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*)*(?::[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}|@sha256:[a-fA-F0-9]{64})?$"
+)
+
+
+def validate_image(image_name: str) -> str:
+    """Validate container image reference strictly.
+
+    Prevents CLI argument injection, SSRF, and command execution:
+    - Length <= 255 and non-empty.
+    - Prohibits leading '-' (flag injection prevention).
+    - Permitted registries restricted to: docker.io, ghcr.io, quay.io (or library defaults).
+    - Prohibits localhost, IP addresses, custom ports, or shell metacharacters.
+    - Strict regex matching for image name, tag, and digest.
+    """
+    if not image_name or not isinstance(image_name, str):
+        raise ValueError("Container image name is required and must be a string.")
+
+    cleaned = image_name.strip()
+    if not cleaned:
+        raise ValueError("Container image name cannot be empty.")
+
+    if len(cleaned) > 255:
+        raise ValueError("Container image name exceeds maximum allowed length of 255 characters.")
+
+    if cleaned.startswith("-"):
+        raise ValueError("Container image name cannot start with '-'.")
+
+    # Only allowed characters: letters, digits, '.', '/', '_', '-', ':', '@'
+    if not re.match(r"^[a-zA-Z0-9./_:@-]+$", cleaned):
+        raise ValueError("Container image name contains invalid characters.")
+
+    # Check for scheme/protocol (e.g. http://, https://)
+    if "://" in cleaned:
+        raise ValueError("URL schemes are not permitted in container image names.")
+
+    if "/" in cleaned:
+        first_part, remainder = cleaned.split("/", 1)
+        # Check if first_part is a registry host (has '.', has ':', or is 'localhost')
+        if ":" in first_part:
+            raise ValueError("Custom ports are not permitted in container registry references.")
+
+        if "." in first_part or first_part.lower() == "localhost":
+            if first_part.lower() == "localhost":
+                raise ValueError("Localhost registry references are forbidden.")
+            try:
+                ipaddress.ip_address(first_part)
+                raise ValueError("IP address registry references are forbidden.")
+            except ValueError as ip_err:
+                if "forbidden" in str(ip_err):
+                    raise
+
+            if first_part.lower() not in ALLOWED_REGISTRIES:
+                raise ValueError(
+                    f"Registry '{first_part}' is not allowed. Must be one of: {', '.join(sorted(ALLOWED_REGISTRIES))}."
+                )
+
+            repo_to_check = remainder
+        else:
+            repo_to_check = cleaned
+    else:
+        repo_to_check = cleaned
+
+    if not _REPO_NAME_RE.match(repo_to_check):
+        raise ValueError(f"Invalid image repository format: '{repo_to_check}'")
+
+    return cleaned
+
 
 def _vuln(title: str, severity: str, description: str,
           recommendation: str, line: int | None = None) -> dict:
@@ -434,7 +506,7 @@ def _scan_image_with_trivy(image_name: str) -> tuple[list[dict], dict]:
     if not trivy_bin:
         raise FileNotFoundError("trivy binary not found")
 
-    cmd = [trivy_bin, "image", "--format", "json", "--quiet", image_name]
+    cmd = [trivy_bin, "image", "--format", "json", "--quiet", "--", image_name]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
     if proc.returncode != 0 and not proc.stdout.strip():
         raise RuntimeError(f"Trivy scan failed: {proc.stderr.strip()[:200]}")
@@ -478,7 +550,7 @@ def _scan_image_with_grype(image_name: str) -> tuple[list[dict], dict]:
     if not grype_bin:
         raise FileNotFoundError("grype binary not found")
 
-    cmd = [grype_bin, image_name, "-o", "json"]
+    cmd = [grype_bin, "-o", "json", "--", image_name]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
     if proc.returncode != 0 and not proc.stdout.strip():
         raise RuntimeError(f"Grype scan failed: {proc.stderr.strip()[:200]}")
@@ -564,10 +636,8 @@ def scan_docker_image(image_name: str, preferred_engine: str = "auto") -> dict:
       2. Grype CLI (if available and preferred_engine != 'trivy')
       3. Curated offline CVE database fallback
     """
-    if not image_name or not image_name.strip():
-        raise ValueError("image_name is required")
+    image_name = validate_image(image_name)
 
-    image_name = image_name.strip()
     vulns: list[dict] = []
     meta: dict = {}
     engine_used = "fallback"

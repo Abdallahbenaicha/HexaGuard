@@ -63,10 +63,22 @@ _QUOTA_PATHS = {
     "/start-scan",
     "/scan_url", "/scan_network", "/analyze_code", "/fix_config",
     "/scan_server", "/scan_dast", "/scan_ssl", "/scan_dependencies",
-    "/scan_docker", "/scan_dns", "/scan_wordpress",
+    "/scan_docker", "/scan_docker_image", "/scan_dns", "/scan_wordpress",
     "/api/scan/async/web", "/api/scan/async/network",
     "/api/scan/async/dast", "/api/scan/async/ssl", "/api/scan/async/server",
 }
+
+
+def _matches_quota_path(path: str) -> bool:
+    """Check if path matches a quota path by exact path or exact segment boundary."""
+    norm = (path or "").rstrip("/")
+    for qp in _QUOTA_PATHS:
+        target = qp.rstrip("/")
+        if norm == target:
+            return True
+        if norm.endswith(target) and (len(norm) == len(target) or norm[-(len(target) + 1)] == "/"):
+            return True
+    return False
 
 
 _user_scan_history: dict[int, list[float]] = {}
@@ -100,7 +112,7 @@ def enforce_scan_guards_and_quota():
     from flask_login import current_user as _cu
     if request.method != "POST" or not _cu.is_authenticated:
         return None
-    if not any(request.path.endswith(p) for p in _QUOTA_PATHS):
+    if not _matches_quota_path(request.path):
         return None
 
     # Check aggregate rate limit across all scan endpoints

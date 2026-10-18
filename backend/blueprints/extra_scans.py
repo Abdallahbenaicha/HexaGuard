@@ -111,8 +111,9 @@ def scan_docker():
     body = request.get_json(silent=True) or {}
     image_name = (body.get("image") or body.get("image_name") or "").strip()
     if image_name:
-        from scanners.docker_scanner import scan_docker_image
+        from scanners.docker_scanner import scan_docker_image, validate_image
         try:
+            image_name = validate_image(image_name)
             result = scan_docker_image(image_name, preferred_engine=body.get("engine", "auto"))
             breakdown = calculate_risk_v2(
                 result, criticality=1.0, internet_facing=False,
@@ -123,9 +124,11 @@ def scan_docker():
                       category="scan", resource=image_name, status="success",
                       details=f"type=docker_image risk={breakdown.final_score}")
             return jsonify(_build_response(result, breakdown, token))
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
         except Exception as exc:
-            logger.exception("scan_docker (image) error")
-            return jsonify({"error": str(exc)}), 500
+            logger.exception("scan_docker (image) error: %s", exc)
+            return jsonify({"error": "Failed to scan container image. Please try again later."}), 500
 
     content  = (body.get("content") or "").strip()
     filename = (body.get("filename") or "Dockerfile").strip()
@@ -144,8 +147,8 @@ def scan_docker():
                   details=f"type=docker risk={breakdown.final_score}")
         return jsonify(_build_response(result, breakdown, token))
     except Exception as exc:
-        logger.exception("scan_docker (body) error")
-        return jsonify({"error": str(exc)}), 500
+        logger.exception("scan_docker (body) error: %s", exc)
+        return jsonify({"error": "Failed to analyze Docker configuration. Please try again later."}), 500
 
 
 @extra_bp.route("/scan_docker_image", methods=["POST"])
@@ -159,8 +162,9 @@ def scan_docker_image_route():
     if not image_name:
         return jsonify({"error": "Provide an image name in 'image' or 'target' field."}), 400
 
-    from scanners.docker_scanner import scan_docker_image
+    from scanners.docker_scanner import scan_docker_image, validate_image
     try:
+        image_name = validate_image(image_name)
         result = scan_docker_image(image_name, preferred_engine=body.get("engine", "auto"))
         breakdown = calculate_risk_v2(
             result, criticality=1.0, internet_facing=False,
@@ -171,9 +175,11 @@ def scan_docker_image_route():
                   category="scan", resource=image_name, status="success",
                   details=f"type=docker_image risk={breakdown.final_score}")
         return jsonify(_build_response(result, breakdown, token))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
     except Exception as exc:
-        logger.exception("scan_docker_image route error")
-        return jsonify({"error": str(exc)}), 500
+        logger.exception("scan_docker_image route error: %s", exc)
+        return jsonify({"error": "Container image scan failed. Please try again later."}), 500
 
 
 
