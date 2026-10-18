@@ -264,6 +264,7 @@ def enforce_must_change_password():
                     "ok": False,
                     "error": "Password change required.",
                     "must_change_password": True,
+                    "change_password_url": "/profile",
                 }), 403
             return redirect(url_for("auth.change_password"))
 

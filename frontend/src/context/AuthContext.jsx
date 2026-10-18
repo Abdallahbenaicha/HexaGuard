@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -122,7 +122,12 @@ function _installInterceptor() {
                     if (_authRef.navigate) _authRef.navigate('/login');
                 }
             } else if (status === 403 && !isAuth) {
-                showToast("You don't have permission for this action", 'error');
+                if (err.response?.data?.must_change_password) {
+                    showToast('Password change required — redirecting to Profile', 'warning');
+                    if (_authRef.navigate) _authRef.navigate('/profile');
+                } else {
+                    showToast("You don't have permission for this action", 'error');
+                }
             } else if (status === 429) {
                 const retryAfter = err.response?.headers?.['retry-after'];
                 const wait = retryAfter ? ` — wait ${retryAfter}s` : '';
@@ -179,8 +184,12 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         const { data } = await axios.post('/api/auth/login', { username, password });
         if (data.ok) {
-            setUser(data.user);
+            const userData = { ...data.user, must_change_password: Boolean(data.must_change_password) };
+            setUser(userData);
             await _fetchCsrfToken();
+            if (data.must_change_password) {
+                navigate('/profile');
+            }
         }
         return data;
     };

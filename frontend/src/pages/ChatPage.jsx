@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import {
     Send, RotateCcw, Shield, Terminal, Zap, Layers,
@@ -41,7 +41,7 @@ function TypingIndicator() {
     return (
         <div className="flex items-center gap-1.5 px-1 py-2">
             {[0, 1, 2].map(i => (
-                <motion.span
+                <Motion.span
                     key={i}
                     className="w-2 h-2 rounded-full bg-primary-400"
                     animate={{ y: [0, -5, 0], opacity: [0.4, 1, 0.4] }}
@@ -73,7 +73,7 @@ function MessageBubble({ msg }) {
     }, [msg.content, isUser]);
 
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
@@ -110,7 +110,7 @@ function MessageBubble({ msg }) {
                     <span className="text-primary-600 dark:text-primary-400 text-[10px] font-bold">You</span>
                 </div>
             )}
-        </motion.div>
+        </Motion.div>
     );
 }
 
@@ -284,7 +284,7 @@ export default function ChatPage() {
                         {TOPICS.map(t => {
                             const Icon = t.icon;
                             return (
-                                <motion.button
+                                <Motion.button
                                     key={t.title}
                                     whileHover={{ x: 2 }}
                                     onClick={() => sendMessage(t.q)}
@@ -298,7 +298,7 @@ export default function ChatPage() {
                                         <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5">{t.q.slice(0, 38)}…</div>
                                     </div>
                                     <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 group-hover:text-primary-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100" />
-                                </motion.button>
+                                </Motion.button>
                             );
                         })}
                     </div>
@@ -363,7 +363,7 @@ export default function ChatPage() {
                     {/* Quick-start chips — only when no user messages yet */}
                     <AnimatePresence>
                         {messages.length === 1 && !loading && (
-                            <motion.div
+                            <Motion.div
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
@@ -378,7 +378,7 @@ export default function ChatPage() {
                                         {q}
                                     </button>
                                 ))}
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
 
@@ -387,7 +387,7 @@ export default function ChatPage() {
                     ))}
 
                     {loading && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="flex gap-3 justify-start"
@@ -398,7 +398,7 @@ export default function ChatPage() {
                             <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                                 <TypingIndicator />
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     )}
 
                     <div ref={bottomRef} />

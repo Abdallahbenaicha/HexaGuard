@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -54,7 +54,7 @@ function FindingCard({ finding }) {
             </button>
             <AnimatePresence>
                 {open && (
-                    <motion.div
+                    <Motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -76,7 +76,7 @@ function FindingCard({ finding }) {
                                 </div>
                             )}
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
         </div>
@@ -209,7 +209,7 @@ const WordPressScanPage = () => {
 
                 <AnimatePresence>
                     {results && (
-                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                        <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
                             {!meta.wordpress_detected ? (
                                 <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-6 text-center">
@@ -282,7 +282,7 @@ const WordPressScanPage = () => {
                                     </div>
                                 </>
                             )}
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </div>

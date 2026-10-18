@@ -282,7 +282,7 @@ function DomainLesson({ lesson, navigate }) {
 }
 
 export default function CertificationPage() {
-  const { t, lang } = useLang();
+  const { lang } = useLang();
   const isRtl = lang === "ar";
   const navigate = useNavigate();
   const [certDataList, setCertDataList] = useState([]);

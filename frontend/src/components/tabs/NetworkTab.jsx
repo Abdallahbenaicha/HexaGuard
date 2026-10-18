@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const NetworkTab = ({ onScan, loading }) => {
     const [target, setTarget] = useState('');
@@ -182,7 +182,7 @@ const NetworkTab = ({ onScan, loading }) => {
             </div>
 
             {/* Scan Button */}
-            <motion.button
+            <Motion.button
                 onClick={handleScan}
                 disabled={loading || !target.trim()}
                 whileHover={{ scale: 1.02 }}
@@ -201,7 +201,7 @@ const NetworkTab = ({ onScan, loading }) => {
                     ? '⟳ SCANNING NETWORK...'
                     : '▶ LAUNCH NETWORK SCAN'
                 }
-            </motion.button>
+            </Motion.button>
         </div>
     );
 };

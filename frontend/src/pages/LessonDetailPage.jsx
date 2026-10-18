@@ -135,7 +135,7 @@ export default function LessonDetailPage() {
       if (masteryRes.data?.ok && masteryRes.data?.matrix) {
         setMasteryMatrix(masteryRes.data.matrix);
       }
-    } catch (e) {
+    } catch {
       // ignore reload errors
     }
   }

@@ -443,10 +443,10 @@ const NetworkReconPanel = ({ recon, history }) => {
 
             {/* Stats grid */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                {stats.map(({ label, value, icon: Icon }) => (
+                {stats.map(({ label, value, icon: _Icon }) => (
                     <div key={label} className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-950">
                         <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-1.5">
-                            <Icon className="w-3.5 h-3.5" />
+                            <_Icon className="w-3.5 h-3.5" />
                             <span className="text-[9px] font-semibold uppercase tracking-wider leading-tight">{label}</span>
                         </div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white font-mono truncate" title={String(value)}>
@@ -463,7 +463,7 @@ const NetworkReconPanel = ({ recon, history }) => {
                         { id: 'devices',  label: `Devices (${devices.length})`, icon: HardDrive },
                         { id: 'topology', label: 'Topology',                    icon: Network },
                         ...(hasHistory ? [{ id: 'history', label: 'Changes', icon: GitCompare }] : []),
-                    ].map(({ id, label, icon: Icon }) => (
+                    ].map(({ id, label, icon: _Icon }) => (
                         <button
                             key={id}
                             onClick={() => setView(id)}
@@ -473,7 +473,7 @@ const NetworkReconPanel = ({ recon, history }) => {
                                     : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                             }`}
                         >
-                            <Icon className="w-3.5 h-3.5" />
+                            <_Icon className="w-3.5 h-3.5" />
                             {label}
                             {id === 'history' && history?.has_changes && (
                                 <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />

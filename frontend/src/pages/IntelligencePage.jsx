@@ -152,7 +152,12 @@ export default function IntelligencePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadItems(activeCat, search); }, [activeCat, search, loadItems]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadItems(activeCat, search);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeCat, search, loadItems]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300" dir={isRtl ? 'rtl' : 'ltr'}>

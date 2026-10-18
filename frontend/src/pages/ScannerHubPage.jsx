@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import {
     Globe, Lock, Network, Zap, Layers, FileSearch,
     Shield, Package, Box, Mail, LayoutGrid,
@@ -164,7 +164,7 @@ function ScannerCard({ scanner, locked, color }) {
 
     return (
         <Link to={scanner.to} className="block group">
-            <motion.div
+            <Motion.div
                 whileHover={{ y: -2, scale: 1.01 }}
                 transition={{ duration: 0.15 }}
                 className={`relative rounded-xl border border-slate-700/50 bg-slate-800/60 p-5 h-full
@@ -189,7 +189,7 @@ function ScannerCard({ scanner, locked, color }) {
                         ))}
                     </div>
                 </div>
-            </motion.div>
+            </Motion.div>
         </Link>
     );
 }
@@ -216,7 +216,7 @@ export default function ScannerHubPage() {
             <div className="max-w-6xl mx-auto px-4 py-10">
 
                 {/* Header */}
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35 }}
@@ -260,7 +260,7 @@ export default function ScannerHubPage() {
                             }
                         </span>
                     </div>
-                </motion.div>
+                </Motion.div>
 
                 {/* Universal Assessment Methodology Guidance */}
                 <div className="mb-10">
@@ -269,7 +269,7 @@ export default function ScannerHubPage() {
 
                 {/* Groups */}
                 {SCANNER_GROUPS.map((group, gi) => (
-                    <motion.section
+                    <Motion.section
                         key={group.groupLabel}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -294,7 +294,7 @@ export default function ScannerHubPage() {
                                 />
                             ))}
                         </div>
-                    </motion.section>
+                    </Motion.section>
                 ))}
             </div>
         </div>

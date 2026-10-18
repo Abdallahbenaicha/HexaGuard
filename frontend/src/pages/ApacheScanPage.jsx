@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import ReportExportBar from '../components/ReportExportBar';
 import AssessmentMethodologyBanner from '../components/AssessmentMethodologyBanner';
-import { REPORT_ENDPOINTS, reportDownloadUrl } from '../utils/reportExport';
+import { REPORT_ENDPOINTS } from '../utils/reportExport';
 
 const SEV_STYLES = {
     CRITICAL: { badge: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20', dot: 'bg-red-500' },
@@ -32,26 +32,6 @@ function downloadBlob(content, filename, mime = 'text/plain;charset=utf-8') {
     URL.revokeObjectURL(url);
 }
 
-function buildJsonReport(results, scanMode, target, fileName) {
-    return JSON.stringify({
-        report: {
-            tool: 'SecuraX Security Platform',
-            scan_type: scanMode === 'file' ? 'Internal Config Audit (White-Box)' : scanMode === 'full' ? 'External Deep Audit' : 'Security Headers Audit',
-            target: scanMode === 'file' ? fileName : target,
-            generated_at: new Date().toISOString(),
-        },
-        summary: {
-            total: results.findings?.length || 0,
-            critical: results.findings?.filter(f => f.severity === 'CRITICAL').length || 0,
-            high:     results.findings?.filter(f => f.severity === 'HIGH').length || 0,
-            medium:   results.findings?.filter(f => f.severity === 'MEDIUM').length || 0,
-            low:      results.findings?.filter(f => f.severity === 'LOW').length || 0,
-            info:     results.findings?.filter(f => f.severity === 'INFO').length || 0,
-        },
-        findings: results.findings || [],
-    }, null, 2);
-}
-
 /* Finding card with line number, state toggle, inline fix */
 function FindingCard({ finding, index, isFixed, onToggleFix }) {
     const [expanded, setExpanded] = useState(false);
@@ -61,7 +41,7 @@ function FindingCard({ finding, index, isFixed, onToggleFix }) {
     const currentValue = finding.current_value || finding.evidence || null;
 
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.03 }}
@@ -123,7 +103,7 @@ function FindingCard({ finding, index, isFixed, onToggleFix }) {
             {/* Expanded details */}
             <AnimatePresence>
                 {expanded && (
-                    <motion.div
+                    <Motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -184,10 +164,10 @@ function FindingCard({ finding, index, isFixed, onToggleFix }) {
                                 </p>
                             )}
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </Motion.div>
     );
 }
 
@@ -302,37 +282,6 @@ const ApacheScanPage = () => {
             setAriaAnalysis('ARIA analysis unavailable: ' + (e.response?.data?.error || e.message));
         } finally {
             setAnalyzing(false);
-        }
-    };
-
-    const handleDownloadReport = async () => {
-        if (!results) return;
-        const token = results.report_token;
-        if (!token) {
-            // Fallback: no backend token yet, download JSON
-            const json = buildJsonReport(results, scanMode, target, file?.name);
-            downloadBlob(json, 'securax-report.json', 'application/json');
-            return;
-        }
-        try {
-            const res = await fetch(
-                reportDownloadUrl(REPORT_ENDPOINTS.pdf, token, { lang: 'en' }),
-                { credentials: 'include' },
-            );
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.error || 'Could not generate PDF report.');
-                return;
-            }
-            const blob    = await res.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a       = document.createElement('a');
-            a.href        = blobUrl;
-            a.download    = 'securax_report.pdf';
-            a.click();
-            URL.revokeObjectURL(blobUrl);
-        } catch {
-            alert('Backend offline — cannot generate PDF.');
         }
     };
 
@@ -558,7 +507,7 @@ const ApacheScanPage = () => {
 
                     <AnimatePresence mode="wait">
                         {results ? (
-                            <motion.div key="results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                            <Motion.div key="results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
 
                                 {/* ARIA analysis */}
                                 <div className="bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-xl p-5 shadow-sm">
@@ -648,13 +597,13 @@ const ApacheScanPage = () => {
                                         </button>
                                     )}
                                 </div>
-                            </motion.div>
+                            </Motion.div>
                         ) : loading ? (
-                            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/50">
+                            <Motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/50">
                                 <Activity className="w-12 h-12 text-primary-500 animate-pulse mb-5" />
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Auditing Configuration</h3>
                                 <p className="text-sm text-slate-500 text-center max-w-sm">Analysing directives and identifying security weaknesses…</p>
-                            </motion.div>
+                            </Motion.div>
                         ) : (
                             <div className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900">
                                 <FileSearch className="w-16 h-16 text-slate-200 dark:text-slate-700 mb-5" />

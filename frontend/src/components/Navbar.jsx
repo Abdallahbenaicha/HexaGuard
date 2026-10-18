@@ -101,18 +101,21 @@ const Navbar = () => {
     const { user, logout } = useAuth();
     const { pathname } = useLocation();
     const { lang, toggleLang, t } = useLang();
-    const [darkMode, setDarkMode] = useState(false);
+    const [darkMode, setDarkMode] = useState(() => {
+        if (typeof window !== 'undefined' && localStorage.theme === 'light') {
+            return false;
+        }
+        return true;
+    });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
-        if (localStorage.theme === 'light') {
-            setDarkMode(false);
-            document.documentElement.classList.remove('dark');
-        } else {
-            setDarkMode(true);
+        if (darkMode) {
             document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
-    }, []);
+    }, [darkMode]);
 
     const toggleTheme = () => {
         const newTheme = !darkMode;

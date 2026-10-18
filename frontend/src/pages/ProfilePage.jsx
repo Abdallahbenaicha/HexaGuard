@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import {
     User, Lock, Key, Shield, Eye, EyeOff,
@@ -69,10 +69,10 @@ const GeneralTab = ({ user }) => (
                     { label: 'Role',        value: user?.role,       icon: Shield },
                     { label: 'Login Count', value: user?.login_count ?? '—', icon: Activity },
                     { label: 'Last Login',  value: user?.last_login ? new Date(user.last_login).toLocaleString() : '—', icon: Calendar },
-                ].map(({ label, value, icon: Icon }) => (
+                ].map(({ label, value, icon: _Icon }) => (
                     <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                         <div className="p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
-                            <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                            <_Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                         </div>
                         <div>
                             <div className="text-[10px] text-slate-400 uppercase tracking-widest">{label}</div>
@@ -511,7 +511,7 @@ const ProfilePage = () => {
 
             {/* Content */}
             <AnimatePresence mode="wait">
-                <motion.div
+                <Motion.div
                     key={activeTab}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -522,7 +522,7 @@ const ProfilePage = () => {
                     {activeTab === 'security' && <SecurityTab />}
                     {activeTab === 'tokens'   && <TokensTab />}
                     {activeTab === 'totp'     && <TotpTab user={user} refetch={refetch} />}
-                </motion.div>
+                </Motion.div>
             </AnimatePresence>
         </div>
     );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   BookOpen, Search, Shield, Filter, X, ShieldAlert,
@@ -33,14 +33,13 @@ const DIFFICULTY_META = {
 };
 
 export default function VulnLibraryPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchRef = useRef(null);
 
   const [taxonomyData, setTaxonomyData] = useState({ offensive: [], incidents: [], stats: {} });
   const [userLedger, setUserLedger] = useState({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,7 +106,7 @@ export default function VulnLibraryPage() {
           }
         });
         setUserLedger(ledgerMap);
-      } catch (err) {
+      } catch {
         setError('Failed to load education system data.');
       } finally {
         setLoading(false);

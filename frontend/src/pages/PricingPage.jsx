@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Check, X, Zap, Shield, Crown, Loader2 } from 'lucide-react';
 import { useAuth, toast } from '../context/AuthContext';
 import axios from 'axios';
@@ -221,7 +221,7 @@ const PricingPage = () => {
                             px-4 md:px-6 lg:px-12">
 
                 {/* ── HEADER ──────────────────────── */}
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center py-16 md:py-24"
@@ -295,7 +295,7 @@ const PricingPage = () => {
                     </div>
 
                     {billing === 'annual' && (
-                        <motion.p
+                        <Motion.p
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="text-green-400/70
@@ -303,9 +303,9 @@ const PricingPage = () => {
                                        mt-3"
                         >
                             ✓ 2 months free with annual billing
-                        </motion.p>
+                        </Motion.p>
                     )}
-                </motion.div>
+                </Motion.div>
 
                 {/* ── PRICING CARDS ───────────────── */}
                 <div className="grid grid-cols-1
@@ -323,7 +323,7 @@ const PricingPage = () => {
                             : '/month';
 
                         return (
-                            <motion.div
+                            <Motion.div
                                 key={plan.id}
                                 initial={{
                                     opacity: 0,
@@ -408,7 +408,7 @@ const PricingPage = () => {
                                                          mb-1">
                                             {plan.currency}
                                         </span>
-                                        <motion.span
+                                        <Motion.span
                                             key={`${plan.id}-${billing}`}
                                             initial={{
                                                 opacity: 0,
@@ -425,7 +425,7 @@ const PricingPage = () => {
                                                        text-white"
                                         >
                                             {price === 0 ? '0' : price.toLocaleString()}
-                                        </motion.span>
+                                        </Motion.span>
                                         <span className="text-gray-500
                                                          text-sm
                                                          font-inter
@@ -543,13 +543,13 @@ const PricingPage = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </motion.div>
+                            </Motion.div>
                         );
                     })}
                 </div>
 
                 {/* ── COMPARISON TABLE ────────────── */}
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
@@ -674,7 +674,7 @@ const PricingPage = () => {
                             </tbody>
                         </table>
                     </div>
-                </motion.div>
+                </Motion.div>
 
                 {/* ── FAQ ─────────────────────────── */}
                 <div className="mt-24 max-w-3xl mx-auto">
@@ -724,7 +724,7 @@ const PricingPage = () => {
                 </div>
 
                 {/* ── FOOTER CTA ──────────────────── */}
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8 }}
@@ -778,7 +778,7 @@ const PricingPage = () => {
                             Contact Sales
                         </a>
                     </div>
-                </motion.div>
+                </Motion.div>
 
             </div>
         </div>
@@ -803,15 +803,15 @@ const FaqItem = ({ question, answer }) => {
                                  font-medium pr-4">
                     {question}
                 </span>
-                <motion.span
+                <Motion.span
                     animate={{ rotate: open ? 45 : 0 }}
                     className="text-cyan-400 text-xl
                                flex-shrink-0 font-light"
                 >
                     +
-                </motion.span>
+                </Motion.span>
             </button>
-            <motion.div
+            <Motion.div
                 initial={false}
                 animate={{
                     height: open ? 'auto' : 0,
@@ -825,7 +825,7 @@ const FaqItem = ({ question, answer }) => {
                               leading-relaxed">
                     {answer}
                 </p>
-            </motion.div>
+            </Motion.div>
         </div>
     );
 };

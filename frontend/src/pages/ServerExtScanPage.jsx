@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
@@ -147,7 +147,7 @@ const ServerExtScanPage = () => {
                 {/* Scan Results Presentation */}
                 <AnimatePresence>
                     {results && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
@@ -260,7 +260,7 @@ const ServerExtScanPage = () => {
                                     </div>
                                 )}
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </div>

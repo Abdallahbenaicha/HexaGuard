@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -116,7 +116,7 @@ export default function OnboardingTour() {
             {visible && (
                 <>
                     {/* Backdrop */}
-                    <motion.div
+                    <Motion.div
                         key="backdrop"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -126,7 +126,7 @@ export default function OnboardingTour() {
                     />
 
                     {/* Modal */}
-                    <motion.div
+                    <Motion.div
                         key="modal"
                         initial={{ opacity: 0, scale: 0.92, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -167,7 +167,7 @@ export default function OnboardingTour() {
 
                             {/* Content */}
                             <AnimatePresence mode="wait">
-                                <motion.div
+                                <Motion.div
                                     key={step}
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -184,7 +184,7 @@ export default function OnboardingTour() {
                                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                                         {_t(current.descKey)}
                                     </p>
-                                </motion.div>
+                                </Motion.div>
                             </AnimatePresence>
 
                             {/* Footer */}
@@ -213,7 +213,7 @@ export default function OnboardingTour() {
                                 </button>
                             </div>
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 </>
             )}
         </AnimatePresence>

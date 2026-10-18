@@ -1,9 +1,9 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Shield, Zap, Search, Lock, Cpu, Globe } from 'lucide-react';
 
-const ServiceCard = ({ icon: Icon, title, desc, delay }) => (
-    <motion.div
+const ServiceCard = ({ icon: _Icon, title, desc, delay }) => (
+    <Motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -15,7 +15,7 @@ const ServiceCard = ({ icon: Icon, title, desc, delay }) => (
         
         <div className="relative z-10">
             <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 border border-cyan-500/20">
-                <Icon className="w-6 h-6 text-cyan-400" />
+                <_Icon className="w-6 h-6 text-cyan-400" />
             </div>
             <h3 className="font-orbitron font-bold text-xl text-white mb-4 tracking-wider group-hover:text-cyan-400 transition-colors">
                 {title}
@@ -27,7 +27,7 @@ const ServiceCard = ({ icon: Icon, title, desc, delay }) => (
 
         {/* Bottom line animation */}
         <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-cyan-500 to-purple-500 group-hover:w-full transition-all duration-700" />
-    </motion.div>
+    </Motion.div>
 );
 
 const AboutSection = () => {

@@ -33,7 +33,9 @@ axios.interceptors.request.use((config) => {
                 config.headers['X-CSRFToken'] = csrfToken;
             }
         }
-    } catch (e) {}
+    } catch {
+        /* ignore */
+    }
     return config;
 });
 

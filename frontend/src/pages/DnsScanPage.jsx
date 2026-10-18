@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -72,7 +72,7 @@ function FindingCard({ finding }) {
             </button>
             <AnimatePresence>
                 {open && (
-                    <motion.div
+                    <Motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -94,7 +94,7 @@ function FindingCard({ finding }) {
                                 </div>
                             )}
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
         </div>
@@ -130,8 +130,6 @@ const DnsScanPage = () => {
 
     const meta    = results?.meta    || {};
     const findings= results?.findings || [];
-    const counts  = results?.counts  || {};
-    const total   = Object.values(counts).reduce((a, b) => a + b, 0);
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
@@ -199,7 +197,7 @@ const DnsScanPage = () => {
 
                 <AnimatePresence>
                     {results && (
-                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                        <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
                             {/* Status grid */}
                             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">
@@ -285,7 +283,7 @@ const DnsScanPage = () => {
                                     findings.map((f, i) => <FindingCard key={i} finding={f} />)
                                 )}
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </div>

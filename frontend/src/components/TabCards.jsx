@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Cpu, Binary, Zap, Network, Lock } from 'lucide-react';
 
@@ -63,7 +63,7 @@ const TabCards = ({ onSelect }) => {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-0 w-full max-w-7xl px-4 md:px-0">
             {cards.map((card, index) => (
-                <motion.div
+                <Motion.div
                     key={card.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -92,7 +92,7 @@ const TabCards = ({ onSelect }) => {
                             INITIALIZE ACTION <span className="text-sm">→</span>
                         </div>
                     </div>
-                </motion.div>
+                </Motion.div>
             ))}
         </div>
     );

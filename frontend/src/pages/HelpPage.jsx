@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
     HelpCircle, Globe, Server, Zap, Lock, Settings,
@@ -163,7 +163,7 @@ function FaqItem({ q, a }) {
             </button>
             <AnimatePresence>
                 {open && (
-                    <motion.div
+                    <Motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -171,7 +171,7 @@ function FaqItem({ q, a }) {
                         className="overflow-hidden"
                     >
                         <p className="pb-4 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{a}</p>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
         </div>

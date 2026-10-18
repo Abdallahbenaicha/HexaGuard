@@ -30,7 +30,7 @@ const ResultsPanel = ({ findings = [], total, attackChains = [], kevFindings = [
 
     const risk = ['critical', 'high', 'medium', 'low'].find(s => counts[s]) || 'info';
 
-    const handleTriageChange = async (vulnId, newStatus, index) => {
+    const handleTriageChange = async (vulnId, newStatus) => {
         if (!vulnId) return;
         setTriageUpdating(prev => ({ ...prev, [vulnId]: true }));
         try {
@@ -38,7 +38,7 @@ const ResultsPanel = ({ findings = [], total, attackChains = [], kevFindings = [
                 triage_status: newStatus,
             }, { withCredentials: true });
             setTriageStates(prev => ({ ...prev, [vulnId]: newStatus }));
-        } catch (err) {
+        } catch {
             alert('Failed to update triage status.');
         } finally {
             setTriageUpdating(prev => ({ ...prev, [vulnId]: false }));

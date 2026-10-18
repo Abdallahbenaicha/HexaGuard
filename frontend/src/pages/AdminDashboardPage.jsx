@@ -49,12 +49,12 @@ const getLast7Days = () => {
     return days;
 };
 
-const StatCard = ({ icon: Icon, label, value, sub, color }) => (
+const StatCard = ({ icon: _Icon, label, value, sub, color }) => (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
         <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
-                <Icon className="w-5 h-5" />
+                <_Icon className="w-5 h-5" />
             </div>
         </div>
         <div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const ScanProgress = ({ loading }) => {
     if (!loading) return null;
@@ -18,7 +18,7 @@ const ScanProgress = ({ loading }) => {
             </div>
             
             <div className="w-full max-w-md bg-gray-800 h-1 rounded-full overflow-hidden">
-                <motion.div 
+                <Motion.div 
                     initial={{ x: '-100%' }}
                     animate={{ x: '100%' }}
                     transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}

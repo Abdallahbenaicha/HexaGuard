@@ -26,10 +26,9 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Za-z_]', argsIgnorePattern: '^_' }],
-      'no-empty': 'warn',
-      'no-useless-escape': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+      'no-empty': 'error',
+      'no-useless-escape': 'error',
       'react-hooks/rules-of-hooks': 'error',
       'react-refresh/only-export-components': 'warn',
     },

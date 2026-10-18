@@ -9,14 +9,12 @@ import {
 import { useLang } from "../context/LangContext";
 
 export default function CaseFilesPage() {
-  const { lang, t } = useLang();
+  const { lang } = useLang();
   const isAr = lang === "ar";
 
   const [cases, setCases] = useState([]);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [activeCase, setActiveCase] = useState(null);
-  const [loadingList, setLoadingList] = useState(true);
-  const [loadingDetail, setLoadingDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [logFilter, setLogFilter] = useState("");
   const [evaluationResult, setEvaluationResult] = useState(null);
@@ -32,7 +30,6 @@ export default function CaseFilesPage() {
 
   const fetchCases = useCallback(async () => {
     try {
-      setLoadingList(true);
       const res = await axios.get("/api/casefiles");
       if (res.data.ok) {
         setCases(res.data.cases || []);
@@ -42,19 +39,16 @@ export default function CaseFilesPage() {
       }
     } catch (err) {
       console.error("Failed to load case files", err);
-    } finally {
-      setLoadingList(false);
     }
   }, [selectedCaseId]);
 
   useEffect(() => {
     fetchCases();
-  }, []);
+  }, [fetchCases]);
 
   const fetchCaseDetail = useCallback(async (caseId) => {
     if (!caseId) return;
     try {
-      setLoadingDetail(true);
       setEvaluationResult(null);
       const res = await axios.get(`/api/casefiles/${caseId}`);
       if (res.data.ok) {
@@ -65,8 +59,6 @@ export default function CaseFilesPage() {
       }
     } catch (err) {
       console.error("Failed to load case detail", err);
-    } finally {
-      setLoadingDetail(false);
     }
   }, []);
 

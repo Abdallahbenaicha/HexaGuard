@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import AnimatedCubes from './AnimatedCubes';
 
 const HeroSection = () => {
@@ -39,7 +39,7 @@ const HeroSection = () => {
                             flex flex-col justify-center
                             px-6 md:px-12 max-w-7xl mx-auto w-full
                             pt-20">
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1, ease: 'easeOut' }}
@@ -47,7 +47,7 @@ const HeroSection = () => {
                 >
 
                     {/* Main headline */}
-                    <motion.h1
+                    <Motion.h1
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.9, delay: 0.4 }}
@@ -61,10 +61,10 @@ const HeroSection = () => {
                                          tracking-[0.3em] mt-2 uppercase">
                             Security Platform
                         </span>
-                    </motion.h1>
+                    </Motion.h1>
 
                     {/* Subtitle */}
-                    <motion.p
+                    <Motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 1, delay: 0.7 }}
@@ -79,10 +79,10 @@ const HeroSection = () => {
                         </span>{' '}
                         intelligence and Gemini 2.0 Flash
 expert analysis.
-                    </motion.p>
+                    </Motion.p>
 
                     {/* CTA */}
-                    <motion.div
+                    <Motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 1 }}
@@ -101,12 +101,12 @@ expert analysis.
                         >
                             INITIALIZE SCAN →
                         </a>
-                    </motion.div>
-                </motion.div>
+                    </Motion.div>
+                </Motion.div>
             </div>
 
             {/* Scroll Indicator */}
-            <motion.div 
+            <Motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 2 }}
@@ -114,13 +114,13 @@ expert analysis.
             >
                 <span className="text-[10px] font-orbitron text-gray-500 tracking-[0.3em] uppercase">Scroll</span>
                 <div className="w-[1px] h-12 bg-gradient-to-b from-cyan-500/60 to-transparent relative overflow-hidden">
-                    <motion.div 
+                    <Motion.div 
                         animate={{ y: [0, 48] }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                         className="absolute top-0 left-0 w-full h-1/3 bg-cyan-400"
                     />
                 </div>
-            </motion.div>
+            </Motion.div>
 
             {/* Bottom gradient fade */}
             <div className="absolute bottom-0 left-0 w-full h-48 z-[2]

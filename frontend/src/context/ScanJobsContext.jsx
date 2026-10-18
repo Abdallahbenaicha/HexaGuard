@@ -57,7 +57,7 @@ export const ScanJobsProvider = ({ children }) => {
     }, [user]);
 
     useEffect(() => {
-        if (!user) { setJobs([]); clearInterval(timerRef.current); return; }
+        if (!user) { clearInterval(timerRef.current); return; }
 
         // Request browser notification permission once
         if (Notification?.permission === 'default') {
@@ -65,9 +65,12 @@ export const ScanJobsProvider = ({ children }) => {
         }
 
         failCountRef.current = 0;
-        fetchJobs();
+        const initialTimer = setTimeout(fetchJobs, 0);
         timerRef.current = setInterval(fetchJobs, POLL_INTERVAL_MS);
-        return () => clearInterval(timerRef.current);
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(timerRef.current);
+        };
     }, [user, fetchJobs]);
 
     const startJob = useCallback(async (endpoint, payload) => {

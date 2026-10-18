@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -56,8 +56,8 @@ const SCAN_TYPE_BADGE = {
 
 // ── Small reusable cards ──────────────────────────────────────────────────────
 
-const PersonalStatCard = ({ label, value, icon: Icon, colorClass, delay }) => (
-    <motion.div
+const PersonalStatCard = ({ label, value, icon: _Icon, colorClass, delay }) => (
+    <Motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay }}
@@ -66,11 +66,11 @@ const PersonalStatCard = ({ label, value, icon: Icon, colorClass, delay }) => (
         <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</h3>
             <div className={`p-2 rounded-lg ${colorClass}`}>
-                <Icon className="w-5 h-5" />
+                <_Icon className="w-5 h-5" />
             </div>
         </div>
         <div className="text-3xl font-bold text-slate-900 dark:text-white font-mono">{value}</div>
-    </motion.div>
+    </Motion.div>
 );
 
 const RiskProgressBar = ({ score }) => {
@@ -223,13 +223,13 @@ const DashboardPage = () => {
                     </h2>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {QUICK_SCANS.map(({ labelKey, to, icon: Icon, color }) => (
+                    {QUICK_SCANS.map(({ labelKey, to, icon: _Icon, color }) => (
                         <Link
                             key={to}
                             to={to}
                             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs font-semibold transition-all duration-150 ${color}`}
                         >
-                            <Icon className="w-4 h-4" />
+                            <_Icon className="w-4 h-4" />
                             {t(labelKey)}
                         </Link>
                     ))}

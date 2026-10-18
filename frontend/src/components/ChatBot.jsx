@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const SUGGESTIONS = [
@@ -63,7 +63,7 @@ function MessageBubble({ msg }) {
   }, [msg.content]);
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
@@ -104,7 +104,7 @@ function MessageBubble({ msg }) {
           <span className="text-purple-300 text-xs">⬡</span>
         </div>
       )}
-    </motion.div>
+    </Motion.div>
   );
 }
 
@@ -287,7 +287,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
           <p className="text-[9px] text-gray-600 mb-2 font-mono tracking-wider uppercase">Quick questions</p>
           <div className="flex flex-wrap gap-1.5">
             {SUGGESTIONS.slice(0, 4).map((s, i) => (
-              <motion.button
+              <Motion.button
                 key={i}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -295,7 +295,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
                 className="text-[10px] text-gray-500 border border-white/10 rounded-full px-3 py-1.5 hover:border-cyan-500/40 hover:text-cyan-400 hover:bg-cyan-500/5 transition-all font-inter"
               >
                 {s}
-              </motion.button>
+              </Motion.button>
             ))}
           </div>
         </div>
@@ -309,14 +309,14 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
         <MessageBubble key={i} msg={m} />
       ))}
       {loading && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start gap-2">
+        <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start gap-2">
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
             <span className="text-cyan-400 text-xs">✦</span>
           </div>
           <div className="bg-white/[0.04] border border-white/8 rounded-2xl rounded-bl-sm px-4 py-3">
             <TypingDots />
           </div>
-        </motion.div>
+        </Motion.div>
       )}
       <div ref={bottomRef} />
     </div>
@@ -340,7 +340,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
           placeholder="Ask ARIA about any security topic…"
           className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-gray-200 text-[12px] font-inter resize-none focus:outline-none focus:border-cyan-500/50 focus:bg-black/60 transition-all placeholder-gray-600 min-h-[44px] max-h-[100px] overflow-y-auto scrollbar-none"
         />
-        <motion.button
+        <Motion.button
           onClick={() => sendMessage()}
           disabled={!input.trim() || loading}
           whileHover={{ scale: 1.05 }}
@@ -354,7 +354,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
           }}
         >
           <span className="text-cyan-400" style={{ transform: 'rotate(-45deg)' }}>➤</span>
-        </motion.button>
+        </Motion.button>
       </div>
       <p className="text-[9px] text-center text-gray-700 mt-2 font-inter tracking-wider">
         Shift+Enter for new line · Enter to send
@@ -368,7 +368,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
       <>
         <AnimatePresence>
           {open && (
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, scale: 0.92, y: 24 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 24 }}
@@ -385,11 +385,11 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
               <Suggestions />
               <Messages />
               <InputBar />
-            </motion.div>
+            </Motion.div>
           )}
         </AnimatePresence>
 
-        <motion.button
+        <Motion.button
           onClick={() => setOpen(o => !o)}
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.93 }}
@@ -408,18 +408,18 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
         >
           <AnimatePresence mode="wait">
             {open ? (
-              <motion.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}
-                className="text-white text-xl leading-none">×</motion.span>
+              <Motion.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}
+                className="text-white text-xl leading-none">×</Motion.span>
             ) : (
-              <motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}
-                className="text-cyan-400 text-xl">✦</motion.span>
+              <Motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}
+                className="text-cyan-400 text-xl">✦</Motion.span>
             )}
           </AnimatePresence>
-        </motion.button>
+        </Motion.button>
 
         <AnimatePresence>
           {!open && (
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
@@ -429,7 +429,7 @@ const ChatBot = ({ context = null, position = 'fixed', scanFindings = null }) =>
             >
               <p className="text-[11px] text-gray-300 font-inter">Ask <span className="text-cyan-400 font-semibold">ARIA</span> about security</p>
               <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-2 h-2 rotate-45 bg-black/80 border-r border-t border-white/10" />
-            </motion.div>
+            </Motion.div>
           )}
         </AnimatePresence>
       </>

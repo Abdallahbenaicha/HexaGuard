@@ -23,10 +23,10 @@ const setBookmarks = (arr) => localStorage.setItem(BOOKMARK_KEY, JSON.stringify(
 const makeTargetId = (t) => `${t.platform}::${t.program_handle}::${t.asset}`;
 
 // ─── Stat mini-card ────────────────────────────────────────────────────────────
-const MiniStat = ({ label, value, icon: Icon, color }) => (
+const MiniStat = ({ label, value, icon: _Icon, color }) => (
   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
-      <Icon className="w-5 h-5" />
+      <_Icon className="w-5 h-5" />
     </div>
     <div>
       <div className="text-2xl font-bold text-white tabular-nums">{value ?? '—'}</div>
@@ -303,12 +303,8 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
   const policy    = target?.scan_policy ?? { status: 'UNKNOWN', confidence: 0, signals: [] };
   const status    = policy.status;
   const tier      = target?.authorization_tier ?? 'MANUAL_VERIFICATION_REQUIRED';
-  const asset     = target?.asset?.replace(/^\*\./, '') ?? '';
-  const [checked, setChecked] = useState(false);
-
   const isTier1    = tier === 'VERIFIED_AUTOMATED_ALLOWED';
   const isBlocked  = tier === 'OUT_OF_SCOPE' || status === 'OUT_OF_SCOPE';
-  const isTier0    = !isTier1 && !isBlocked;
 
   // P1.1: Engine selection and rate limits
   const [rateLimit, setRateLimit] = useState(isBlocked ? 5 : 50);
@@ -363,7 +359,7 @@ const PolicyGateModal = ({ target, onClose, onConfirm }) => {
           {/* Target */}
           <div className="bg-slate-800 rounded-xl px-4 py-3">
             <div className="text-xs text-slate-500 mb-1">Target</div>
-            <code className="text-cyan-400 text-sm font-mono">{asset}</code>
+            <code className="text-cyan-400 text-sm font-mono">{target?.asset}</code>
             <div className="text-xs text-slate-500 mt-1">{target?.program_name}</div>
           </div>
 
@@ -824,7 +820,6 @@ const TargetHistoryModal = ({ target, onClose }) => {
 
   useEffect(() => {
     if (!target) return;
-    setLoading(true);
     axios.get('/api/bounty/targets/history', {
       params: { asset: target.asset, platform: target.platform },
       withCredentials: true,
@@ -1129,9 +1124,6 @@ export default function BountyTargetsPage() {
     : `${Math.round(cacheAge / 60)}m ago`;
 
   // ─ Total stats breakdown ───────────────────────────────────────────────────
-  const totalAutoScan   = stats ? Object.values(stats).reduce((s, p) => s + (p.authorized_for_automated_scanning ?? p.allowed ?? p.auto_ok ?? 0), 0) : null;
-  const totalManualOk   = stats ? Object.values(stats).reduce((s, p) => s + (p.authorized_for_manual_review ?? 0), 0) : null;
-  const totalUnknown    = stats ? Object.values(stats).reduce((s, p) => s + (p.unknown_authorization ?? p.unknown ?? 0), 0) : null;
   const totalBounty     = stats ? Object.values(stats).reduce((s, p) => s + (p.with_bounty ?? 0), 0) : null;
 
 

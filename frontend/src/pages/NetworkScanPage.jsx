@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
@@ -245,7 +245,7 @@ const NetworkScanPage = () => {
 
                     <AnimatePresence mode="wait">
                         {results ? (
-                            <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} className="space-y-6">
+                            <Motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} className="space-y-6">
                                 {/* Risk banner */}
                                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
                                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -322,13 +322,13 @@ const NetworkScanPage = () => {
                                 <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
                                     <ReportExportBar reportToken={results.report_token} />
                                 </div>
-                            </motion.div>
+                            </Motion.div>
                         ) : loading ? (
-                            <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/50">
+                            <Motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/50">
                                 <Activity className="w-12 h-12 text-primary-500 animate-pulse mb-6" />
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Synchronizing Recon Data</h3>
                                 <p className="text-sm text-slate-500 text-center max-w-sm px-4">Intercepting network packets and mapping target surface.</p>
-                            </motion.div>
+                            </Motion.div>
                         ) : (
                             <div className="h-96 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900">
                                 <Server className="w-16 h-16 text-slate-200 dark:text-slate-700 mb-6" />

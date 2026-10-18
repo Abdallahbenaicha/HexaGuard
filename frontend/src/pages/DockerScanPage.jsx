@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -79,7 +79,7 @@ function FindingCard({ finding }) {
             </button>
             <AnimatePresence>
                 {open && (
-                    <motion.div
+                    <Motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -95,7 +95,7 @@ function FindingCard({ finding }) {
                                 </pre>
                             </div>
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
         </div>
@@ -312,7 +312,7 @@ const DockerScanPage = () => {
                 {/* Results */}
                 <AnimatePresence>
                     {results && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="space-y-6"
@@ -376,7 +376,7 @@ const DockerScanPage = () => {
                                     findings.map((f, i) => <FindingCard key={i} finding={f} />)
                                 )}
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </div>

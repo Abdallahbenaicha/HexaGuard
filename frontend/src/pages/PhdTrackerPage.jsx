@@ -306,7 +306,6 @@ function SkillJourneyModal({ opp, lang, onClose }) {
 
   useEffect(() => {
     if (!opp) return;
-    setLoading(true);
     axios.get(`${API}/api/phd/opportunities/${opp.id}/skill-journey`, { withCredentials: true })
       .then(r => setData(r.data))
       .catch(e => setError(e.response?.data?.error || 'Failed to load skill journey'))
@@ -441,7 +440,6 @@ function ProposalHookModal({ opp, lang, onClose }) {
 
   useEffect(() => {
     if (!opp) return;
-    setLoading(true);
     axios.post(`${API}/api/phd/generate-proposal-hook`, {
       opportunity_id: opp.id,
       language: lang,
@@ -656,7 +654,7 @@ function AcademicDossierModal({ opp, lang, onClose }) {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-    } catch (err) {
+    } catch {
       alert(isRtl ? 'حدث خطأ أثناء تصدير PDF' : 'Error exporting PDF dossier');
     } finally {
       setExportingPdf(false);
@@ -682,7 +680,7 @@ function AcademicDossierModal({ opp, lang, onClose }) {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-    } catch (err) {
+    } catch {
       alert(isRtl ? 'حدث خطأ أثناء تصدير حزمة ZIP' : 'Error exporting ZIP bundle');
     } finally {
       setExportingZip(false);
@@ -1409,7 +1407,7 @@ function LiveDiscoveryView({ lang, onSaveToTracker, onOpenSkillJourney, onOpenDo
   const [query, setQuery] = useState('cybersecurity');
   const [results, setResults] = useState([]);
   const [sources, setSources] = useState([]);
-  const [sourceStatus, setSourceStatus] = useState({});
+  const [, setSourceStatus] = useState({});
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [savedIds, setSavedIds] = useState(new Set());
@@ -1442,7 +1440,8 @@ function LiveDiscoveryView({ lang, onSaveToTracker, onOpenSkillJourney, onOpenDo
           timestamp: res.data.search_timestamp,
         });
       }
-    } catch (err) {
+    } catch {
+      /* ignore */
     } finally {
       setLoading(false);
       fetchSources();
@@ -1464,7 +1463,9 @@ function LiveDiscoveryView({ lang, onSaveToTracker, onOpenSkillJourney, onOpenDo
         setSavedIds(prev => new Set([...prev, item.id]));
         if (onSaveToTracker) onSaveToTracker(item);
       }
-    } catch (err) {}
+    } catch {
+      /* ignore */
+    }
   };
 
   const filteredResults = results.filter(r => {
@@ -1973,8 +1974,7 @@ function DeadlineRadarView({ lang, onOpenSkillJourney, onOpenProposalHook, onOpe
 }
 
 /* ─── Upcoming step item ─────────────────────────────────────────────────── */
-function UpcomingItem({ item, lang }) {
-  const isRtl = lang === 'ar';
+function UpcomingItem({ item }) {
   const daysKey = 'الأيام المتبقية';
   const days = item[daysKey];
   const urgent = days && parseInt(days) > 0 && parseInt(days) <= 7;
@@ -2000,8 +2000,7 @@ function UpcomingItem({ item, lang }) {
 }
 
 /* ─── Application log item ────────────────────────────────────────────────── */
-function AppLogItem({ app, lang }) {
-  const isRtl = lang === 'ar';
+function AppLogItem({ app }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-800 bg-slate-900/40">
       <div className="text-[9px] text-slate-600 font-mono shrink-0 w-20">
@@ -2041,7 +2040,7 @@ function DeduplicationAuditPanel({ lang, onRefreshOpps }) {
       if (res.data?.ok) {
         setMsg(isRtl ? `✓ تم إنشاء نسخة احتياطية: ${res.data.backup_file}` : `✓ Backup created: ${res.data.backup_file}`);
       }
-    } catch (err) {
+    } catch {
       setMsg(isRtl ? '✕ فشل إنشاء النسخة الاحتياطية' : '✕ Backup failed');
     } finally {
       setLoading(false);
@@ -2058,7 +2057,7 @@ function DeduplicationAuditPanel({ lang, onRefreshOpps }) {
         fetchAudit();
         if (onRefreshOpps) onRefreshOpps();
       }
-    } catch (err) {
+    } catch {
       setMsg(isRtl ? '✕ فشل تطبيق التوحيد' : '✕ Apply failed');
     } finally {
       setLoading(false);
@@ -2294,7 +2293,9 @@ export default function PhdTrackerPage() {
       setStats(sRes.data.stats);
       setOpps(oRes.data.opportunities || []);
       setTotalOpps(oRes.data.total || 0);
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     finally { setLoading(false); }
   };
 
@@ -2504,7 +2505,7 @@ export default function PhdTrackerPage() {
             {tab === 'discovery' && (
               <LiveDiscoveryView
                 lang={lang}
-                onSaveToTracker={(item) => {
+                onSaveToTracker={(_item) => {
                   fetchOpps().then(r => {
                     setOpps(r.data.opportunities || []);
                     setTotalOpps(r.data.total || 0);

@@ -513,7 +513,7 @@ const ModalHeader = ({ target, viewMode, onViewMode, onClose }) => {
       </div>
       {/* View mode toggles */}
       <div className="flex items-center gap-1 bg-slate-800 rounded-xl p-1">
-        {VIEW_MODES.map(({ id, icon: Icon, label }) => (
+        {VIEW_MODES.map(({ id, icon: _Icon, label }) => (
           <button
             key={id}
             onClick={() => onViewMode(id)}
@@ -522,7 +522,7 @@ const ModalHeader = ({ target, viewMode, onViewMode, onClose }) => {
               viewMode === id ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-white'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <_Icon className="w-3.5 h-3.5" />
           </button>
         ))}
       </div>
@@ -535,7 +535,7 @@ const ModalHeader = ({ target, viewMode, onViewMode, onClose }) => {
 
 const TabBar = ({ tabs, activeTab, onTab }) => (
   <div className="flex border-b border-slate-800 flex-shrink-0 overflow-x-auto">
-    {tabs.map(({ id, label, icon: Icon }) => (
+    {tabs.map(({ id, label, icon: _Icon }) => (
       <button
         key={id}
         onClick={() => onTab(id)}
@@ -545,7 +545,7 @@ const TabBar = ({ tabs, activeTab, onTab }) => (
             : 'border-transparent text-slate-400 hover:text-white'
         }`}
       >
-        <Icon className="w-3.5 h-3.5" /> {label}
+        <_Icon className="w-3.5 h-3.5" /> {label}
       </button>
     ))}
   </div>

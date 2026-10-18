@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
@@ -17,10 +17,10 @@ const SEVERITY_COLORS = {
     info:     'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
 };
 
-const MetaCard = ({ icon: Icon, label, value, ok }) => (
+const MetaCard = ({ icon: _Icon, label, value, ok }) => (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
         <div className={`p-2 rounded-lg ${ok === true ? 'bg-green-500/10' : ok === false ? 'bg-red-500/10' : 'bg-slate-700/60'}`}>
-            <Icon className={`w-4 h-4 ${ok === true ? 'text-green-400' : ok === false ? 'text-red-400' : 'text-slate-400'}`} />
+            <_Icon className={`w-4 h-4 ${ok === true ? 'text-green-400' : ok === false ? 'text-red-400' : 'text-slate-400'}`} />
         </div>
         <div className="min-w-0">
             <div className="text-[10px] text-slate-500 uppercase tracking-widest font-orbitron">{label}</div>
@@ -106,7 +106,7 @@ const SslScanPage = () => {
                                 placeholder="example.com  or  https://example.com"
                                 className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/60 font-mono"
                             />
-                            <motion.button
+                            <Motion.button
                                 whileTap={{ scale: 0.97 }}
                                 onClick={handleScan}
                                 disabled={loading || !target.trim() || !permitted}
@@ -116,7 +116,7 @@ const SslScanPage = () => {
                                         : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'}`}
                             >
                                 {loading ? 'Scanning…' : 'Scan'}
-                            </motion.button>
+                            </Motion.button>
                         </div>
                     </div>
 
@@ -152,7 +152,7 @@ const SslScanPage = () => {
                 {/* Loading */}
                 <AnimatePresence>
                     {loading && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -166,7 +166,7 @@ const SslScanPage = () => {
                             <div className="font-orbitron text-xs text-cyan-400 tracking-widest animate-pulse uppercase">
                                 Probing TLS stack…
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
 
@@ -181,7 +181,7 @@ const SslScanPage = () => {
                 {/* Results */}
                 <AnimatePresence>
                     {results && !loading && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="space-y-6"
@@ -242,7 +242,7 @@ const SslScanPage = () => {
                                 total={findings.length}
                                 reportToken={results.report_token}
                             />
-                        </motion.div>
+                        </Motion.div>
                     )}
                 </AnimatePresence>
             </div>

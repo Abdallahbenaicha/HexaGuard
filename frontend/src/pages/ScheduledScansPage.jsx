@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import axios from 'axios';
-import { useLang } from '../context/LangContext';
 import {
     Clock, Plus, Trash2, Play, Pause, Globe, Server,
     Zap, Lock, Settings, Package, Layers, AlertTriangle,
@@ -29,11 +28,9 @@ const fmtDate = (iso) => {
 };
 
 export default function ScheduledScansPage() {
-    const { t } = useLang();
     const [scans, setScans]       = useState([]);
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState('');
-    const [creating, setCreating] = useState(false);
     const [form, setForm]         = useState({ scan_type: 'web', target: '', cron_expr: 'daily' });
     const [formErr, setFormErr]   = useState('');
     const [msg, setMsg]           = useState('');
@@ -102,7 +99,7 @@ export default function ScheduledScansPage() {
             </div>
 
             {/* Create form */}
-            <motion.div
+            <Motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm"
@@ -162,7 +159,7 @@ export default function ScheduledScansPage() {
                         <p className="sm:col-span-4 text-sm text-green-600 dark:text-green-400">{msg}</p>
                     )}
                 </form>
-            </motion.div>
+            </Motion.div>
 
             {/* List */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
