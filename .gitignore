@@ -134,6 +134,10 @@ scratch/
 frontend/src.rar
 *.rar
 test_*.db
+test_probe.db
+securax.db
+backend/backend/
+backend/archive_non_runtime/
 *_output.txt
 eslint_output.json
 vite_build_output.txt
