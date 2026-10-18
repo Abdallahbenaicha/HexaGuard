@@ -39,6 +39,9 @@ services:
       - key: SECURAX_ANALYST_PASSWORD
         sync: false
 
+      - key: PHD_DATA_DIR
+        value: tests/fixtures/phd
+
   # ── React Frontend (Static Site — always free on Render) ─────────────────────
   - type: web
     runtime: static

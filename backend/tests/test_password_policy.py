@@ -38,9 +38,21 @@ class TestPasswordPolicy:
         assert ok is True
         assert msg == ""
 
-    def test_enforce_password_rotation_invalidates_hash_and_removes_test_accounts(self):
+    def test_enforce_password_rotation_invalidates_hash_and_removes_test_accounts(self, tmp_path, monkeypatch):
+        from db.connection import init_db, _local, DB_PATH
+        temp_db = str(tmp_path / "test_rotation_isolated.db")
+        monkeypatch.setenv("DB_PATH", temp_db)
+        if hasattr(_local, "conn") and _local.conn:
+            try:
+                _local.conn.close()
+            except Exception:
+                pass
+            _local.conn = None
+            _local.conn_path = None
+
+        init_db()
+
         # Create test users
-        conn = _get_db()
         create_user("test_dummy_probe", "StrongPass123!@#", role="analyst")
         create_user("real_staff_member", "StrongPass123!@#", role="analyst")
 
@@ -67,3 +79,12 @@ class TestPasswordPolicy:
         assert staff is not None
         assert staff["must_change_password"] == 1
         assert "!INVALIDATED" in staff["password_hash"] or "!LOCKED" in staff["password_hash"]
+
+        # Clean up connection
+        if hasattr(_local, "conn") and _local.conn:
+            try:
+                _local.conn.close()
+            except Exception:
+                pass
+            _local.conn = None
+            _local.conn_path = None

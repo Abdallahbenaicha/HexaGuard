@@ -29,6 +29,7 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 COPY --chown=user . .
 
 ENV PORT=7860
+ENV PHD_DATA_DIR=/home/user/app/tests/fixtures/phd
 EXPOSE 7860
 
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
