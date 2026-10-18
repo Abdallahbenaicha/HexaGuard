@@ -134,6 +134,38 @@ def check_and_consume_quota(user_id: int) -> tuple[bool, int, int]:
     return True, new_used, max_scans
 
 
+def reserve_quota(user_id: int) -> tuple[bool, int, int]:
+    """
+    Provisionally reserve 1 scan slot for user_id.
+    Returns (allowed, scans_used_after, max_per_month).
+    """
+    return check_and_consume_quota(user_id)
+
+
+def commit_quota(user_id: int) -> bool:
+    """
+    Finalize/commit the reserved scan slot upon successful scan completion.
+    """
+    return True
+
+
+def release_quota(user_id: int) -> int:
+    """
+    Roll back / refund 1 scan slot if scan failed or was rejected after reservation.
+    Returns updated scans_used count.
+    """
+    row = _get_db().execute("SELECT role FROM users WHERE id=?", (user_id,)).fetchone()
+    if row and dict(row).get("role", row[0] if row else "") == "admin":
+        return 0
+
+    _exec(
+        "UPDATE subscriptions SET scans_used = MAX(0, COALESCE(scans_used, 1) - 1) WHERE user_id = ?",
+        (user_id,),
+    )
+    sub = get_subscription(user_id)
+    return sub.get("scans_used", 0)
+
+
 def increment_scan_count(user_id: int) -> int:
     """Increment scans_used counter by 1 for user_id and return new scans_used count."""
     _ensure_subscription(user_id)

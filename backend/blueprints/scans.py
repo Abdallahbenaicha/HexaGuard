@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, g, jsonify, render_template, request
 from flask_cors import cross_origin
 from flask_login import current_user, login_required
 
@@ -22,10 +22,13 @@ from blueprints.bounty import _bounty_engine_params, _enforce_bounty_policy_gate
 from database import (
     PLANS,
     check_and_consume_quota,
+    commit_quota,
     get_last_network_snapshot,
     get_subscription,
     get_system_stats,
     log_event,
+    release_quota,
+    reserve_quota,
     store_network_snapshot,
     store_report,
 )
@@ -61,7 +64,7 @@ scans_bp = Blueprint("scans", __name__)
 # Endpoints that consume a quota slot (all scan-creating POSTs)
 _QUOTA_PATHS = {
     "/start-scan",
-    "/scan_url", "/scan_network", "/analyze_code", "/fix_config",
+    "/scan_url", "/scan_network", "/analyze_code",
     "/scan_server", "/scan_dast", "/scan_ssl", "/scan_dependencies",
     "/scan_docker", "/scan_docker_image", "/scan_dns", "/scan_wordpress",
     "/api/scan/async/web", "/api/scan/async/network",
@@ -150,8 +153,8 @@ def enforce_scan_guards_and_quota():
         if not ok:
             return err_resp
 
-    # 2. Check quota only if target guard passed
-    allowed, used, max_scans = check_and_consume_quota(_cu.id)
+    # 2. Check quota only if target guard passed (provisional reservation)
+    allowed, used, max_scans = reserve_quota(_cu.id)
     if not allowed:
         sub = get_subscription(_cu.id)
         return jsonify({
@@ -161,7 +164,42 @@ def enforce_scan_guards_and_quota():
             "max_scans":  max_scans,
             "upgrade":    True,
         }), 402
+
+    g.quota_reserved = True
+    g.quota_user_id = _cu.id
+    g.quota_committed = False
     return None
+
+
+@scans_bp.after_request
+def finalize_scan_quota_after_request(response):
+    """Commit quota on successful scan execution, or release quota if response is an error."""
+    if getattr(g, "quota_reserved", False) and not getattr(g, "quota_committed", False):
+        user_id = getattr(g, "quota_user_id", None)
+        if user_id:
+            is_error = response.status_code >= 400
+            if not is_error and response.is_json:
+                data = response.get_json(silent=True)
+                if isinstance(data, dict) and data.get("ok") is False:
+                    is_error = True
+
+            if is_error:
+                release_quota(user_id)
+                g.quota_reserved = False
+            else:
+                commit_quota(user_id)
+                g.quota_committed = True
+    return response
+
+
+@scans_bp.teardown_request
+def handle_scan_quota_teardown(exc=None):
+    """Ensure reserved quota is refunded if an unhandled exception occurred during scan execution."""
+    if exc is not None and getattr(g, "quota_reserved", False) and not getattr(g, "quota_committed", False):
+        user_id = getattr(g, "quota_user_id", None)
+        if user_id:
+            release_quota(user_id)
+            g.quota_reserved = False
 
 
 # ── Internal helper ────────────────────────────────────────────────────────────
