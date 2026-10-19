@@ -1094,11 +1094,19 @@ def _bootstrap_admin():
         ("admin",   admin_pw,   "admin",   admin_must_change),
         ("analyst", analyst_pw, "analyst", analyst_must_change),
     ]:
-        # Skip if account already exists (never overwrite)
+        # If account already exists, re-hash from environment if password explicitly provided
         exists = _get_db().execute(
-            "SELECT 1 FROM users WHERE username=?", (username,)
+            "SELECT id FROM users WHERE username=?", (username,)
         ).fetchone()
         if exists:
+            env_pw = admin_env if username == "admin" else analyst_env
+            if env_pw:
+                pw_hash = bcrypt.hashpw(env_pw.encode(), bcrypt.gensalt()).decode()
+                _get_db().execute(
+                    "UPDATE users SET password_hash=?, must_change_password=0, is_active=1 WHERE username=?",
+                    (pw_hash, username),
+                )
+                _get_db().commit()
             continue
 
         perms = (

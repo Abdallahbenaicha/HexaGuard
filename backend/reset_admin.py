@@ -1,32 +1,33 @@
-"""
-Run this script to reset the admin (and optionally analyst) password.
-Works locally and on Render (use the Render Shell tab to run it).
+"""Run this script to reset the admin (and optionally analyst) password.
+Works locally and on Render/HuggingFace shells.
 
     python reset_admin.py
-    python reset_admin.py --admin-password MyNewPass123! --analyst-password Analyst456!
 """
 
 import argparse
+import getpass
 import os
 import sqlite3
 import sys
 from pathlib import Path
-
 import bcrypt
 
-DB_PATH = os.environ.get("DATABASE_URL", "securax.db")
-# If DATABASE_URL starts with sqlite:/// strip it
-if DB_PATH.startswith("sqlite:///"):
-    DB_PATH = DB_PATH[10:]
+# Ensure backend root is on sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from db.connection import DB_PATH, _resolve_db_path
+from forms import check_password_complexity
+
 
 def reset_password(username: str, new_password: str, conn: sqlite3.Connection) -> bool:
-    pw_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(12)).decode()
+    pw_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt(12)).decode("utf-8")
     cur = conn.execute(
-        "UPDATE users SET password_hash=?, must_change_password=1 WHERE username=?",
+        "UPDATE users SET password_hash=?, must_change_password=0, is_active=1 WHERE username=?",
         (pw_hash, username),
     )
     conn.commit()
     return cur.rowcount > 0
+
 
 def create_admin_if_missing(username: str, password: str, role: str, conn: sqlite3.Connection):
     import json
@@ -39,35 +40,58 @@ def create_admin_if_missing(username: str, password: str, role: str, conn: sqlit
         if role == "admin"
         else json.dumps(["run_scan", "view_reports"])
     )
-    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(12)).decode()
+    pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(12)).decode("utf-8")
     now = datetime.now(timezone.utc).isoformat()
     conn.execute(
-        "INSERT INTO users (username,password_hash,role,permissions,is_active,created_at,created_by)"
-        " VALUES (?,?,?,?,1,?,?)",
+        "INSERT INTO users (username,password_hash,role,permissions,is_active,created_at,created_by,must_change_password)"
+        " VALUES (?,?,?,?,1,?,?,0)",
         (username, pw_hash, role, perms, now, "reset_script"),
     )
     conn.commit()
     return True
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Reset SecuraX admin/analyst passwords")
-    parser.add_argument("--admin-password",   default="Admin@2024!",   help="New admin password")
-    parser.add_argument("--analyst-password", default="Analyst@2024!", help="New analyst password")
-    parser.add_argument("--db",               default=DB_PATH,          help="Path to SQLite DB")
+    resolved_db_path = _resolve_db_path(DB_PATH or "securax.db")
+    parser = argparse.ArgumentParser(description="Reset SecuraX admin/analyst passwords securely")
+    parser.add_argument("--admin-password", default=None, help="New admin password (if omitted, prompts securely via getpass)")
+    parser.add_argument("--analyst-password", default=None, help="New analyst password (if omitted, prompts securely via getpass)")
+    parser.add_argument("--db", default=resolved_db_path, help="Path to SQLite DB")
     args = parser.parse_args()
 
-    db_path = args.db
+    db_path = _resolve_db_path(args.db)
     if not Path(db_path).exists():
         print(f"[!] Database not found at: {db_path}")
         print("    Make sure the Flask app has been started at least once to create the DB.")
         sys.exit(1)
 
+    admin_pw = args.admin_password or os.environ.get("SECURAX_ADMIN_PASSWORD")
+    if not admin_pw:
+        try:
+            admin_pw = getpass.getpass("Enter new password for 'admin': ")
+            conf = getpass.getpass("Confirm new password for 'admin': ")
+            if admin_pw != conf:
+                print("[!] Passwords do not match.")
+                sys.exit(1)
+        except (KeyboardInterrupt, EOFError):
+            print("\n[!] Aborted.")
+            sys.exit(1)
+
+    is_valid, reason = check_password_complexity(admin_pw, username="admin")
+    if not is_valid:
+        print(f"[!] Admin password does not meet security requirements: {reason}")
+        sys.exit(1)
+
+    analyst_pw = args.analyst_password or os.environ.get("SECURAX_ANALYST_PASSWORD")
+
     conn = sqlite3.connect(db_path)
 
     for username, password, role in [
-        ("admin",   args.admin_password,   "admin"),
-        ("analyst", args.analyst_password, "analyst"),
+        ("admin", admin_pw, "admin"),
+        ("analyst", analyst_pw, "analyst"),
     ]:
+        if not password:
+            continue
         created = create_admin_if_missing(username, password, role, conn)
         if created:
             print(f"[+] Created missing user '{username}' with role '{role}'")
@@ -76,16 +100,9 @@ def main():
             status = "OK" if ok else "NOT FOUND"
             print(f"[{'OK' if ok else '!'}] Reset password for '{username}': {status}")
 
-    print()
-    print("=" * 50)
-    print(f"  Admin login   : admin / {args.admin_password}")
-    print(f"  Analyst login : analyst / {args.analyst_password}")
-    print("=" * 50)
-    print()
-    print("Restart the Flask app after running this script.")
-
     conn.close()
+    print("\n[SUCCESS] Credentials updated securely. Password plaintext is never stored or echoed.")
+
 
 if __name__ == "__main__":
     main()
-

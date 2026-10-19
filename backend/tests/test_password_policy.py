@@ -54,27 +54,27 @@ class TestPasswordPolicy:
 
         # Create test users
         create_user("test_dummy_probe", "StrongPass123!@#", role="analyst")
-        create_user("real_staff_member", "StrongPass123!@#", role="analyst")
+        create_user("real_staff_member", "Password123!", role="analyst")
 
         # Capture output to ensure no hashes or passwords are printed
         buf = io.StringIO()
         old_stdout = sys.stdout
         try:
             sys.stdout = buf
-            enforce_password_rotation()
+            enforce_password_rotation(apply=True)
         finally:
             sys.stdout = old_stdout
 
         output = buf.getvalue()
         # Ensure no plaintext passwords or bcrypt hashes leaked in output
         assert "$2b$" not in output
-        assert "StrongPass" not in output
+        assert "Password123" not in output
 
         # Verify test account was removed
         test_u = get_user_by_username("test_dummy_probe")
         assert test_u is None
 
-        # Verify staff member hash is invalidated and must_change_password=1
+        # Verify staff member with weak password is invalidated and must_change_password=1
         staff = get_user_by_username("real_staff_member")
         assert staff is not None
         assert staff["must_change_password"] == 1
