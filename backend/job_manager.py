@@ -194,6 +194,14 @@ def run_in_background(job_id: str, fn, *args, **kwargs) -> None:
             logger.info("job done | job_id=%s", job_id)
         except Exception as exc:
             logger.exception("job failed | job_id=%s", job_id)
+            job = _jobs.get(job_id)
+            if job and job.get("user_id"):
+                try:
+                    from db.subscriptions import release_quota
+                    release_quota(job["user_id"])
+                    logger.info("released quota for user %s on async job failure", job["user_id"])
+                except Exception as r_exc:
+                    logger.warning("failed to release quota for user %s: %s", job["user_id"], r_exc)
             update_job(
                 job_id,
                 status="error",

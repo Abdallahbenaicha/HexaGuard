@@ -125,20 +125,25 @@ def check_and_consume_quota(user_id: int) -> tuple[bool, int, int]:
         )
         scans_used = 0
 
-    if scans_used >= max_scans:
-        return False, scans_used, max_scans
-
-    new_used = scans_used + 1
-    _exec(
-        "UPDATE subscriptions SET scans_used=? WHERE user_id=?",
-        (new_used, user_id),
+    # Atomic conditional increment: strictly check scans_used < max_scans during the write
+    cur = _exec(
+        "UPDATE subscriptions SET scans_used = scans_used + 1 WHERE user_id = ? AND scans_used < ?",
+        (user_id, max_scans),
     )
-    return True, new_used, max_scans
+    sub_after = _get_db().execute(
+        "SELECT scans_used FROM subscriptions WHERE user_id=?", (user_id,)
+    ).fetchone()
+    used_after = sub_after[0] if sub_after else scans_used
+
+    if cur.rowcount == 1:
+        return True, used_after, max_scans
+    else:
+        return False, used_after, max_scans
 
 
 def reserve_quota(user_id: int) -> tuple[bool, int, int]:
     """
-    Provisionally reserve 1 scan slot for user_id.
+    Provisionally reserve 1 scan slot for user_id atomically.
     Returns (allowed, scans_used_after, max_per_month).
     """
     return check_and_consume_quota(user_id)
