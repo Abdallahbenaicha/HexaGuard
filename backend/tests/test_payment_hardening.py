@@ -31,8 +31,13 @@ class TestPaymentHardening:
         with pytest.raises(RuntimeError, match="CRITICAL SECURITY ERROR: DEMO_MODE cannot be enabled in production"):
             create_app()
 
-    def test_bogus_payment_ref_pi_rejected(self, client):
+    def test_bogus_payment_ref_pi_rejected(self, client, monkeypatch):
         """Bogus transaction 'pi_AAAAAAAAAAAAAAAAAAAA' must be rejected (regex bypass fix)."""
+        import db.subscriptions
+        def _mock_raise(ref, sec):
+            raise RuntimeError("Payment intent not found")
+        monkeypatch.setattr(db.subscriptions, "_fetch_intent", _mock_raise)
+
         # Create non-admin user
         uname = "regular_user_pay1"
         create_user(uname, "SecurePassword123!", role="analyst")
@@ -102,3 +107,141 @@ class TestPaymentHardening:
             assert resp.status_code in (402, 403)
             data = resp.get_json()
             assert data["ok"] is False
+
+    def test_payment_path_traversal_ref_rejected(self, client):
+        """Payment reference containing path traversal ('../') must be rejected."""
+        uname = "user_traversal_ref"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        with patch.dict(os.environ, {"PAYMENT_GATEWAY_SECRET": "sk_live_secretkey123456789"}):
+            resp = client.post("/api/subscription/upgrade", json={
+                "plan": "pro",
+                "payment_ref": "pi_12345678/../../charges/ch_1"
+            })
+            assert resp.status_code in (400, 402)
+            data = resp.get_json()
+            assert data["ok"] is False
+
+    def test_underpaid_amount_rejected(self, client, monkeypatch):
+        """A payment of 1 dollar (100 cents) for a 12,000 DZD plan must be rejected."""
+        import db.subscriptions
+        uname = "user_underpaid"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        # Mock intent with $1.00 (100 cents)
+        intent = {
+            "status": "succeeded",
+            "amount_received": 100,
+            "currency": "dzd",
+            "metadata": {"user_id": str(user["id"]), "plan": "pro"}
+        }
+        monkeypatch.setattr(db.subscriptions, "_fetch_intent", lambda ref, sec: intent, raising=False)
+
+        with patch.dict(os.environ, {"PAYMENT_GATEWAY_SECRET": "sk_live_secretkey123456789"}):
+            resp = client.post("/api/subscription/upgrade", json={
+                "plan": "pro",
+                "payment_ref": "pi_underpaid12345"
+            })
+            assert resp.status_code == 400
+            data = resp.get_json()
+            assert data["ok"] is False
+            assert get_subscription(user["id"])["plan"] == "free"
+
+    def test_intent_missing_metadata_rejected(self, client, monkeypatch):
+        """A succeeded payment intent missing user_id/plan in metadata must be rejected."""
+        import db.subscriptions
+        uname = "user_no_meta"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        intent = {
+            "status": "succeeded",
+            "amount_received": 1200000,
+            "currency": "dzd",
+            "metadata": {}  # Missing user_id and plan
+        }
+        monkeypatch.setattr(db.subscriptions, "_fetch_intent", lambda ref, sec: intent, raising=False)
+
+        with patch.dict(os.environ, {"PAYMENT_GATEWAY_SECRET": "sk_live_secretkey123456789"}):
+            resp = client.post("/api/subscription/upgrade", json={
+                "plan": "pro",
+                "payment_ref": "pi_nometadata1234"
+            })
+            assert resp.status_code == 400
+            data = resp.get_json()
+            assert data["ok"] is False
+
+    def test_intent_user_id_mismatch_rejected(self, client, monkeypatch):
+        """A payment belonging to another user must be rejected."""
+        import db.subscriptions
+        uname = "user_attacker"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        intent = {
+            "status": "succeeded",
+            "amount_received": 1200000,
+            "currency": "dzd",
+            "metadata": {"user_id": "999999", "plan": "pro"}  # Belongs to another user
+        }
+        monkeypatch.setattr(db.subscriptions, "_fetch_intent", lambda ref, sec: intent, raising=False)
+
+        with patch.dict(os.environ, {"PAYMENT_GATEWAY_SECRET": "sk_live_secretkey123456789"}):
+            resp = client.post("/api/subscription/upgrade", json={
+                "plan": "pro",
+                "payment_ref": "pi_victimtoken123"
+            })
+            assert resp.status_code == 400
+            data = resp.get_json()
+            assert data["ok"] is False
+
+    def test_sk_test_rejected_in_production(self, client):
+        """sk_test_ keys must be strictly rejected when FLASK_ENV=production."""
+        uname = "user_sk_test_prod"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        with patch.dict(os.environ, {
+            "PAYMENT_GATEWAY_SECRET": "sk_test_1234567890abcdef",
+            "FLASK_ENV": "production"
+        }):
+            resp = client.post("/api/subscription/upgrade", json={
+                "plan": "pro",
+                "payment_ref": "pi_testtoken12345"
+            })
+            assert resp.status_code in (400, 403)
+            data = resp.get_json()
+            assert data["ok"] is False
+
+    def test_no_payment_ref_fails_even_in_testing(self, client):
+        """Attempting to upgrade without payment_ref must return 402 even if TESTING is True."""
+        uname = "user_no_ref_test"
+        create_user(uname, "SecurePassword123!", role="analyst")
+        user = get_user_by_username(uname)
+
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user["id"])
+
+        resp = client.post("/api/subscription/upgrade", json={
+            "plan": "pro"
+        })
+        assert resp.status_code == 402
+        data = resp.get_json()
+        assert data["ok"] is False

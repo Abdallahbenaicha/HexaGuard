@@ -1211,30 +1211,22 @@ def api_upgrade_subscription():
     payment_ref = (data.get("payment_ref") or data.get("receipt_id") or "").strip()
 
     if plan != "free" and not is_admin:
-        from flask import current_app
-        is_testing = current_app.config.get("TESTING") or os.environ.get("TESTING")
-        demo_mode = os.environ.get("DEMO_MODE", "").lower() in ("true", "1", "yes")
-        is_prod = os.environ.get("FLASK_ENV") == "production" or os.environ.get("RENDER")
+        if not payment_ref:
+            return jsonify({
+                "ok": False,
+                "error": "Payment required to upgrade to a paid plan. Please complete checkout or provide a valid payment reference.",
+                "code": "PAYMENT_REQUIRED",
+            }), 402
 
-        if (is_testing or (demo_mode and not is_prod)) and not payment_ref:
-            pass
-        else:
-            if not payment_ref:
-                return jsonify({
-                    "ok": False,
-                    "error": "Payment required to upgrade to a paid plan. Please complete checkout or provide a valid payment reference.",
-                    "code": "PAYMENT_REQUIRED",
-                }), 402
-
-            from db.subscriptions import verify_payment
-            pay_ok, pay_msg = verify_payment(payment_ref, current_user.id, plan)
-            if not pay_ok:
-                code_status = 403 if "gateway" in pay_msg.lower() or "disabled" in pay_msg.lower() else 400
-                return jsonify({
-                    "ok": False,
-                    "error": pay_msg,
-                    "code": "PAYMENT_VERIFICATION_FAILED",
-                }), code_status
+        from db.subscriptions import verify_payment
+        pay_ok, pay_msg = verify_payment(payment_ref, current_user.id, plan)
+        if not pay_ok:
+            code_status = 403 if "no payment gateway configured" in pay_msg.lower() or "refused in production" in pay_msg.lower() else 400
+            return jsonify({
+                "ok": False,
+                "error": pay_msg,
+                "code": "PAYMENT_VERIFICATION_FAILED",
+            }), code_status
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     ok = set_subscription(

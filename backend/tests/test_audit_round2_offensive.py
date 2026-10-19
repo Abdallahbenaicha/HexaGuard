@@ -12,7 +12,7 @@ Verifies strict remediation of all critical attack vectors:
 import os
 import sys
 import io
-import fitz
+from pypdf import PdfReader
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -85,13 +85,14 @@ class TestOffensiveSubscriptionQuota:
         assert sub_free["scans_used"] == 5, f"Expected scans_used=5 preserved, got {sub_free['scans_used']}"
         assert sub_free["remaining"] == 0, f"Remaining scans on free must be 0, got {sub_free['remaining']}"
 
-    def test_upgrade_invalid_payment_ref_rejected(self, app):
+    def test_upgrade_invalid_payment_ref_rejected(self, app, monkeypatch):
         """Paid plan upgrade with invalid payment_ref must be rejected with 400."""
         client = app.test_client()
         client.post("/api/auth/login", json={"username": "analyst_attacker", "password": "Password123!"})
 
         # Temporarily enable payment verification by unsetting TESTING flag
         app.config["TESTING"] = False
+        monkeypatch.setenv("PAYMENT_GATEWAY_SECRET", "sk_live_dummysecret123456789")
         try:
             res = client.post("/api/subscription/upgrade", json={
                 "plan": "pro",
@@ -184,8 +185,8 @@ class TestOffensivePDFArabicF5:
         pdf_bytes = buf.getvalue()
         assert pdf_bytes.startswith(b"%PDF-")
 
-        # PyMuPDF verification: extract text from rendered document
-        pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        assert len(pdf_doc) >= 1
-        page_text = pdf_doc[0].get_text()
+        # pypdf verification: extract text from rendered document
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        assert len(reader.pages) >= 1
+        page_text = "".join(p.extract_text() or "" for p in reader.pages)
         assert ";lt;" not in page_text

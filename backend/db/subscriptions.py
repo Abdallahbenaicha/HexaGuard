@@ -2,8 +2,10 @@
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
+import urllib.parse
 import uuid
 from datetime import datetime, timedelta, timezone
 import bcrypt
@@ -316,69 +318,72 @@ def is_payment_ref_used(payment_ref: str) -> bool:
     return row is not None
 
 
+_REF_RE = re.compile(r"^pi_[A-Za-z0-9]{8,64}$")
+
+
+def _fetch_intent(ref: str, secret: str) -> dict:
+    """Fetch PaymentIntent from payment provider API (monkeypatched in tests)."""
+    quoted_ref = urllib.parse.quote(ref, safe="")
+    req = urllib.request.Request(
+        f"https://api.stripe.com/v1/payment_intents/{quoted_ref}",
+        headers={
+            "Authorization": f"Bearer {secret}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode())
+
+
 def verify_payment(payment_ref: str, user_id: int, plan: str) -> tuple[bool, str]:
     """Verify payment with actual provider, checking amount, currency, status, user ownership, and prevent reuse."""
     ref = (payment_ref or "").strip()
     if not ref:
         return False, "Missing payment reference."
 
+    gateway_secret = (os.environ.get("PAYMENT_GATEWAY_SECRET") or os.environ.get("STRIPE_SECRET_KEY") or "").strip()
+    if not gateway_secret:
+        return False, "No payment gateway configured. Self-service plan upgrades are currently disabled."
+
+    if gateway_secret.startswith("sk_test_") and os.environ.get("FLASK_ENV") == "production":
+        return False, "Test gateway key refused in production."
+
+    if not _REF_RE.fullmatch(ref):
+        return False, "Invalid payment reference."
+
     if is_payment_ref_used(ref):
         return False, "Payment reference has already been used."
-
-    gateway_secret = os.environ.get("PAYMENT_GATEWAY_SECRET") or os.environ.get("STRIPE_SECRET_KEY")
-    if not gateway_secret:
-        if os.environ.get("TESTING") or os.environ.get("FLASK_ENV") == "testing":
-            gateway_secret = "test_secret"
-        else:
-            return False, "No payment gateway configured. Self-service plan upgrades are currently disabled."
 
     plan_info = PLANS.get(plan)
     if not plan_info:
         return False, f"Invalid plan '{plan}'."
 
-    expected_amount = float(plan_info.get("price_dzd", 0))
-    expected_currency = "dzd"
-
-    # In test / sandbox environments
-    if gateway_secret.startswith("sk_test_") or gateway_secret == "test_secret":
-        # Reject bogus tokens like 'pi_AAAAAAAAAAAAAAAAAAAA' or unstructured tokens
-        if ref == "pi_AAAAAAAAAAAAAAAAAAAA" or not (ref.startswith("pi_valid") or ref.startswith("cs_valid")):
-            return False, "Invalid or unverified payment reference."
-
-        rec_ok = record_payment(ref, user_id, plan, expected_amount, expected_currency.upper())
-        if not rec_ok:
-            return False, "Payment reference has already been used."
-        return True, "Payment verified successfully."
-
-    # Live payment provider integration (e.g. Stripe API)
     try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"https://api.stripe.com/v1/payment_intents/{ref}",
-            headers={
-                "Authorization": f"Bearer {gateway_secret}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            p_data = json.loads(resp.read().decode())
-            status = p_data.get("status")
-            amount = float(p_data.get("amount", 0)) / 100.0  # Stripe cents
-            currency = p_data.get("currency", "").lower()
-            metadata = p_data.get("metadata", {})
-
-            if status != "succeeded":
-                return False, f"Payment status is '{status}', expected 'succeeded'."
-
-            if metadata.get("user_id") and str(metadata.get("user_id")) != str(user_id):
-                return False, "Payment ownership mismatch: user ID does not match transaction."
-
-            rec_ok = record_payment(ref, user_id, plan, amount, currency.upper())
-            if not rec_ok:
-                return False, "Payment reference has already been used."
-            return True, "Payment verified successfully."
+        p_data = _fetch_intent(ref, gateway_secret)
     except Exception as exc:
         logger.warning("Payment gateway verification failed for ref %s: %s", ref, exc)
         return False, "Payment verification failed at payment gateway."
+
+    md = p_data.get("metadata") or {}
+    expected_amount = int(plan_info.get("price_dzd", 0)) * 100  # smallest currency unit (cents)
+    status = p_data.get("status")
+    currency = p_data.get("currency", "").lower()
+    amount_received = int(p_data.get("amount_received", p_data.get("amount", 0)))
+
+    ok = (
+        status == "succeeded"
+        and currency == "dzd"
+        and amount_received >= expected_amount
+        and str(md.get("user_id")) == str(user_id)
+        and md.get("plan") == plan
+    )
+    if not ok:
+        return False, "Payment does not match this account and plan."
+
+    rec_ok = record_payment(ref, user_id, plan, expected_amount / 100.0, "DZD")
+    if not rec_ok:
+        return False, "Payment reference already used."
+
+    return True, "Payment verified successfully."
 
 
