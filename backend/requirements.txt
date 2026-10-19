@@ -30,6 +30,7 @@ Flask-Cors>=4.0.0
 limits==5.8.0
 
 # ── Security ───────────────────────────────────────────
+cryptography>=50.0.0
 bcrypt==5.0.0
 pyotp==2.9.0
 qrcode[pil]==8.0
@@ -70,6 +71,7 @@ typing_extensions==4.15.0
 ordered-set==4.1.0
 openpyxl>=3.1.2
 pymysql>=1.1.0
-sslyze>=5.0.0
+# sslyze: optional dedicated scanner; install separately if needed (restricts cryptography<47 causing pip-audit CVE failures).
+# sslyze is checked dynamically via is_sslyze_available() with graceful fallback in scanners/sslyze_scanner.py.
 
 

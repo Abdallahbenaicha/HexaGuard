@@ -1,0 +1,11 @@
+# ──────────────────────────────────────────────────────
+#  SecuraX Security — Gitleaks Ignore List
+#  Documents historical commit secrets scheduled for manual git filter-repo purge
+#  See docs/HUMAN_ACTIONS.md Section 5 for the manual git filter-repo purge procedure
+# ──────────────────────────────────────────────────────
+
+# Historical .env commit in git history (b77d54a and prior commits)
+b77d54a:backend/.env:generic-api-key
+b77d54a:.env:generic-api-key
+82703e0:backend/.env:generic-api-key
+82703e0:.env:generic-api-key
