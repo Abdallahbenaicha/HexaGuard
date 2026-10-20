@@ -1,0 +1,91 @@
+# SecuraX Evaluation Lab — Benchmark Acceptance Thresholds
+# Version: 1.0.0 (Master Specification v5 Phase 2)
+# Internal acceptance limits for benchmark evaluation; changing thresholds requires a new protocol version.
+
+version: "1.0.0"
+last_updated: "2026-10-19"
+description: "Pre-committed benchmark acceptance thresholds per engine class and severity."
+
+engine_classes:
+  sast:
+    name: "Static Application Security Testing"
+    min_in_scope_recall: 0.70
+    min_absolute_recall: 0.50
+    min_precision_lower_bound: 0.60
+    max_fpr_negative_controls: 0.15
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+  dast:
+    name: "Dynamic Application Security Testing"
+    min_in_scope_recall: 0.60
+    min_absolute_recall: 0.40
+    min_precision_lower_bound: 0.50
+    max_fpr_negative_controls: 0.20
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.05
+    critical_review_mandated: true
+
+  sca:
+    name: "Software Composition Analysis"
+    min_in_scope_recall: 0.85
+    min_absolute_recall: 0.75
+    min_precision_lower_bound: 0.80
+    max_fpr_negative_controls: 0.10
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+  secret:
+    name: "Secret & Credential Scanner"
+    min_in_scope_recall: 0.85
+    min_absolute_recall: 0.75
+    min_precision_lower_bound: 0.80
+    max_fpr_negative_controls: 0.08
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+  server:
+    name: "Server Infrastructure Scanner"
+    min_in_scope_recall: 0.75
+    min_absolute_recall: 0.60
+    min_precision_lower_bound: 0.70
+    max_fpr_negative_controls: 0.15
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+  docker:
+    name: "Container & Dockerfile Scanner"
+    min_in_scope_recall: 0.75
+    min_absolute_recall: 0.60
+    min_precision_lower_bound: 0.70
+    max_fpr_negative_controls: 0.12
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+  network:
+    name: "Network & Port Scanner"
+    min_in_scope_recall: 0.80
+    min_absolute_recall: 0.65
+    min_precision_lower_bound: 0.80
+    max_fpr_negative_controls: 0.10
+    min_case_coverage: 1.00
+    max_execution_error_rate: 0.00
+    critical_review_mandated: true
+
+severity_weights:
+  critical: 4.0
+  high: 3.0
+  medium: 2.0
+  low: 1.0
+  info: 0.5
+
+mandatory_rules:
+  critical_fn_triggers_mandatory_review: true
+  critical_fp_triggers_mandatory_review: true
+  partial_run_never_promoted_to_pass: true
+  fpr_without_negative_controls_is_na: true

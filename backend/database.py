@@ -41,6 +41,7 @@ try:
     from db.subscriptions import *
     from db.skills import *
     from db.learning import *
+    from db.lab import *
 except ImportError:
     from backend import db
     from backend.db.connection import (
@@ -66,6 +67,7 @@ except ImportError:
     from backend.db.subscriptions import *
     from backend.db.skills import *
     from backend.db.learning import *
+    from backend.db.lab import *
 
 # Module-level attribute fallback
 def __getattr__(name: str):

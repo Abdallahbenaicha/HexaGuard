@@ -139,6 +139,7 @@ def create_app() -> Flask:
     from blueprints.intelligence import intelligence_bp
     from blueprints.phd import phd_bp
     from blueprints.dossier import dossier_bp
+    from blueprints.lab import lab_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(scans_bp)
@@ -159,6 +160,7 @@ def create_app() -> Flask:
     app.register_blueprint(intelligence_bp)
     app.register_blueprint(phd_bp)
     app.register_blueprint(dossier_bp)
+    app.register_blueprint(lab_bp)
 
     # Bug Bounty Radar blueprint:
     # - Read-only browsing (targets, stats, history) available whenever DEPLOYMENT_MODE=local
