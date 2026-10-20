@@ -44,6 +44,7 @@ def client(tmp_path_factory):
 
     app = create_app()
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
     with app.app_context():
         init_db()
         create_user("bounty_tester", "TestPass123!", role="admin")

@@ -65,7 +65,7 @@ class TestSubscriptionPricing:
         data = res.get_json()
         assert "Invalid plan" in data.get("error", "")
 
-    def test_upgrade_plan_success_flow(self, app):
+    def test_upgrade_plan_success_flow(self, app, monkeypatch):
         """F-02: Successfully upgrade to Pro plan, verifying quota increase and event logging."""
         client = app.test_client()
         client.post("/api/auth/login", json={"username": "plan_user", "password": "TestPass123!"})
@@ -76,8 +76,12 @@ class TestSubscriptionPricing:
         assert res_initial.get_json()["plan"] == "free"
         assert res_initial.get_json()["max_scans_month"] == 1
 
+        # Mock payment verification to simulate successful checkout under hardened payment rules
+        import db.subscriptions
+        monkeypatch.setattr(db.subscriptions, "verify_payment", lambda ref, uid, plan: (True, "OK"))
+
         # Upgrade to Pro
-        res_upgrade = client.post("/api/subscription/upgrade", json={"plan": "pro"})
+        res_upgrade = client.post("/api/subscription/upgrade", json={"plan": "pro", "payment_ref": "pi_12345678abcdef"})
         assert res_upgrade.status_code == 200
         data = res_upgrade.get_json()
         assert data.get("ok") is True
