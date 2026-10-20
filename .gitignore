@@ -127,6 +127,7 @@ diagnose_engine.py
 
 # ── Audit artifacts (do NOT commit) ──────────────────────────
 backend/backups/
+*.bak
 *_output.txt
 *_output.json
 *_backup_*.json

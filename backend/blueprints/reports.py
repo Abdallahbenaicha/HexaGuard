@@ -1390,22 +1390,31 @@ def api_download_consent_pdf(token: str):
 
         _F = "Helvetica"
         _FB = "Helvetica-Bold"
-        for _cand_norm, _cand_bold, _cand_id, _cand_bid in [
+        _FONT_CANDIDATES = [
             ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf", "_SecNorm", "_SecBold"),
-            ("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf", "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf", "_SecNorm", "_SecBold"),
-            ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "_SecNorm", "_SecBold"),
-        ]:
-            if os.path.exists(_cand_norm):
+            ("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+             "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+             "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "_SecNorm", "_SecBold"),
+            ("/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+             "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf", "_SecNorm", "_SecBold"),
+        ]
+        for _fp, _fbp, _fn, _fbn in _FONT_CANDIDATES:
+            if os.path.exists(_fp):
                 try:
                     from reportlab.pdfbase import pdfmetrics
                     from reportlab.pdfbase.ttfonts import TTFont
-                    pdfmetrics.registerFont(TTFont(_cand_id, _cand_norm))
-                    _F = _cand_id
-                    if os.path.exists(_cand_bold):
-                        pdfmetrics.registerFont(TTFont(_cand_bid, _cand_bold))
-                        _FB = _cand_bid
+                    pdfmetrics.registerFont(TTFont(_fn, _fp))
+                    _F = _fn
+                    if os.path.exists(_fbp):
+                        pdfmetrics.registerFont(TTFont(_fbn, _fbp))
+                        pdfmetrics.registerFontFamily(_fn, normal=_fn, bold=_fbn)
+                        _FB = _fbn
                     else:
-                        _FB = _cand_id
+                        pdfmetrics.registerFontFamily(_fn, normal=_fn, bold=_fn)
+                        _FB = _fn
                 except Exception:
                     pass
                 break
