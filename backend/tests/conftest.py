@@ -10,7 +10,8 @@ import pytest
 _TEST_TEMP_DIR = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
 _TEST_TEMP_DB = os.path.join(_TEST_TEMP_DIR.name, "test_session_isolated.db")
 os.environ["DB_PATH"] = _TEST_TEMP_DB
-os.environ["TESTING"] = "1"
+os.environ.setdefault("SECURAX_ADMIN_PASSWORD", "Admin@2024!")
+os.environ.setdefault("SECURAX_ANALYST_PASSWORD", "Analyst@2024!")
 
 # Reset any thread-local connection and bootstrap schema on the isolated test database
 try:

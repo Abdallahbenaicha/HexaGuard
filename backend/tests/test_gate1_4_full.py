@@ -91,14 +91,16 @@ class TestGate14Suite(unittest.TestCase):
 
     # ── 2. Primary Workbook & Deduplication ──────────────────────────────
     def test_primary_workbook_and_deduplication(self):
+        from blueprints.phd import _invalidate_cache
+        _invalidate_cache()
         res = self.client.get('/api/phd/stats')
         self.assertEqual(res.status_code, 200)
         stats = res.get_json()['stats']
         self.assertIn('خريطة_فرص_الدكتوراه_الشاملة.xlsx', stats['primary_file'])
-        if stats.get('total_opportunities', 0) >= 400:
-            self.assertGreaterEqual(stats['total_opportunities'], 400)
+        if stats.get('total_opportunities') == 467:
+            self.assertEqual(stats['total_opportunities'], 467)
         else:
-            self.assertGreaterEqual(stats['total_opportunities'], 3)
+            self.assertEqual(stats['total_opportunities'], 7)
 
         # Check duplicate files are marked skipped
         sources = stats.get('sources', [])

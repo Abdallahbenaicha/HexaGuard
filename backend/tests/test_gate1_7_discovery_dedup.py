@@ -260,11 +260,16 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
 
     def test_workbook_deduplication_baseline_metrics(self):
         """_load_all() audits physical records and consolidates unique opportunities."""
+        from blueprints.phd import _invalidate_cache
+        _invalidate_cache()
         data = _load_all()
         opps = data.get("opportunities", [])
         report = data.get("dedup_report", {})
 
-        if report.get("raw_physical_records", 0) >= 400:
+        # Assert exact known dedup metrics deterministically:
+        # Synthetic fixtures: exactly 10 raw records, 3 merged, 7 consolidated unique.
+        # Real production research dataset: exactly 653 raw records, 186 merged, 467 unique.
+        if report.get("raw_physical_records") == 653:
             self.assertEqual(report.get("raw_physical_records"), 653)
             self.assertEqual(report.get("primary_authoritative_records"), 151)
             self.assertEqual(report.get("raw_secondary_parsed"), 502)
@@ -272,8 +277,12 @@ class TestGate17DiscoveryAndDedup(unittest.TestCase):
             self.assertEqual(len(opps), 467)
             self.assertEqual(report.get("consolidated_unique_records"), 467)
         else:
-            self.assertGreaterEqual(report.get("raw_physical_records", 0), 3)
-            self.assertGreaterEqual(len(opps), 3)
+            self.assertEqual(report.get("raw_physical_records"), 10)
+            self.assertEqual(report.get("primary_authoritative_records"), 3)
+            self.assertEqual(report.get("raw_secondary_parsed"), 7)
+            self.assertEqual(report.get("exact_duplicates_merged"), 3)
+            self.assertEqual(len(opps), 7)
+            self.assertEqual(report.get("consolidated_unique_records"), 7)
 
     def test_dedup_audit_endpoint(self):
         """GET /api/phd/dedup/audit returns complete audit metrics and missing fields."""
