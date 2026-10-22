@@ -13,22 +13,29 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 try:
-    from db.connection import _get_db, _exec
+    from db.connection import (
+        _get_db, _exec, _USE_MYSQL,
+        LAB_INDEX_ALLOWLIST, create_lab_index_if_not_exists, _extract_count,
+    )
     from db.audit import log_event
 except ImportError:
-    from backend.db.connection import _get_db, _exec
+    from backend.db.connection import (
+        _get_db, _exec, _USE_MYSQL,
+        LAB_INDEX_ALLOWLIST, create_lab_index_if_not_exists, _extract_count,
+    )
     from backend.db.audit import log_event
 
 logger = logging.getLogger(__name__)
 
 
-def init_lab_tables() -> None:
+def init_lab_tables(db=None) -> None:
     """Ensure the lab_targets, lab_ground_truth, and lab_benchmarks tables exist.
 
     Uses bounded VARCHAR primary keys and indexed columns for full MySQL InnoDB
     and SQLite compatibility.
     """
-    db = _get_db()
+    if db is None:
+        db = _get_db()
     # 1. Targets (Phase 1)
     db.execute("""
         CREATE TABLE IF NOT EXISTS lab_targets (
@@ -57,8 +64,6 @@ def init_lab_tables() -> None:
             updated_at           VARCHAR(50) NOT NULL
         )
     """)
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_targets_kind ON lab_targets (kind)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_targets_enabled ON lab_targets (enabled)")
 
     # 2. Ground Truth Registry (Phase 2)
     db.execute("""
@@ -90,9 +95,6 @@ def init_lab_tables() -> None:
             updated_at          VARCHAR(50) NOT NULL
         )
     """)
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_gt_dataset ON lab_ground_truth (dataset_id, dataset_version)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_gt_target ON lab_ground_truth (target_id)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_gt_split ON lab_ground_truth (split)")
 
     # 3. Benchmarks & Scorecards (Phase 2)
     db.execute("""
@@ -115,9 +117,8 @@ def init_lab_tables() -> None:
             updated_at            VARCHAR(50) NOT NULL
         )
     """)
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_bench_engine ON lab_benchmarks (engine_id)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_bench_target ON lab_benchmarks (target_id)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_lab_bench_status ON lab_benchmarks (benchmark_status)")
+    for (tbl, idx) in LAB_INDEX_ALLOWLIST:
+        create_lab_index_if_not_exists(tbl, idx, db=db)
     db.commit()
 
 
@@ -126,8 +127,8 @@ def seed_lab_targets(seed_file_path: Optional[str] = None) -> int:
     """Seed lab_targets from data file if table is empty or update missing entries."""
     init_lab_tables()
     db = _get_db()
-    row = db.execute("SELECT COUNT(*) FROM lab_targets").fetchone()
-    count = row[0] if row else 0
+    row = db.execute("SELECT COUNT(*) AS total_count FROM lab_targets").fetchone()
+    count = _extract_count(row, "total_count")
     if count > 0:
         return count
 
@@ -148,17 +149,24 @@ def seed_lab_targets(seed_file_path: Optional[str] = None) -> int:
 
     now = datetime.now(timezone.utc).isoformat()
     inserted = 0
-    for t in targets:
-        try:
-            db.execute("""
-                INSERT OR IGNORE INTO lab_targets (
-                    id, name, kind, scanners, address, source_url, license, legal_note,
-                    permitted_scan_types, rate_limit, max_concurrency, enabled, manifest_path,
-                    difficulty, resource_needs, setup_status, last_health_check,
-                    auth_source_url, auth_verified_at, auth_expires_at, expected_fingerprint,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+    is_mysql = getattr(db, "_c", None) is not None or _USE_MYSQL
+    conflict_clause = " ON DUPLICATE KEY UPDATE id = id" if is_mysql else " ON CONFLICT(id) DO NOTHING"
+    insert_sql = """
+        INSERT INTO lab_targets (
+            id, name, kind, scanners, address, source_url, license, legal_note,
+            permitted_scan_types, rate_limit, max_concurrency, enabled, manifest_path,
+            difficulty, resource_needs, setup_status, last_health_check,
+            auth_source_url, auth_verified_at, auth_expires_at, expected_fingerprint,
+            created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """ + conflict_clause
+
+    if hasattr(db, "begin"):
+        db.begin()
+
+    try:
+        for t in targets:
+            db.execute(insert_sql, (
                 t["id"],
                 t["name"],
                 t["kind"],
@@ -184,10 +192,24 @@ def seed_lab_targets(seed_file_path: Optional[str] = None) -> int:
                 now,
             ))
             inserted += 1
-        except Exception as exc:
-            logger.warning("Error seeding target %s: %s", t.get("id"), exc)
+        db.commit()
+    except Exception as exc:
+        rollback_exc = None
+        try:
+            db.rollback()
+        except Exception as r_err:
+            rollback_exc = r_err
 
-    db.commit()
+        if rollback_exc is None:
+            logger.error("Failed to seed lab targets; transaction rolled back: %s", exc)
+        else:
+            logger.error(
+                "Failed to seed lab targets; transaction rollback unconfirmed (rollback error: %s): %s",
+                rollback_exc,
+                exc,
+            )
+        raise
+
     logger.info("Seeded %d lab targets from %s", inserted, seed_file_path)
     return inserted
 
@@ -281,8 +303,8 @@ def seed_ground_truth_cases(seed_file_path: Optional[str] = None) -> int:
     """Seed ground truth cases from seed JSON file if table is empty."""
     init_lab_tables()
     db = _get_db()
-    row = db.execute("SELECT COUNT(*) FROM lab_ground_truth").fetchone()
-    count = row[0] if row else 0
+    row = db.execute("SELECT COUNT(*) AS total_count FROM lab_ground_truth").fetchone()
+    count = _extract_count(row, "total_count")
     if count > 0:
         return count
 
@@ -303,17 +325,24 @@ def seed_ground_truth_cases(seed_file_path: Optional[str] = None) -> int:
 
     now = datetime.now(timezone.utc).isoformat()
     inserted = 0
-    for c in cases:
-        try:
-            db.execute("""
-                INSERT OR IGNORE INTO lab_ground_truth (
-                    case_id, dataset_id, dataset_version, split, target_id, vulnerability_type,
-                    cwe, truth_state, expected_severity, location, expected_evidence,
-                    verification_method, eligible_engines, preconditions, difficulty,
-                    hint, explanation, learn_ref, is_negative_control, source_license,
-                    checksum, reviewers, last_validated, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+    is_mysql = getattr(db, "_c", None) is not None or _USE_MYSQL
+    conflict_clause = " ON DUPLICATE KEY UPDATE case_id = case_id" if is_mysql else " ON CONFLICT(case_id) DO NOTHING"
+    insert_sql = """
+        INSERT INTO lab_ground_truth (
+            case_id, dataset_id, dataset_version, split, target_id, vulnerability_type,
+            cwe, truth_state, expected_severity, location, expected_evidence,
+            verification_method, eligible_engines, preconditions, difficulty,
+            hint, explanation, learn_ref, is_negative_control, source_license,
+            checksum, reviewers, last_validated, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """ + conflict_clause
+
+    if hasattr(db, "begin"):
+        db.begin()
+
+    try:
+        for c in cases:
+            db.execute(insert_sql, (
                 c["case_id"],
                 c.get("dataset_id", "hexaguard_bench_core"),
                 c.get("dataset_version", "1.0.0"),
@@ -341,10 +370,24 @@ def seed_ground_truth_cases(seed_file_path: Optional[str] = None) -> int:
                 now,
             ))
             inserted += 1
-        except Exception as exc:
-            logger.warning("Error seeding ground truth case %s: %s", c.get("case_id"), exc)
+        db.commit()
+    except Exception as exc:
+        rollback_exc = None
+        try:
+            db.rollback()
+        except Exception as r_err:
+            rollback_exc = r_err
 
-    db.commit()
+        if rollback_exc is None:
+            logger.error("Failed to seed ground truth cases; transaction rolled back: %s", exc)
+        else:
+            logger.error(
+                "Failed to seed ground truth cases; transaction rollback unconfirmed (rollback error: %s): %s",
+                rollback_exc,
+                exc,
+            )
+        raise
+
     logger.info("Seeded %d ground truth cases from %s", inserted, seed_file_path)
     return inserted
 
@@ -436,14 +479,58 @@ def save_benchmark_scorecard(scorecard_data: Any) -> str:
     repeated_stats   = json.dumps(data.get("repeated_run_stats") or {})
     scorecard_json   = json.dumps(data)
 
-    db.execute("""
-        INSERT OR REPLACE INTO lab_benchmarks (
-            benchmark_id, protocol_version, engine_id, target_id, dataset_id,
-            dataset_version, execution_status, benchmark_status, status_reasons,
-            summary_counts, metrics, critical_review_flags, scorecard_json,
-            repeated_run_stats, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
+    is_mysql = getattr(db, "_c", None) is not None or _USE_MYSQL
+    if is_mysql:
+        upsert_sql = """
+            INSERT INTO lab_benchmarks (
+                benchmark_id, protocol_version, engine_id, target_id, dataset_id,
+                dataset_version, execution_status, benchmark_status, status_reasons,
+                summary_counts, metrics, critical_review_flags, scorecard_json,
+                repeated_run_stats, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            AS new_row
+            ON DUPLICATE KEY UPDATE
+                protocol_version      = new_row.protocol_version,
+                engine_id             = new_row.engine_id,
+                target_id             = new_row.target_id,
+                dataset_id            = new_row.dataset_id,
+                dataset_version       = new_row.dataset_version,
+                execution_status      = new_row.execution_status,
+                benchmark_status      = new_row.benchmark_status,
+                status_reasons        = new_row.status_reasons,
+                summary_counts        = new_row.summary_counts,
+                metrics               = new_row.metrics,
+                critical_review_flags = new_row.critical_review_flags,
+                scorecard_json        = new_row.scorecard_json,
+                repeated_run_stats    = new_row.repeated_run_stats,
+                updated_at            = new_row.updated_at
+        """
+    else:
+        upsert_sql = """
+            INSERT INTO lab_benchmarks (
+                benchmark_id, protocol_version, engine_id, target_id, dataset_id,
+                dataset_version, execution_status, benchmark_status, status_reasons,
+                summary_counts, metrics, critical_review_flags, scorecard_json,
+                repeated_run_stats, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(benchmark_id) DO UPDATE SET
+                protocol_version      = excluded.protocol_version,
+                engine_id             = excluded.engine_id,
+                target_id             = excluded.target_id,
+                dataset_id            = excluded.dataset_id,
+                dataset_version       = excluded.dataset_version,
+                execution_status      = excluded.execution_status,
+                benchmark_status      = excluded.benchmark_status,
+                status_reasons        = excluded.status_reasons,
+                summary_counts        = excluded.summary_counts,
+                metrics               = excluded.metrics,
+                critical_review_flags = excluded.critical_review_flags,
+                scorecard_json        = excluded.scorecard_json,
+                repeated_run_stats    = excluded.repeated_run_stats,
+                updated_at            = excluded.updated_at
+        """
+
+    db.execute(upsert_sql, (
         benchmark_id, protocol_version, engine_id, target_id, dataset_id,
         dataset_version, execution_status, benchmark_status, status_reasons,
         summary_counts, metrics, critical_flags, scorecard_json,
