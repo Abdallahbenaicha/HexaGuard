@@ -47,18 +47,54 @@ class _MySQLAdapter:
 
     def __init__(self, conn):
         self._c = conn
+        self._in_transaction = False
 
     def _fix(self, sql: str) -> str:
         return sql.replace("?", "%s")
 
+    def _invalidate(self):
+        """Reset transaction state and invalidate broken underlying connection."""
+        self._in_transaction = False
+        conn = self._c
+        self._c = None
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        if getattr(_local, "mysql_conn", None) is conn:
+            _local.mysql_conn = None
+
+    def begin(self):
+        """Explicitly begin a multi-statement transaction."""
+        if self._in_transaction:
+            raise sqlite3.OperationalError("cannot start a transaction within a transaction")
+        if not self._c:
+            raise sqlite3.OperationalError("cannot begin transaction on invalidated connection")
+        try:
+            self._c.begin()
+            self._in_transaction = True
+        except Exception as exc:
+            self._invalidate()
+            raise
+
     def execute(self, sql: str, params=()):
+        if not self._c:
+            raise sqlite3.OperationalError("cannot execute statement on invalidated connection")
         sql = self._fix(sql)
         cur = self._c.cursor()
         cur.execute(sql, params)
-        self._c.commit()
+        if not self._in_transaction:
+            try:
+                self._c.commit()
+            except Exception as exc:
+                self._invalidate()
+                raise
         return cur
 
     def executescript(self, sql: str):
+        if not self._c:
+            raise sqlite3.OperationalError("cannot execute script on invalidated connection")
         cur = self._c.cursor()
         for stmt in sql.split(";"):
             stmt = stmt.strip()
@@ -67,13 +103,36 @@ class _MySQLAdapter:
                     cur.execute(stmt)
                 except Exception as exc:
                     logger.debug("executescript stmt skipped: %s | %s", stmt[:60], exc)
-        self._c.commit()
+        if not self._in_transaction:
+            try:
+                self._c.commit()
+            except Exception as exc:
+                self._invalidate()
+                raise
 
     def commit(self):
-        self._c.commit()
+        if not self._c:
+            self._in_transaction = False
+            raise sqlite3.OperationalError("cannot commit invalidated connection")
+        try:
+            self._c.commit()
+        except Exception as exc:
+            self._invalidate()
+            raise
+        else:
+            self._in_transaction = False
 
     def rollback(self):
-        self._c.rollback()
+        if not self._c:
+            self._in_transaction = False
+            raise sqlite3.OperationalError("cannot rollback invalidated connection")
+        try:
+            self._c.rollback()
+        except Exception as exc:
+            self._invalidate()
+            raise
+        else:
+            self._in_transaction = False
 
 
 def _make_mysql_conn():
@@ -920,6 +979,83 @@ _SCHEMA_MYSQL = """
 """
 
 
+# ── Lab Index Allowlist & Safe Creation ──────────────────────────────────────
+LAB_INDEX_ALLOWLIST = {
+    ("lab_targets", "idx_lab_targets_kind"): ("kind",),
+    ("lab_targets", "idx_lab_targets_enabled"): ("enabled",),
+    ("lab_ground_truth", "idx_lab_gt_dataset"): ("dataset_id", "dataset_version"),
+    ("lab_ground_truth", "idx_lab_gt_target"): ("target_id",),
+    ("lab_ground_truth", "idx_lab_gt_split"): ("split",),
+    ("lab_benchmarks", "idx_lab_bench_engine"): ("engine_id",),
+    ("lab_benchmarks", "idx_lab_bench_target"): ("target_id",),
+    ("lab_benchmarks", "idx_lab_bench_status"): ("benchmark_status",),
+}
+
+
+def _extract_count(row, col_name: str = "total_count") -> int:
+    """Safely extract integer count from a query row across sqlite3.Row, tuple, and DictCursor."""
+    if not row:
+        return 0
+    if isinstance(row, dict):
+        val = row.get(col_name)
+        if val is None and len(row) > 0:
+            val = next(iter(row.values()))
+        return int(val or 0)
+    try:
+        return int(row[col_name])
+    except (TypeError, IndexError, KeyError):
+        return int(row[0])
+
+
+def create_lab_index_if_not_exists(table: str, index_name: str, db=None) -> None:
+    """Ensure a lab index exists safely on either SQLite or MySQL.
+
+    Uses an explicit allowlist to prevent arbitrary DDL, accepts the active
+    database connection to preserve initialization context, and catches only
+    PyMySQL error 1061 (ER_DUP_KEYNAME) for concurrent creation races.
+    """
+    key = (table, index_name)
+    if key not in LAB_INDEX_ALLOWLIST:
+        raise ValueError(f"Index {index_name} on {table} is not permitted by LAB_INDEX_ALLOWLIST")
+
+    columns = LAB_INDEX_ALLOWLIST[key]
+    if db is None:
+        db = _get_db()
+
+    is_mysql = getattr(db, "_c", None) is not None or _USE_MYSQL
+
+    if is_mysql:
+        try:
+            import pymysql
+            pymysql_op_err = pymysql.err.OperationalError
+        except ImportError:
+            pymysql_op_err = None
+
+        cur = db.execute(
+            "SELECT 1 FROM information_schema.statistics "
+            "WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s LIMIT 1",
+            (table, index_name),
+        )
+        if cur.fetchone():
+            return
+
+        cols_clause = ", ".join(f"`{c}`" for c in columns)
+        try:
+            db.execute(f"CREATE INDEX `{index_name}` ON `{table}` ({cols_clause})")
+            db.commit()
+        except Exception as exc:
+            if pymysql_op_err and isinstance(exc, pymysql_op_err) and exc.args and exc.args[0] == 1061:
+                logger.debug("Index %s on %s created concurrently by another worker", index_name, table)
+            elif exc.args and exc.args[0] == 1061:
+                logger.debug("Index %s on %s created concurrently by another worker", index_name, table)
+            else:
+                raise
+    else:
+        cols_clause = ", ".join(columns)
+        db.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_clause})")
+        db.commit()
+
+
 def init_db():
     db = _get_db()
     schema = _SCHEMA_MYSQL if _USE_MYSQL else _SCHEMA_SQLITE
@@ -1044,8 +1180,6 @@ def init_db():
             created_at           VARCHAR(50) NOT NULL,
             updated_at           VARCHAR(50) NOT NULL
         )""",
-        "CREATE INDEX IF NOT EXISTS idx_lab_targets_kind ON lab_targets (kind)",
-        "CREATE INDEX IF NOT EXISTS idx_lab_targets_enabled ON lab_targets (enabled)",
         # Evaluation Lab Ground Truth Registry (Master Spec v5 Phase 2)
         """CREATE TABLE IF NOT EXISTS lab_ground_truth (
             case_id             VARCHAR(128) PRIMARY KEY,
@@ -1074,9 +1208,6 @@ def init_db():
             created_at          VARCHAR(50) NOT NULL,
             updated_at          VARCHAR(50) NOT NULL
         )""",
-        "CREATE INDEX IF NOT EXISTS idx_lab_gt_dataset ON lab_ground_truth (dataset_id, dataset_version)",
-        "CREATE INDEX IF NOT EXISTS idx_lab_gt_target ON lab_ground_truth (target_id)",
-        "CREATE INDEX IF NOT EXISTS idx_lab_gt_split ON lab_ground_truth (split)",
         # Evaluation Lab Benchmarks & Scorecards (Master Spec v5 Phase 2)
         """CREATE TABLE IF NOT EXISTS lab_benchmarks (
             benchmark_id          VARCHAR(64) PRIMARY KEY,
@@ -1096,15 +1227,16 @@ def init_db():
             created_at            VARCHAR(50) NOT NULL,
             updated_at            VARCHAR(50) NOT NULL
         )""",
-        "CREATE INDEX IF NOT EXISTS idx_lab_bench_engine ON lab_benchmarks (engine_id)",
-        "CREATE INDEX IF NOT EXISTS idx_lab_bench_target ON lab_benchmarks (target_id)",
-        "CREATE INDEX IF NOT EXISTS idx_lab_bench_status ON lab_benchmarks (benchmark_status)",
     ]:
         try:
             db.execute(migration)
             db.commit()
         except (sqlite3.OperationalError, Exception):
             pass  # table/column already exists
+
+    # Evaluation Lab Indexes (via strict allowlist and engine-safe helper)
+    for (tbl, idx) in LAB_INDEX_ALLOWLIST:
+        create_lab_index_if_not_exists(tbl, idx, db=db)
 
     try:
         # M12: Fix corrupt role data on legacy probe row
