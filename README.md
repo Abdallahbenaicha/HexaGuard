@@ -209,6 +209,14 @@ On first login, users must change their initial password.
 | `MYSQL_PASS` | — | — | MySQL password |
 | `MYSQL_DB` | — | `hexaguard` | MySQL database name |
 
+> [!IMPORTANT]
+> **MySQL Backend Version Requirement**:
+> - When the MySQL backend is enabled, the supported server version is MySQL **8.0.19 or later**.
+> - This requirement is due to the row-alias syntax (`INSERT ... VALUES (...) AS new_row ON DUPLICATE KEY UPDATE ...`) used by the Evaluation Lab scorecard UPSERT (`save_benchmark_scorecard()`).
+> - MySQL 5.7 and MySQL 8.0.18 or earlier are not supported by the current implementation.
+> - MariaDB compatibility is not established by this requirement and must not be implied.
+> - This is a documented compatibility requirement for SecuraX; no live MySQL server validation has been performed as part of this task.
+
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Required | Description |
