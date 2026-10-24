@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import secrets
 import sqlite3
 import sys
@@ -42,6 +43,14 @@ _local = threading.local()
 #  MySQL adapter  — wraps pymysql connection with SQLite-compatible interface
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Narrow SQL-prefix regex to translate SQLite 'CREATE [UNIQUE] INDEX IF NOT EXISTS' into MySQL 'CREATE [UNIQUE] INDEX'
+_RE_MYSQL_INDEX_IF_NOT_EXISTS = re.compile(
+    r"^(\s*(?:--[^\n]*\n\s*)*CREATE\s+(?:UNIQUE\s+)?INDEX)\s+IF\s+NOT\s+EXISTS\b",
+    re.IGNORECASE,
+)
+
+
+
 class _MySQLAdapter:
     """Thin wrapper that makes a pymysql connection look like sqlite3.Connection."""
 
@@ -50,7 +59,13 @@ class _MySQLAdapter:
         self._in_transaction = False
 
     def _fix(self, sql: str) -> str:
-        return sql.replace("?", "%s")
+        sql = sql.replace("?", "%s")
+        if "AUTOINCREMENT" in sql:
+            sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "INT AUTO_INCREMENT PRIMARY KEY")
+            sql = sql.replace("AUTOINCREMENT", "AUTO_INCREMENT")
+        if "INDEX" in sql.upper():
+            sql = _RE_MYSQL_INDEX_IF_NOT_EXISTS.sub(r"\1", sql)
+        return sql
 
     def _invalidate(self):
         """Reset transaction state and invalidate broken underlying connection."""
@@ -98,11 +113,35 @@ class _MySQLAdapter:
         cur = self._c.cursor()
         for stmt in sql.split(";"):
             stmt = stmt.strip()
-            if stmt and not stmt.startswith("--"):
-                try:
-                    cur.execute(stmt)
-                except Exception as exc:
-                    logger.debug("executescript stmt skipped: %s | %s", stmt[:60], exc)
+            while stmt.startswith("--"):
+                newline_idx = stmt.find("\n")
+                if newline_idx == -1:
+                    stmt = ""
+                    break
+                stmt = stmt[newline_idx + 1:].strip()
+            if not stmt:
+                continue
+            stmt = self._fix(stmt)
+            try:
+                cur.execute(stmt)
+            except Exception as exc:
+                err_code = None
+                if getattr(exc, "args", None) and len(exc.args) > 0:
+                    try:
+                        err_code = int(exc.args[0])
+                    except (ValueError, TypeError):
+                        err_code = None
+                clean = stmt.upper()
+                is_dup = (
+                    (err_code == 1050 and bool(re.match(r"^CREATE\s+TABLE\b", clean)))
+                    or (err_code == 1061 and bool(re.match(r"^CREATE\s+(?:UNIQUE\s+)?INDEX\b", clean)))
+                )
+                if is_dup:
+                    logger.debug("executescript stmt skipped (expected duplicate): %s | %s", stmt[:60], exc)
+                else:
+                    self._invalidate()
+                    logger.error("executescript stmt failed: %s | %s", stmt[:80], exc)
+                    raise
         if not self._in_transaction:
             try:
                 self._c.commit()
@@ -976,6 +1015,112 @@ _SCHEMA_MYSQL = """
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     CREATE INDEX IF NOT EXISTS idx_pow_category ON proof_of_work_artifacts (category);
     CREATE INDEX IF NOT EXISTS idx_pow_status   ON proof_of_work_artifacts (status);
+
+    CREATE TABLE IF NOT EXISTS phd_opportunities (
+        id                  VARCHAR(64) PRIMARY KEY,
+        user_id             INT NOT NULL,
+        source_type         VARCHAR(64) NOT NULL DEFAULT 'user_added',
+        source_file         VARCHAR(255),
+        discovery_source    VARCHAR(255),
+        institution         VARCHAR(255),
+        country             VARCHAR(100),
+        program             VARCHAR(255),
+        field               VARCHAR(255),
+        funding             VARCHAR(100),
+        deadline            VARCHAR(50),
+        deadline_note       TEXT,
+        days_remaining      INT,
+        deadline_status     VARCHAR(50) NOT NULL DEFAULT 'unknown',
+        status              VARCHAR(50) NOT NULL DEFAULT 'researching',
+        status_ar           VARCHAR(100),
+        priority            VARCHAR(50) NOT NULL DEFAULT 'medium',
+        priority_ar         VARCHAR(100),
+        notes               TEXT,
+        contact             TEXT,
+        verified            VARCHAR(50),
+        supervisor          VARCHAR(255),
+        lab_url             VARCHAR(500),
+        application_url     VARCHAR(500),
+        funding_type        VARCHAR(100),
+        stipend_info        TEXT,
+        language_req        VARCHAR(255),
+        eligibility_note    TEXT,
+        raw_source_ref      TEXT,
+        record_type         VARCHAR(64) NOT NULL DEFAULT 'tracked_opportunity',
+        verification_status VARCHAR(64) NOT NULL DEFAULT 'unconfirmed',
+        added_at            VARCHAR(50) NOT NULL,
+        updated_at          VARCHAR(50) NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_user    ON phd_opportunities (user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_source  ON phd_opportunities (source_type, user_id);
+    CREATE INDEX IF NOT EXISTS idx_phd_opps_country ON phd_opportunities (user_id, country);
+
+    CREATE TABLE IF NOT EXISTS phd_discovery_cache (
+        id                  VARCHAR(64) PRIMARY KEY,
+        source_id           VARCHAR(64) NOT NULL,
+        source_name         VARCHAR(255) NOT NULL,
+        fetch_timestamp     VARCHAR(50) NOT NULL,
+        institution         VARCHAR(255),
+        country             VARCHAR(100),
+        program             VARCHAR(255),
+        field_keywords      TEXT,
+        funding_type        VARCHAR(100),
+        stipend_info        TEXT,
+        deadline_raw        VARCHAR(100),
+        deadline_parsed     VARCHAR(50),
+        deadline_status     VARCHAR(50) NOT NULL DEFAULT 'unknown',
+        supervisor          VARCHAR(255),
+        lab_url             VARCHAR(500),
+        application_url     VARCHAR(500),
+        language_req        VARCHAR(255),
+        eligibility_intl    INT NOT NULL DEFAULT -1,
+        confidence          FLOAT DEFAULT NULL,
+        raw_json            MEDIUMTEXT,
+        is_stale            TINYINT(1) NOT NULL DEFAULT 0,
+        last_verified       VARCHAR(50),
+        saved_opp_id        VARCHAR(64),
+        record_type         VARCHAR(64) NOT NULL DEFAULT 'verified_vacancy',
+        verification_status VARCHAR(64) NOT NULL DEFAULT 'unconfirmed'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_source   ON phd_discovery_cache (source_id, fetch_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_country  ON phd_discovery_cache (country);
+    CREATE INDEX IF NOT EXISTS idx_phd_disc_stale    ON phd_discovery_cache (is_stale, fetch_timestamp);
+
+    CREATE TABLE IF NOT EXISTS phd_source_health (
+        source_id           VARCHAR(64) PRIMARY KEY,
+        source_name         VARCHAR(255) NOT NULL,
+        source_url          VARCHAR(500),
+        source_type         VARCHAR(64) NOT NULL DEFAULT 'official_vacancy_portal',
+        access_method       VARCHAR(64) NOT NULL DEFAULT 'API',
+        last_fetch_at       VARCHAR(50),
+        last_success_at     VARCHAR(50),
+        last_error          TEXT,
+        last_http_status    INT,
+        fetch_count         INT NOT NULL DEFAULT 0,
+        error_count         INT NOT NULL DEFAULT 0,
+        result_count        INT NOT NULL DEFAULT 0,
+        raw_count           INT NOT NULL DEFAULT 0,
+        accepted_count      INT NOT NULL DEFAULT 0,
+        rejected_count      INT NOT NULL DEFAULT 0,
+        last_error_category VARCHAR(100),
+        next_action         TEXT,
+        enabled             TINYINT(1) NOT NULL DEFAULT 1,
+        status              VARCHAR(50) NOT NULL DEFAULT 'unknown'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE IF NOT EXISTS payments (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        payment_ref  VARCHAR(128) NOT NULL UNIQUE,
+        user_id      INT NOT NULL,
+        plan         VARCHAR(64) NOT NULL,
+        amount       DECIMAL(10, 2) NOT NULL,
+        currency     VARCHAR(10) NOT NULL DEFAULT 'DZD',
+        created_at   VARCHAR(50) NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_ref ON payments (payment_ref);
+    CREATE INDEX IF NOT EXISTS idx_payments_user       ON payments (user_id);
 """
 
 
@@ -1056,6 +1201,72 @@ def create_lab_index_if_not_exists(table: str, index_name: str, db=None) -> None
         db.commit()
 
 
+def _is_expected_migration_duplicate(exc: Exception, statement: str, is_mysql: bool) -> bool:
+    """Determine if a migration execution error is an expected, safe idempotent duplicate.
+
+    Distinguishes by database engine (SQLite vs MySQL) and by query context:
+    - ALTER TABLE ... ADD COLUMN:
+        * SQLite: sqlite3.OperationalError with 'duplicate column name'
+        * MySQL: PyMySQL error code 1060 (ER_DUP_FIELDNAME)
+    - CREATE TABLE:
+        * SQLite: Natively handled by IF NOT EXISTS; any error is unexpected and returns False
+        * MySQL: Error code 1050 (ER_TABLE_EXISTS_ERROR)
+    - CREATE INDEX:
+        * SQLite: Natively handled by IF NOT EXISTS; any error is unexpected and returns False
+        * MySQL: Error code 1061 (ER_DUP_KEYNAME)
+
+    Re-raises (returns False) for any other error including syntax errors, missing tables,
+    locked databases, disk I/O errors, or mismatched error codes.
+    """
+    clean_stmt = statement.strip()
+    while clean_stmt.startswith("--"):
+        newline_idx = clean_stmt.find("\n")
+        if newline_idx == -1:
+            return False
+        clean_stmt = clean_stmt[newline_idx + 1:].strip()
+    clean_stmt = clean_stmt.upper()
+
+    if is_mysql:
+        err_code = None
+        if getattr(exc, "args", None) and len(exc.args) > 0:
+            try:
+                err_code = int(exc.args[0])
+            except (ValueError, TypeError):
+                err_code = None
+
+        if err_code is None:
+            return False
+
+        # Context 1: ALTER TABLE ... ADD COLUMN -> MySQL 1060 (ER_DUP_FIELDNAME)
+        if clean_stmt.startswith("ALTER TABLE") and (" ADD COLUMN " in clean_stmt or " ADD " in clean_stmt):
+            return err_code == 1060
+
+        # Context 2: CREATE TABLE -> MySQL 1050 (ER_TABLE_EXISTS_ERROR)
+        if bool(re.match(r"^CREATE\s+TABLE\b", clean_stmt)):
+            return err_code == 1050
+
+        # Context 3: CREATE INDEX -> MySQL 1061 (ER_DUP_KEYNAME)
+        if bool(re.match(r"^CREATE\s+(?:UNIQUE\s+)?INDEX\b", clean_stmt)):
+            return err_code == 1061
+
+        return False
+
+    else:
+        # SQLite path
+        if not isinstance(exc, sqlite3.OperationalError):
+            return False
+
+        err_msg = str(exc).lower()
+
+        # Context 1: ALTER TABLE ... ADD COLUMN -> "duplicate column name"
+        if clean_stmt.startswith("ALTER TABLE") and (" ADD COLUMN " in clean_stmt or " ADD " in clean_stmt):
+            return "duplicate column name" in err_msg
+
+        # Context 2 & 3: CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS
+        # SQLite natively supports IF NOT EXISTS; any exception raised here is an unexpected failure.
+        return False
+
+
 def init_db():
     db = _get_db()
     schema = _SCHEMA_MYSQL if _USE_MYSQL else _SCHEMA_SQLITE
@@ -1080,8 +1291,12 @@ def init_db():
             try:
                 db.execute(migration)
                 db.commit()
-            except sqlite3.OperationalError:
-                pass  # column already exists
+            except sqlite3.OperationalError as exc:
+                if _is_expected_migration_duplicate(exc, migration, is_mysql=False):
+                    pass  # column already exists
+                else:
+                    logger.error("Legacy column migration failed: %s | %s", migration, exc)
+                    raise
 
     # Incremental migrations (safe to run repeatedly — each is idempotent)
     for migration in [
@@ -1231,8 +1446,13 @@ def init_db():
         try:
             db.execute(migration)
             db.commit()
-        except (sqlite3.OperationalError, Exception):
-            pass  # table/column already exists
+        except Exception as exc:
+            is_mysql = getattr(db, "_c", None) is not None or _USE_MYSQL
+            if _is_expected_migration_duplicate(exc, migration, is_mysql):
+                logger.debug("Migration statement skipped (expected duplicate): %s", migration[:60].strip())
+            else:
+                logger.error("Migration statement failed: %s | error: %s", migration[:80].strip(), exc)
+                raise
 
     # Evaluation Lab Indexes (via strict allowlist and engine-safe helper)
     for (tbl, idx) in LAB_INDEX_ALLOWLIST:
@@ -1242,8 +1462,9 @@ def init_db():
         # M12: Fix corrupt role data on legacy probe row
         db.execute("UPDATE users SET role = 'analyst' WHERE id = 26 AND length(role) > 20")
         db.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("Legacy probe role update failed: %s", exc)
+        raise
 
     _bootstrap_admin()
     logger.info("database ready | path=%s", DB_PATH)
@@ -1336,7 +1557,20 @@ def _bootstrap_admin():
             )
             created.append(username)
         except sqlite3.IntegrityError:
-            pass  # race condition — another worker beat us to it
+            pass  # race condition on SQLite — another worker beat us to it
+        except Exception as exc:
+            # Catch specific PyMySQL ER_DUP_ENTRY (1062) for concurrent MySQL worker bootstrap
+            err_code = None
+            if getattr(exc, "args", None) and len(exc.args) > 0:
+                try:
+                    err_code = int(exc.args[0])
+                except (ValueError, TypeError):
+                    err_code = None
+            if err_code == 1062:
+                pass  # race condition on MySQL — another worker beat us to it
+            else:
+                logger.error("Admin bootstrap failed for user %s: %s", username, exc)
+                raise
 
     if created:
         _get_db().commit()
