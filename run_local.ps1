@@ -54,7 +54,7 @@ Pop-Location
 Write-Host "[4/5] Done." -ForegroundColor Green
 
 # ── 5. Launch Backend + Frontend in separate windows ─────────────────────────
-Write-Host "[5/5] Starting Backend (port 5000) and Frontend (port 5173)..." -ForegroundColor Yellow
+Write-Host "[5/5] Starting Backend (port 5000) and Frontend (port 3000)..." -ForegroundColor Yellow
 
 # Backend window
 $backendCmd = "cd '$BACKEND'; & '$ACTIVATE'; python app.py; Read-Host 'Press Enter to close'"
@@ -69,12 +69,12 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCmd
 
 # Wait then open browser
 Start-Sleep -Seconds 4
-Start-Process "http://localhost:5173"
+Start-Process "http://localhost:3000"
 
 Write-Host ""
 Write-Host "=== Services starting ===" -ForegroundColor Cyan
 Write-Host "  Backend API : http://localhost:5000" -ForegroundColor White
-Write-Host "  Frontend    : http://localhost:5173" -ForegroundColor White
+Write-Host "  Frontend    : http://localhost:3000" -ForegroundColor White
 Write-Host "  Health check: http://localhost:5000/health" -ForegroundColor White
 Write-Host ""
 Write-Host "To stop: close the two PowerShell windows that opened." -ForegroundColor Gray

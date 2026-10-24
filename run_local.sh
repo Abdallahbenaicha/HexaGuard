@@ -51,7 +51,7 @@ cd "$ROOT"
 echo "[4/5] Done."
 
 # 5. Launch
-echo "[5/5] Starting Backend (5000) and Frontend (5173)..."
+echo "[5/5] Starting Backend (5000) and Frontend (3000)..."
 cd "$BACKEND" && python app.py &
 BACKEND_PID=$!
 cd "$FRONTEND" && npm run dev &
@@ -61,13 +61,13 @@ sleep 4
 echo ""
 echo "=== Services running ==="
 echo "  Backend API : http://localhost:5000"
-echo "  Frontend    : http://localhost:5173"
+echo "  Frontend    : http://localhost:3000"
 echo "  Health check: http://localhost:5000/health"
 echo ""
 echo "Press Ctrl+C to stop both services."
 echo "See RUN_LOCAL.md for troubleshooting."
 
 # Open browser if possible
-(sleep 2 && (xdg-open http://localhost:5173 2>/dev/null || open http://localhost:5173 2>/dev/null)) &
+(sleep 2 && (xdg-open http://localhost:3000 2>/dev/null || open http://localhost:3000 2>/dev/null)) &
 
 wait $BACKEND_PID $FRONTEND_PID

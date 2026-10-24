@@ -17,7 +17,7 @@ bash run_local.sh
 ## عناوين الدخول
 | الخدمة | الرابط |
 |---|---|
-| الواجهة | http://localhost:5173 |
+| الواجهة | http://localhost:3000 |
 | Backend API | http://localhost:5000 |
 | فحص الصحة | http://localhost:5000/health |
 
@@ -38,6 +38,6 @@ bash run_local.sh
 ## أشهر 5 مشاكل وحلولها
 1. **"SECRET_KEY is not set"** → احذف `backend/.env` وأعد التشغيل لتوليد مفتاح تلقائي
 2. **منفذ 5000 مشغول** → `netstat -ano | findstr :5000` → أوقف العملية
-3. **منفذ 5173 مشغول** → `netstat -ano | findstr :5173` → أوقف العملية
+3. **منفذ 3000 مشغول** → `netstat -ano | findstr :3000` → أوقف العملية
 4. **"ModuleNotFoundError: openpyxl"** → `cd backend && .\venv\Scripts\Activate.ps1 && pip install openpyxl`
 5. **الواجهة تُظهر "Network Error"** → تأكد أن الباكند يعمل على http://localhost:5000/health

@@ -182,7 +182,7 @@ cd frontend
 npm install
 echo "VITE_API_BASE_URL=http://localhost:5000" > .env.local
 npm run dev
-# → UI running at http://localhost:5173
+# → UI running at http://localhost:3000
 ```
 
 ### Credentials & Setup
@@ -203,7 +203,7 @@ On first login, users must change their initial password.
 | `DB_PATH` | — | `hexaguard.db` | SQLite database file path |
 | `GEMINI_API_KEY` | — | — | Google Gemini API key for ARIA AI features |
 | `HEXAGUARD_ADMIN_PASSWORD` | — | Configured upon first run | Bootstrap admin password on first run (see RUN_LOCAL.md) |
-| `ALLOWED_ORIGINS` | — | `http://localhost:5173` | Comma-separated CORS origins |
+| `ALLOWED_ORIGINS` | — | `http://localhost:3000` | Comma-separated CORS origins |
 | `MYSQL_HOST` | — | — | Enable MySQL backend (set all four `MYSQL_*` vars) |
 | `MYSQL_USER` | — | — | MySQL username |
 | `MYSQL_PASS` | — | — | MySQL password |
